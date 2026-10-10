@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import "./app-root.ts";
-import type { AppRoot } from "./app-root.ts";
+import { AUDIO_POLL_MS, type AppRoot } from "./app-root.ts";
 import { FakeProfileApi } from "./testing/fake-profile-api.ts";
 import { sampleProfile } from "../dto/testing/sample-profile.ts";
 import { flushMicrotasks } from "../testing/flush-microtasks.ts";
@@ -257,6 +257,8 @@ describe("app-root", () => {
   it("renders only the active tab in the phone layout", async () => {
     const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
     await click(queryFirstChip(element), element);
+    const eqTab = element.shadowRoot!.querySelectorAll(".tab")[1] as HTMLButtonElement;
+    await click(eqTab, element);
 
     expect(element.shadowRoot!.querySelector(".tab-bar")).not.toBeNull();
     expect(element.shadowRoot!.querySelector("eq-editor")).not.toBeNull();
@@ -267,8 +269,10 @@ describe("app-root", () => {
   it("swaps the panel when another phone tab is pressed", async () => {
     const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
     await click(queryFirstChip(element), element);
+    const eqTab = element.shadowRoot!.querySelectorAll(".tab")[1] as HTMLButtonElement;
+    await click(eqTab, element);
 
-    const speakersTab = element.shadowRoot!.querySelectorAll(".tab")[1] as HTMLButtonElement;
+    const speakersTab = element.shadowRoot!.querySelectorAll(".tab")[2] as HTMLButtonElement;
     await click(speakersTab, element);
 
     expect(speakersTab.getAttribute("aria-pressed")).toBe("true");
@@ -376,6 +380,8 @@ describe("app-root", () => {
   it("puts the save actions in a bar on the phone", async () => {
     const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
     await click(queryFirstChip(element), element);
+    const eqTab = element.shadowRoot!.querySelectorAll(".tab")[1] as HTMLButtonElement;
+    await click(eqTab, element);
     expect(element.shadowRoot!.querySelector(".save-bar")).toBeNull();
 
     element.shadowRoot!.querySelector("eq-editor")!.dispatchEvent(
@@ -428,5 +434,100 @@ describe("app-root", () => {
     await click(queryFirstChip(element), element);
 
     expect(queryDrawer(element).classList.contains("open")).toBe(false);
+  });
+  describe("audio panel and the unit link", () => {
+    /** Holds the one waiting timer, so a test fires it instead of sleeping. */
+    class ManualSchedule {
+      pending: (() => void) | null = null;
+      delayMs: number | null = null;
+      schedule = (action: () => void, delayMs: number): unknown => {
+        this.pending = action;
+        this.delayMs = delayMs;
+        return 1;
+      };
+      cancel = (): void => {
+        this.pending = null;
+      };
+      async fire(element: AppRoot): Promise<void> {
+        const action = this.pending;
+        this.pending = null;
+        action?.();
+        await flushMicrotasks();
+        await element.updateComplete;
+      }
+    }
+
+    async function mountWithSchedule(
+      api: FakeProfileApi,
+      schedule: ManualSchedule,
+      layout: AppLayout = "desktop",
+    ): Promise<AppRoot> {
+      const element = document.createElement("app-root") as AppRoot;
+      element.api = api;
+      element.localeStorage = createFakeLocaleStorage({});
+      element.browserLanguages = ["en-US"];
+      element.layoutQuery = createFakeLayoutQuery(layout);
+      element.scheduleFunction = schedule.schedule;
+      element.cancelFunction = schedule.cancel;
+      document.body.append(element);
+      await flushMicrotasks();
+      await element.updateComplete;
+      return element;
+    }
+
+    function queryAudioControls(element: AppRoot): HTMLElement {
+      return element.shadowRoot!.querySelector("audio-controls") as HTMLElement;
+    }
+
+    it("has no refresh button: the panel refreshes itself", async () => {
+      const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+
+      expect(queryAudioControls(element).shadowRoot!.querySelector("button.refresh")).toBeNull();
+    });
+
+    it("does not read the unit, and says why, while it is not connected", async () => {
+      const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+      const schedule = new ManualSchedule();
+
+      const element = await mountWithSchedule(api, schedule);
+
+      expect(api.device.audioReads).toBe(0);
+      expect(schedule.pending).toBeNull();
+      expect(queryAudioControls(element).shadowRoot!.querySelector(".unread")!.textContent).toContain(
+        "not connected",
+      );
+    });
+
+    it("reads when the unit comes up, then again on every tick", async () => {
+      const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+      api.device.startConnected();
+      const schedule = new ManualSchedule();
+
+      const element = await mountWithSchedule(api, schedule);
+
+      expect(api.device.audioReads).toBe(1);
+      expect(queryAudioControls(element).shadowRoot!.querySelector(".readout")).not.toBeNull();
+      expect(schedule.delayMs).toBe(AUDIO_POLL_MS);
+
+      await schedule.fire(element);
+      expect(api.device.audioReads).toBe(2);
+      expect(schedule.pending).not.toBeNull();
+    });
+
+    it("skips the read while the phone shows another tab, and reads on opening audio", async () => {
+      const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+      api.device.startConnected();
+      const schedule = new ManualSchedule();
+      const element = await mountWithSchedule(api, schedule, "phone");
+      const tabs = element.shadowRoot!.querySelectorAll(".tab");
+      await click(tabs[1] as HTMLButtonElement, element);
+      const readsOnLoad = api.device.audioReads;
+
+      await schedule.fire(element);
+      expect(api.device.audioReads).toBe(readsOnLoad);
+
+      await click(tabs[0] as HTMLButtonElement, element);
+      expect(api.device.audioReads).toBe(readsOnLoad + 1);
+    });
   });
 });

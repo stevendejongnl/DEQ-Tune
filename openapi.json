@@ -301,6 +301,112 @@
         }
       }
     },
+    "/api/device/audio": {
+      "get": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Read Audio State",
+        "description": "Reads what the unit is doing with sound, live from the unit.\n\nFour reads in one action, so they are one lock and one consistent\npicture rather than four that can interleave with another caller.\n\nThis is not part of `GET /api/device` on purpose: that one is polled\nby the header and never opens a link, and these cost USB exchanges.",
+        "operationId": "read_audio_state_api_device_audio_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioStateRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/device/volume": {
+      "post": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Set Volume",
+        "description": "Sets the master volume, in dB.\n\nThe unit refuses a volume write with STATUS -6 while it holds\nTHROUGH, and takes one on an OTHER mode, so this moves the mode,\nwrites, and puts the mode back. That is the same dance\n`scripts/probe_audio_output.py` does, and the reason a volume could\nnot be set from the app before.",
+        "operationId": "set_volume_api_device_volume_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VolumeWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioStateRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/device/audio-source": {
+      "post": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Set Audio Source",
+        "description": "Picks which input the unit plays. THROUGH is the car's own audio.",
+        "operationId": "set_audio_source_api_device_audio_source_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioSourceWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioStateRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/device/options": {
       "get": {
         "tags": [
@@ -497,6 +603,58 @@
   },
   "components": {
     "schemas": {
+      "AudioSourceWrite": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "AudioSourceWrite"
+      },
+      "AudioStateRead": {
+        "properties": {
+          "source_mode": {
+            "type": "string",
+            "title": "Source Mode"
+          },
+          "source_mode_wire": {
+            "type": "integer",
+            "title": "Source Mode Wire"
+          },
+          "volume_db": {
+            "type": "integer",
+            "title": "Volume Db"
+          },
+          "muted": {
+            "type": "boolean",
+            "title": "Muted"
+          },
+          "mute_state_wire": {
+            "type": "integer",
+            "title": "Mute State Wire"
+          },
+          "driving": {
+            "type": "boolean",
+            "title": "Driving"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_mode",
+          "source_mode_wire",
+          "volume_db",
+          "muted",
+          "mute_state_wire",
+          "driving"
+        ],
+        "title": "AudioStateRead",
+        "description": "What the unit is actually doing with sound, read live from it.\n\nDeliberately separate from `DeviceRead`. That one is polled by the\nheader and never opens a link; every field here costs a request and a\nreply over USB, so asking for them is a choice the caller makes.\n\nThis exists because a tuning can apply perfectly and still produce\nsilence, and until now nothing said so: on 2026-10-09 profiles and EQ\nstyles were applied in a car with no sound at all, and there was no\nway to see whether the unit was muted, near the bottom of its volume\nrange, or holding a source that plays nothing."
+      },
       "BridgeNoticeRead": {
         "properties": {
           "key": {
@@ -719,12 +877,20 @@
             },
             "type": "array",
             "title": "Live Simulations"
+          },
+          "audio_sources": {
+            "items": {
+              "$ref": "#/components/schemas/DeqEnumValueRead"
+            },
+            "type": "array",
+            "title": "Audio Sources"
           }
         },
         "type": "object",
         "required": [
           "eq_styles",
-          "live_simulations"
+          "live_simulations",
+          "audio_sources"
         ],
         "title": "DeviceOptionsRead",
         "description": "Every value set the unit's own DSP offers.\n\nThese come from the app, through `deq_enums.json`, so the frontend\nnever has to keep a list of its own."
@@ -1254,6 +1420,19 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VolumeWrite": {
+        "properties": {
+          "volume_db": {
+            "type": "integer",
+            "title": "Volume Db"
+          }
+        },
+        "type": "object",
+        "required": [
+          "volume_db"
+        ],
+        "title": "VolumeWrite"
       }
     }
   }

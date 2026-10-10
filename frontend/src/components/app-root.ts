@@ -1,7 +1,7 @@
 import { html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { DeqApiClient, type DeviceApi, type ProfileApi } from "../api/client.ts";
-import type { ProfileDto, Speaker, TuningDataDto } from "../dto/profile.dto.ts";
+import type { AudioStateDto, ProfileDto, Speaker, TuningDataDto } from "../dto/profile.dto.ts";
 import { frontGains, withFrontGain, withSpeakerField } from "../dto/tuning-data-edits.ts";
 import { browserLocaleStorage } from "../i18n/browser-locale-storage.ts";
 import { type Locale, type LocaleStorage, resolveInitialLocale, saveLocale } from "../i18n/locale.ts";
@@ -17,10 +17,19 @@ import "./bridge-notices.ts";
 import "./device-status.ts";
 import "./locale-switcher.ts";
 import "./dsp-panel.ts";
+import "./audio-controls.ts";
+import type { LinkState } from "./link-state.ts";
 import { appRootStyles } from "./app-root.styles.ts";
 
-/** The three tabs of the phone layout's bottom tab bar. */
-type PhoneTab = "eq" | "speakers" | "style";
+/** How often the audio panel re-reads the unit while it can be seen. A read
+ * is four exchanges over USB, so this is slower than the header's poll. */
+export const AUDIO_POLL_MS = 5000;
+
+type ScheduleFunction = (action: () => void, delayMs: number) => unknown;
+type CancelFunction = (handle: unknown) => void;
+
+/** The four tabs of the phone layout's bottom tab bar. */
+type PhoneTab = "eq" | "speakers" | "style" | "audio";
 
 function resolveGlobalLanguages(): readonly string[] {
   return typeof navigator === "undefined" ? [] : navigator.languages;
@@ -94,6 +103,11 @@ export class AppRoot extends LitElement {
   @property({ attribute: false }) localeStorage: LocaleStorage = browserLocaleStorage;
   @property({ attribute: false }) browserLanguages: readonly string[] = resolveGlobalLanguages();
   @property({ attribute: false }) layoutQuery: LayoutQuery = browserLayoutQuery;
+  /** The audio timer, injectable like `device-status`'s so a test can fire it. */
+  @property({ attribute: false }) scheduleFunction: ScheduleFunction = (action, delayMs) =>
+    setTimeout(action, delayMs);
+  @property({ attribute: false }) cancelFunction: CancelFunction = (handle) =>
+    clearTimeout(handle as ReturnType<typeof setTimeout>);
 
   @state() private profiles: ProfileDto[] = [];
   @state() private selectedId: number | null = null;
@@ -104,7 +118,16 @@ export class AppRoot extends LitElement {
   @state() private liveSimulation: LiveSimulationId | null = null;
   @state() private profilesDrawerOpen = false;
   @state() private layout: AppLayout = "desktop";
-  @state() private phoneTab: PhoneTab = "eq";
+  /** The phone opens on the audio tab: it answers "is anything actually
+   * audible right now", the question a driver has before touching a
+   * profile or an EQ band. See `audio-controls.ts` for why that question
+   * had no answer before this panel existed. */
+  @state() private phoneTab: PhoneTab = "audio";
+  @state() private audioState: AudioStateDto | null = null;
+  @state() private audioSourceNames: readonly string[] = [];
+  @state() private audioBusy = false;
+  /** Whether the DEQ link is up, as `device-status` last polled it. */
+  @state() private unitConnected = false;
 
   /** Edits to a factory preset live here until the user saves them. */
   @state() private draft: TuningDataDto | null = null;
@@ -115,6 +138,7 @@ export class AppRoot extends LitElement {
     typeof window === "undefined" ? true : window.confirm(question);
 
   private unsubscribeLayout: (() => void) | null = null;
+  private audioPollHandle: unknown;
 
   private readonly onKeydown = (event: KeyboardEvent): void => {
     if (event.key === "Escape" && this.profilesDrawerOpen) {
@@ -139,6 +163,7 @@ export class AppRoot extends LitElement {
     window.removeEventListener("keydown", this.onKeydown);
     this.unsubscribeLayout?.();
     this.unsubscribeLayout = null;
+    this.stopAudioPolling();
   }
 
   private get selectedProfile(): ProfileDto | undefined {
@@ -210,6 +235,8 @@ export class AppRoot extends LitElement {
               .api=${this.api}
               .locale=${this.locale}
               .layout=${this.layout}
+              @link-state=${(linkEvent: CustomEvent<{ linkState: LinkState }>) =>
+                this.onLinkState(linkEvent.detail.linkState)}
             ></device-status>
           </div>
         </header>
@@ -388,7 +415,7 @@ export class AppRoot extends LitElement {
     return html`
       <div class="panels">
         ${this.renderEqPanel(strings)} ${this.renderSpeakerPanel()}
-        ${this.renderStylePanel()}
+        ${this.renderStylePanel()} ${this.renderAudioPanel()}
       </div>
     `;
   }
@@ -405,11 +432,24 @@ export class AppRoot extends LitElement {
     if (this.phoneTab === "style") {
       return this.renderStylePanel();
     }
+    if (this.phoneTab === "audio") {
+      return this.renderAudioPanel();
+    }
     return this.renderEqPanel(strings);
+  }
+
+  /** Opening the audio tab reads at once, so it never shows the last tab's
+   * absence for a full poll interval. */
+  private selectPhoneTab(tab: PhoneTab): void {
+    this.phoneTab = tab;
+    if (tab === "audio") {
+      void this.refreshAudioState();
+    }
   }
 
   private renderTabBar(strings: UiStrings): TemplateResult {
     const tabs: ReadonlyArray<{ id: PhoneTab; label: string }> = [
+      { id: "audio", label: strings.audioTitle },
       { id: "eq", label: strings.tabEq },
       { id: "speakers", label: strings.speakers },
       { id: "style", label: strings.tabStyle },
@@ -422,7 +462,7 @@ export class AppRoot extends LitElement {
               type="button"
               class="tab"
               aria-pressed=${this.phoneTab === tab.id}
-              @click=${() => (this.phoneTab = tab.id)}
+              @click=${() => this.selectPhoneTab(tab.id)}
             >
               ${tab.label}
             </button>
@@ -489,9 +529,124 @@ export class AppRoot extends LitElement {
       this.liveSimulationIds = options.live_simulations.map(
         (value) => value.name,
       ) as LiveSimulationId[];
+      this.audioSourceNames = options.audio_sources.map((value) => value.name);
     } catch {
       // The unit is not reachable yet. The panel stays empty until a
       // later connect succeeds; device-status.ts already reports why.
+    }
+  }
+
+  private renderAudioPanel(): TemplateResult {
+    return html`
+      <div class="area-audio">
+        <audio-controls
+          .locale=${this.locale}
+          .state=${this.audioState}
+          .sourceNames=${this.audioSourceNames}
+          .busy=${this.audioBusy}
+          .connected=${this.unitConnected}
+          @volume-change=${(volumeChangeEvent: CustomEvent<{ volumeDb: number }>) =>
+            this.changeVolume(volumeChangeEvent.detail.volumeDb)}
+          @audio-source-change=${(sourceChangeEvent: CustomEvent<{ name: string }>) =>
+            this.changeAudioSource(sourceChangeEvent.detail.name)}
+        ></audio-controls>
+      </div>
+    `;
+  }
+
+  /** Reads what the unit is actually doing with sound. Not polled with the
+   * header, because unlike that poll this opens a link -- see the note in
+   * `audio-controls.ts`. Failure leaves the last known state up rather than
+   * clearing it: a stale reading beats no reading while retrying. */
+  /** The audio panel follows the link. It reads as soon as the unit comes up
+   * and then on a timer, and it forgets what it read when the unit goes
+   * away: a volume shown for a unit that is not there is a stale number
+   * nobody should act on. */
+  private onLinkState(linkState: LinkState): void {
+    const connected = linkState === "connected";
+    if (connected === this.unitConnected) {
+      return;
+    }
+    this.unitConnected = connected;
+    if (connected) {
+      void this.pollAudio();
+    } else {
+      this.stopAudioPolling();
+      this.audioState = null;
+    }
+  }
+
+  /** The timer reads only when someone can see the result. The phone shows
+   * one tab at a time, and a read nobody looks at is USB traffic for
+   * nothing. It also waits out a write in flight, and a hidden page. */
+  private get audioPanelVisible(): boolean {
+    const pageHidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+    return !pageHidden && (!this.isPhoneLayout || this.phoneTab === "audio");
+  }
+
+  private async pollAudio(): Promise<void> {
+    if (this.audioPanelVisible && !this.audioBusy) {
+      await this.refreshAudioState();
+    }
+    this.stopAudioPolling();
+    if (this.unitConnected) {
+      this.audioPollHandle = this.scheduleFunction(() => {
+        void this.pollAudio();
+      }, AUDIO_POLL_MS);
+    }
+  }
+
+  private stopAudioPolling(): void {
+    if (this.audioPollHandle !== undefined) {
+      this.cancelFunction(this.audioPollHandle);
+      this.audioPollHandle = undefined;
+    }
+  }
+
+  /** Reads what the unit is actually doing with sound. Failure leaves the
+   * last known state up rather than clearing it: a stale reading beats no
+   * reading while the next poll retries. */
+  private async refreshAudioState(): Promise<void> {
+    if (!this.unitConnected) {
+      return;
+    }
+    try {
+      const read = await this.api.readAudioState();
+      // A write that began while this read was in flight has newer news.
+      if (!this.audioBusy) {
+        this.audioState = read;
+      }
+    } catch {
+      // The unit is not reachable. Keep showing whatever was last read.
+    }
+  }
+
+  private async changeVolume(volumeDb: number): Promise<void> {
+    if (!this.unitConnected) {
+      return;
+    }
+    this.audioBusy = true;
+    try {
+      this.audioState = await this.api.setVolume(volumeDb);
+    } catch {
+      // The unit is not reachable; the control reverts to the last
+      // known state on its own next render.
+    } finally {
+      this.audioBusy = false;
+    }
+  }
+
+  private async changeAudioSource(name: string): Promise<void> {
+    if (!this.unitConnected) {
+      return;
+    }
+    this.audioBusy = true;
+    try {
+      this.audioState = await this.api.setAudioSource(name);
+    } catch {
+      // Same as changeVolume: the unit is not reachable.
+    } finally {
+      this.audioBusy = false;
     }
   }
 

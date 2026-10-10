@@ -37,7 +37,7 @@ from app.deq_blob import (
     decode_blob,
     encode_blob,
 )
-from app.deq_enums import AUDIO_SOURCE, EQ_STYLE, LIVE_SIMULATION
+from app.deq_enums import AUDIO_SOURCE, EQ_STYLE, LIVE_SIMULATION, MUTE_STATE
 from app.deq_dsp import (
     CROSSOVER_SLOT_COUNT,
     TIME_ALIGNMENT_SLOT_COUNT,
@@ -589,6 +589,16 @@ class DeqSession:
     def set_volume(self, volume_db: int) -> None:
         """Sets the master volume, in dB. The unit takes a signed value."""
         self.exchange(COMMAND_SET_VOLUME, volume_db.to_bytes(4, "little", signed=True))
+
+    def set_mute_state(self, muted: bool) -> None:
+        """Mutes or unmutes the unit.
+
+        `deq_enums.json` names the values: SOUND_ON 1, SOUND_OFF 2. The
+        command is 0x0f, the write partner of the 0x10 this reads back
+        with `read_mute_state`.
+        """
+        wire_value = MUTE_STATE.by_name("SOUND_OFF" if muted else "SOUND_ON").wire_value
+        self.exchange(COMMAND_SET_MUTE_STATE, wire_value.to_bytes(4, "little", signed=True))
 
     def read_mode(self) -> int:
         """Returns the source mode the unit holds, as a wire value.

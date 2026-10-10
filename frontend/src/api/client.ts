@@ -1,5 +1,7 @@
 import typia from "typia";
 import type {
+  AudioSourceWriteDto,
+  AudioStateDto,
   BridgeDto,
   DeviceDto,
   DeviceOptionsDto,
@@ -8,6 +10,7 @@ import type {
   ProfileCreateDto,
   ProfileDto,
   ProfileUpdateDto,
+  VolumeWriteDto,
 } from "../dto/profile.dto.ts";
 
 export class ApiError extends Error {
@@ -68,6 +71,9 @@ export interface DeviceApi {
   connectDevice(): Promise<DeviceDto>;
   disconnectDevice(): Promise<DeviceDto>;
   readDeviceOptions(): Promise<DeviceOptionsDto>;
+  readAudioState(): Promise<AudioStateDto>;
+  setVolume(volumeDb: number): Promise<AudioStateDto>;
+  setAudioSource(name: string): Promise<AudioStateDto>;
   writeTuning(profileId: number): Promise<DeviceDto>;
   selectEqStyle(name: string): Promise<DeviceDto>;
   selectLiveSimulation(name: string): Promise<DeviceDto>;
@@ -137,6 +143,22 @@ export class DeqApiClient implements ProfileApi, DeviceApi, BridgeApi {
 
   async disconnectDevice(): Promise<DeviceDto> {
     return typia.assert<DeviceDto>(await this.call("POST", "/device/disconnect"));
+  }
+
+  async readAudioState(): Promise<AudioStateDto> {
+    return typia.assert<AudioStateDto>(await this.call("GET", "/device/audio"));
+  }
+
+  async setVolume(volumeDb: number): Promise<AudioStateDto> {
+    const body: VolumeWriteDto = { volume_db: volumeDb };
+    return typia.assert<AudioStateDto>(await this.call("POST", "/device/volume", body));
+  }
+
+  async setAudioSource(name: string): Promise<AudioStateDto> {
+    const body: AudioSourceWriteDto = { name };
+    return typia.assert<AudioStateDto>(
+      await this.call("POST", "/device/audio-source", body),
+    );
   }
 
   async readDeviceOptions(): Promise<DeviceOptionsDto> {

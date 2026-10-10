@@ -123,6 +123,30 @@ export interface DeviceDto {
   problem: string | null;
 }
 
+/**
+ * What the unit is actually doing with sound, read live from it.
+ *
+ * Separate from `DeviceDto` on purpose: that one is polled for the header
+ * and never opens a link, while every field here costs a request and a
+ * reply over USB. Ask for it when someone is looking at it.
+ */
+export interface AudioStateDto {
+  source_mode: string;
+  source_mode_wire: number;
+  volume_db: number;
+  muted: boolean;
+  mute_state_wire: number;
+  driving: boolean;
+}
+
+export interface VolumeWriteDto {
+  volume_db: number;
+}
+
+export interface AudioSourceWriteDto {
+  name: string;
+}
+
 export interface DeqEnumValueDto {
   name: string;
   wire_value: number;
@@ -131,6 +155,7 @@ export interface DeqEnumValueDto {
 export interface DeviceOptionsDto {
   eq_styles: DeqEnumValueDto[];
   live_simulations: DeqEnumValueDto[];
+  audio_sources: DeqEnumValueDto[];
 }
 
 export interface EqStyleWriteDto {

@@ -80,5 +80,20 @@
   "zoneNameSubBass": "Sub-bass",
   "bridgeUnreachable": "Bridge not reachable",
   "dismiss": "Dismiss",
-  "bridgeNoticeDismissHint": "Hides this until the bridge restarts."
+  "bridgeNoticeDismissHint": "Hides this until the bridge restarts.",
+  "audioTitle": "Audio",
+  "audioNotConnected": "The unit is not connected, so there is nothing to read.",
+  "audioNotRead": "Reading the unit…",
+  "audioSourceLabel": "Source",
+  "audioVolumeLabel": "Volume",
+  "audioMutedLabel": "Muted",
+  "audioMutedYes": "Yes",
+  "audioMutedNo": "No",
+  "audioMutedUnknown": "Unknown ({wire})",
+  "audioDrivingLabel": "Driving",
+  "audioDrivingYes": "Yes",
+  "audioDrivingNo": "No",
+  "audioSourceStandAlone": "Stand-alone",
+  "audioSourceCarSource": "Car source",
+  "audioSourceThrough": "Through (car audio)"
 }

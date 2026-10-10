@@ -89,6 +89,21 @@ export type UiStrings = {
   newProfileName: string;
   rename: string;
   renameLabel: string;
+  audioTitle: string;
+  audioNotRead: string;
+  audioNotConnected: string;
+  audioSourceLabel: string;
+  audioVolumeLabel: string;
+  audioMutedLabel: string;
+  audioMutedYes: string;
+  audioMutedNo: string;
+  audioMutedUnknown: string;
+  audioDrivingLabel: string;
+  audioDrivingYes: string;
+  audioDrivingNo: string;
+  audioSourceStandAlone: string;
+  audioSourceCarSource: string;
+  audioSourceThrough: string;
 };
 
 /** The source catalog. Every key the app reads must be here, so the compiler

@@ -1,5 +1,5 @@
 import type { DeviceApi } from "../../api/client.ts";
-import type { DeviceDto, DeviceOptionsDto } from "../../dto/profile.dto.ts";
+import type { AudioStateDto, DeviceDto, DeviceOptionsDto } from "../../dto/profile.dto.ts";
 
 /** The two value sets the real unit offers, shortened for a test. The
  * backend reads the full lists out of the Pioneer app.
@@ -19,6 +19,20 @@ const FAKE_OPTIONS: DeviceOptionsDto = {
     { name: "CONCERT_HALL", wire_value: 2 },
     { name: "CLUB", wire_value: 4 },
   ],
+  audio_sources: [
+    { name: "STAND_ALONE", wire_value: 0 },
+    { name: "CAR_SOURCE", wire_value: 3 },
+    { name: "THROUGH", wire_value: 4 },
+  ],
+};
+
+const DEFAULT_AUDIO_STATE: AudioStateDto = {
+  source_mode: "THROUGH",
+  source_mode_wire: 4,
+  volume_db: -20,
+  muted: false,
+  mute_state_wire: 1,
+  driving: false,
 };
 
 const DISCONNECTED: DeviceDto = {
@@ -54,8 +68,13 @@ export class FakeDeviceApi implements DeviceApi {
   pushedProfileIds: number[] = [];
   selectedEqStyles: string[] = [];
   selectedLiveSimulations: string[] = [];
+  /** How many times the app asked what the unit is doing with sound. */
+  audioReads = 0;
+  volumeWrites: number[] = [];
+  audioSourceWrites: string[] = [];
 
   private device: DeviceDto = DISCONNECTED;
+  private audio: AudioStateDto = DEFAULT_AUDIO_STATE;
 
   /** Starts already connected, the way a backend that connects by itself
    * looks to the app by the time it asks. */
@@ -113,5 +132,25 @@ export class FakeDeviceApi implements DeviceApi {
   async selectLiveSimulation(name: string): Promise<DeviceDto> {
     this.selectedLiveSimulations = [...this.selectedLiveSimulations, name];
     return this.device;
+  }
+
+  async readAudioState(): Promise<AudioStateDto> {
+    this.audioReads += 1;
+    this.failIfUnreachable();
+    return this.audio;
+  }
+
+  async setVolume(volumeDb: number): Promise<AudioStateDto> {
+    this.failIfUnreachable();
+    this.volumeWrites = [...this.volumeWrites, volumeDb];
+    this.audio = { ...this.audio, volume_db: volumeDb };
+    return this.audio;
+  }
+
+  async setAudioSource(name: string): Promise<AudioStateDto> {
+    this.failIfUnreachable();
+    this.audioSourceWrites = [...this.audioSourceWrites, name];
+    this.audio = { ...this.audio, source_mode: name };
+    return this.audio;
   }
 }

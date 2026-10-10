@@ -1,5 +1,6 @@
 import type { DeviceApi, ProfileApi } from "../../api/client.ts";
 import type {
+  AudioStateDto,
   DeviceDto,
   DeviceOptionsDto,
   ProfileCreateDto,
@@ -53,6 +54,18 @@ export class FakeProfileApi implements ProfileApi, DeviceApi {
 
   selectLiveSimulation(name: string): Promise<DeviceDto> {
     return this.device.selectLiveSimulation(name);
+  }
+
+  readAudioState(): Promise<AudioStateDto> {
+    return this.device.readAudioState();
+  }
+
+  setVolume(volumeDb: number): Promise<AudioStateDto> {
+    return this.device.setVolume(volumeDb);
+  }
+
+  setAudioSource(name: string): Promise<AudioStateDto> {
+    return this.device.setAudioSource(name);
   }
 
   private requireProfile(id: number): ProfileDto {

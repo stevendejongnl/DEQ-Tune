@@ -119,6 +119,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/device/audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Audio State
+         * @description Reads what the unit is doing with sound, live from the unit.
+         *
+         *     Four reads in one action, so they are one lock and one consistent
+         *     picture rather than four that can interleave with another caller.
+         *
+         *     This is not part of `GET /api/device` on purpose: that one is polled
+         *     by the header and never opens a link, and these cost USB exchanges.
+         */
+        get: operations["read_audio_state_api_device_audio_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device/volume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Volume
+         * @description Sets the master volume, in dB.
+         *
+         *     The unit refuses a volume write with STATUS -6 while it holds
+         *     THROUGH, and takes one on an OTHER mode, so this moves the mode,
+         *     writes, and puts the mode back. That is the same dance
+         *     `scripts/probe_audio_output.py` does, and the reason a volume could
+         *     not be set from the app before.
+         */
+        post: operations["set_volume_api_device_volume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device/audio-source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Audio Source
+         * @description Picks which input the unit plays. THROUGH is the car's own audio.
+         */
+        post: operations["set_audio_source_api_device_audio_source_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/device/options": {
         parameters: {
             query?: never;
@@ -244,6 +316,39 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AudioSourceWrite */
+        AudioSourceWrite: {
+            /** Name */
+            name: string;
+        };
+        /**
+         * AudioStateRead
+         * @description What the unit is actually doing with sound, read live from it.
+         *
+         *     Deliberately separate from `DeviceRead`. That one is polled by the
+         *     header and never opens a link; every field here costs a request and a
+         *     reply over USB, so asking for them is a choice the caller makes.
+         *
+         *     This exists because a tuning can apply perfectly and still produce
+         *     silence, and until now nothing said so: on 2026-10-09 profiles and EQ
+         *     styles were applied in a car with no sound at all, and there was no
+         *     way to see whether the unit was muted, near the bottom of its volume
+         *     range, or holding a source that plays nothing.
+         */
+        AudioStateRead: {
+            /** Source Mode */
+            source_mode: string;
+            /** Source Mode Wire */
+            source_mode_wire: number;
+            /** Volume Db */
+            volume_db: number;
+            /** Muted */
+            muted: boolean;
+            /** Mute State Wire */
+            mute_state_wire: number;
+            /** Driving */
+            driving: boolean;
+        };
         /**
          * BridgeNoticeRead
          * @description One fault the bridge has seen since it started.
@@ -342,6 +447,8 @@ export interface components {
             eq_styles: components["schemas"]["DeqEnumValueRead"][];
             /** Live Simulations */
             live_simulations: components["schemas"]["DeqEnumValueRead"][];
+            /** Audio Sources */
+            audio_sources: components["schemas"]["DeqEnumValueRead"][];
         };
         /**
          * DeviceRead
@@ -530,6 +637,11 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VolumeWrite */
+        VolumeWrite: {
+            /** Volume Db */
+            volume_db: number;
         };
     };
     responses: never;
@@ -775,6 +887,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeviceRead"];
+                };
+            };
+        };
+    };
+    read_audio_state_api_device_audio_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioStateRead"];
+                };
+            };
+        };
+    };
+    set_volume_api_device_volume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VolumeWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioStateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_audio_source_api_device_audio_source_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AudioSourceWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioStateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

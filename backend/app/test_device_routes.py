@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.deq_blob import BANK_B
 from app.deq_device import DeqDevice, format_firmware_version
-from app.device_routes import get_device
+from app.device_routes import _read_audio_state, get_device
 from app.main import app
 from app.testing.fake_deq import FAKE_SERIAL, FakeDeq
 
@@ -62,6 +62,20 @@ def test_the_options_come_from_the_pioneer_app(device_client: TestClient) -> Non
     assert len(body["live_simulations"]) == 7
     assert {"name": "SUPER_BASS", "wire_value": 3} in body["eq_styles"]
     assert {"name": "OPERA_HALL", "wire_value": 6} in body["live_simulations"]
+
+
+def test_the_options_offer_only_the_named_audio_sources(device_client: TestClient) -> None:
+    """`audio_source` carries no `string_id` for any value -- the real app
+    never puts it behind a labelled picker the way it does eq_style and
+    live_simulation. `AUDIO_SOURCE_CHOICES` in `schemas.py` picks the three
+    with a plain meaning by name instead; the rest (`SP_OTHER_SOURCE`, the
+    `MIX_*` pairs, `UNKNOWN`) are wire-internal states `/volume` passes
+    through on its own, not something a person should pick."""
+    body = device_client.get("/api/device/options").json()
+    names = [value["name"] for value in body["audio_sources"]]
+
+    assert names == ["STAND_ALONE", "CAR_SOURCE", "THROUGH"]
+    assert {"name": "THROUGH", "wire_value": 4} in body["audio_sources"]
 
 
 def test_the_options_leave_out_the_unknown_sentinel(device_client: TestClient) -> None:
@@ -150,3 +164,89 @@ def test_the_firmware_version_reads_the_way_the_app_shows_it() -> None:
     """The captured accessory string says `2.02`, from the bytes `0x0202`."""
     assert format_firmware_version(0x0202) == "2.02"
     assert format_firmware_version(0x0310) == "3.16"
+
+
+def test_the_audio_state_reports_what_the_unit_holds(
+    device_client: TestClient,
+) -> None:
+    device_client.post("/api/device/connect")
+    body = device_client.get("/api/device/audio").json()
+    assert body["source_mode"] == "THROUGH"
+    assert body["source_mode_wire"] == 4
+    assert body["muted"] is False
+    assert isinstance(body["volume_db"], int)
+
+
+def test_a_mute_value_the_app_does_not_declare_does_not_fail_the_read() -> None:
+    """A real unit answered the mute read with 0 on 2026-10-10. The enum
+    holds only -1, 1 and 2, and the lookup used to raise, which failed the
+    whole read and left the panel blank."""
+
+    class Session:
+        def read_mode(self) -> int:
+            return 4
+
+        def read_volume(self) -> int:
+            return 0
+
+        def read_mute_state(self) -> int:
+            return 0
+
+        def read_driving_state(self) -> int:
+            return 0
+
+    state = _read_audio_state(Session())
+
+    assert state.mute_state_wire == 0
+    assert state.muted is False
+    assert state.source_mode == "THROUGH"
+
+
+def test_setting_the_volume_puts_the_source_mode_back(
+    device_client: TestClient,
+) -> None:
+    """The unit refuses a volume write while it holds THROUGH.
+
+    So the endpoint moves to an OTHER mode, writes, and restores. Leaving
+    it on SP_OTHER_SOURCE would play whatever this device writes, which is
+    silence -- the failure the endpoint exists to get people out of.
+    """
+    device_client.post("/api/device/connect")
+    body = device_client.post("/api/device/volume", json={"volume_db": -20}).json()
+    assert body["volume_db"] == -20
+    assert body["source_mode"] == "THROUGH"
+
+
+def test_play_ready_is_sent_and_the_audio_state_comes_back(
+    device_client: TestClient,
+) -> None:
+    device_client.post("/api/device/connect")
+
+    answer = device_client.post("/api/device/play-ready")
+
+    assert answer.status_code == 200
+    assert answer.json()["source_mode"] == "THROUGH"
+
+
+def test_play_ready_without_a_unit_answers_503(device_client: TestClient) -> None:
+    device_client.post("/api/device/disconnect")
+
+    assert device_client.post("/api/device/play-ready").status_code == 503
+
+
+def test_the_audio_source_can_be_changed_and_read_back(
+    device_client: TestClient,
+) -> None:
+    device_client.post("/api/device/connect")
+    body = device_client.post(
+        "/api/device/audio-source", json={"name": "SP_OTHER_SOURCE"}
+    ).json()
+    assert body["source_mode"] == "SP_OTHER_SOURCE"
+    assert body["source_mode_wire"] == 5
+
+
+def test_an_unknown_audio_source_is_refused(device_client: TestClient) -> None:
+    device_client.post("/api/device/connect")
+    answer = device_client.post("/api/device/audio-source", json={"name": "NONSENSE"})
+    assert answer.status_code == 422
+    assert "NONSENSE" in answer.json()["detail"]

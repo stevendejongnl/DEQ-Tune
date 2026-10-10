@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from app.deq_enums import EQ_STYLE, LIVE_SIMULATION
+from app.deq_enums import AUDIO_SOURCE, EQ_STYLE, LIVE_SIMULATION
 from app.eq_data import TuningData
 
 
@@ -38,6 +38,38 @@ class DeviceRead(BaseModel):
     firmware_version: str | None = None
     serial: str | None = None
     problem: str | None = None
+
+
+class AudioStateRead(BaseModel):
+    """What the unit is actually doing with sound, read live from it.
+
+    Deliberately separate from `DeviceRead`. That one is polled by the
+    header and never opens a link; every field here costs a request and a
+    reply over USB, so asking for them is a choice the caller makes.
+
+    This exists because a tuning can apply perfectly and still produce
+    silence, and until now nothing said so: on 2026-10-09 profiles and EQ
+    styles were applied in a car with no sound at all, and there was no
+    way to see whether the unit was muted, near the bottom of its volume
+    range, or holding a source that plays nothing.
+    """
+
+    source_mode: str
+    source_mode_wire: int
+    volume_db: int
+    muted: bool
+    # What the unit actually said. `muted` is true only for SOUND_OFF (2); a
+    # real unit has answered 0, which is neither state the app declares.
+    mute_state_wire: int
+    driving: bool
+
+
+class VolumeWrite(BaseModel):
+    volume_db: int
+
+
+class AudioSourceWrite(BaseModel):
+    name: str
 
 
 class BridgeNoticeRead(BaseModel):
@@ -85,6 +117,7 @@ class DeviceOptionsRead(BaseModel):
 
     eq_styles: list[DeqEnumValueRead]
     live_simulations: list[DeqEnumValueRead]
+    audio_sources: list[DeqEnumValueRead]
 
 
 class EqStyleWrite(BaseModel):
@@ -97,6 +130,18 @@ class LiveSimulationWrite(BaseModel):
     """Which built-in live-simulation mode to select on the unit."""
 
     name: str
+
+
+#: The audio-source values worth offering as a pick. `audio_source` carries
+#: no `string_id` for any value in `deq_enums.json` -- unlike eq_style and
+#: live_simulation, the decompiled app never puts this behind a labelled
+#: picker, it reaches the processor tab some other way. These three are the
+#: ones with a plain meaning: THROUGH is the car's own audio and the default
+#: (see `DEFAULT_AUDIO_SOURCE`), CAR_SOURCE and STAND_ALONE are the unit's
+#: other named modes. The rest (`SP_OTHER_SOURCE`, the `MIX_*` pairs,
+#: `UNKNOWN`) are wire-internal states `/volume` passes through on its own,
+#: not something a person should pick.
+AUDIO_SOURCE_CHOICES = ("STAND_ALONE", "CAR_SOURCE", "THROUGH")
 
 
 def device_options() -> DeviceOptionsRead:
@@ -115,5 +160,10 @@ def device_options() -> DeviceOptionsRead:
         live_simulations=[
             DeqEnumValueRead(name=value.name, wire_value=value.wire_value)
             for value in LIVE_SIMULATION.selectable
+        ],
+        audio_sources=[
+            DeqEnumValueRead(name=value.name, wire_value=value.wire_value)
+            for value in AUDIO_SOURCE
+            if value.name in AUDIO_SOURCE_CHOICES
         ],
     )

@@ -245,6 +245,9 @@ export const appRootStyles = css`
   .area-style {
     grid-area: style;
   }
+  .area-audio {
+    grid-area: audio;
+  }
   .empty {
     color: var(--color-muted-foreground);
   }
@@ -308,7 +311,7 @@ export const appRootStyles = css`
     position: sticky;
     bottom: 0;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     height: 68px;
     flex-shrink: 0;
     background: var(--color-sidebar);
@@ -372,6 +375,7 @@ export const appRootStyles = css`
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       grid-template-areas:
+        "audio audio"
         "eq eq"
         "speakers style";
       gap: 20px;
@@ -426,6 +430,7 @@ export const appRootStyles = css`
     .panels {
       grid-template-columns: minmax(0, 1fr) 360px;
       grid-template-areas:
+        "audio audio"
         "eq speakers"
         "style style";
       gap: 24px;
