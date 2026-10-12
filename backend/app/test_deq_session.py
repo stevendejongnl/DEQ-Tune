@@ -23,6 +23,7 @@ from app.deq_protocol import build_set_timeout_interval_body, build_sync_body
 from app.deq_session import (
     CONFIGURATION_PAYLOAD_BYTES,
     COMMAND_KEEPALIVE,
+    COMMAND_PLAY_READY_NOTIFICATION,
     COMMAND_SET_MODE,
     COMMAND_SET_TIMEOUT_INTERVAL,
     COMMAND_SYNC,
@@ -51,7 +52,10 @@ def test_start_sends_the_apps_own_connect_order():
     it safe to replay against a unit."""
     fake = FakeDeq()
     DeqSession(fake).start()
-    expected = [command_id for command_id, _ in STARTUP_STEPS] + [COMMAND_SET_MODE]
+    expected = [command_id for command_id, _ in STARTUP_STEPS] + [
+        COMMAND_SET_MODE,
+        COMMAND_PLAY_READY_NOTIFICATION,
+    ]
     assert fake.command_order == expected
 
 
@@ -90,6 +94,18 @@ def test_start_hands_the_cars_own_audio_back():
         if one.request.command_id == COMMAND_SET_MODE
     )
     assert int.from_bytes(mode_request.body, "little", signed=True) == 4
+
+
+def test_start_ends_with_play_ready_after_the_mode_write():
+    """The car stayed silent whenever the Pi attached, with the unit
+    reporting THROUGH and a healthy link, until PLAY_READY was sent. The
+    real app sends it last, right after the mode write, so the order is
+    part of the behaviour."""
+    fake = FakeDeq()
+
+    DeqSession(fake).start()
+
+    assert fake.command_order[-2:] == [COMMAND_SET_MODE, COMMAND_PLAY_READY_NOTIFICATION]
 
 
 def test_start_opens_with_the_sync_body_the_unit_requires():

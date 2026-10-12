@@ -379,10 +379,20 @@ class DeqSession:
         where the audio returned within seconds of stopping the gadget.
         `THROUGH` hands the car's own audio back. Playing our own audio is
         a deliberate act on top of this, not the state a link starts in.
+
+        The last frame is PLAY_READY, and it is what gives the car its
+        audio. The real app ends every cold start with it, right after the
+        mode write. A connect that stopped at the mode write left the car
+        silent for as long as the Pi was attached, with the unit reporting
+        THROUGH, a sane volume and a healthy link the whole time. Sent on
+        its own in a car on 2026-10-11, the audio came back at once. It is
+        not a write the unit stores: it carries no body, and the reply is
+        a status only.
         """
         for command_id, body in STARTUP_STEPS:
             self.exchange(command_id, body)
         self.set_audio_source(DEFAULT_AUDIO_SOURCE)
+        self.notify_play_ready()
 
     def send_keepalive(self) -> None:
         """Sends one keepalive. The app repeats this for the whole session."""
@@ -643,10 +653,10 @@ class DeqSession:
         nothing else. The reply is STATUS only.
 
         The real app sends it at the end of every cold start, right after
-        the mode write, and this app has never sent it. It is the last
-        frame of the app's opening conversation that is still missing, so
-        it is a candidate for what makes the unit play a USB source. That
-        is untested against a unit.
+        the mode write, and `start` sends it for the same reason. It is
+        what gives the car its audio: without it the car stayed silent for
+        as long as the Pi was attached, and sent alone in a car on
+        2026-10-11 it brought the audio back at once.
         """
         self.exchange(COMMAND_PLAY_READY_NOTIFICATION)
 

@@ -129,6 +129,11 @@ def set_volume(
             # endpoint exists to get people out of.
             if original == "THROUGH":
                 session.set_audio_source(original)
+                # Returning to THROUGH is not enough. Without PLAY_READY the
+                # car stays silent after the mode comes back, the same way a
+                # fresh connect did before `start` sent it. Moving the
+                # slider cut the audio for exactly this reason.
+                session.notify_play_ready()
         return _read_audio_state(session)
 
     return run_on_unit(lambda: unit.run(action))
@@ -138,12 +143,11 @@ def set_volume(
 def send_play_ready(unit: DeqDevice = Depends(get_device)) -> AudioStateRead:
     """Tells the unit this device is ready to play audio (0x1a).
 
-    The real app sends it at the end of every cold start, right after the
-    mode write, and the connect sequence here never has. The car went
-    silent whenever the Pi attached, and this is the one frame of the
-    app's opening conversation still missing, so it is here as a lever to
-    hear what it does, not as a fix. It has no body and the reply is a
-    status only.
+    The real app sends it at the end of every cold start, and so does the
+    connect sequence here. Without it the car stayed silent for as long as
+    the Pi was attached; sent alone in a car on 2026-10-11 it brought the
+    audio back at once. This endpoint stays as a lever for a link that is
+    up but silent. It has no body and the reply is a status only.
     """
     return run_on_unit(
         lambda: unit.run(
@@ -161,12 +165,20 @@ def set_audio_source(
         raise HTTPException(status_code=422, detail=f"unknown audio source {body.name}")
     return run_on_unit(
         lambda: unit.run(
-            lambda session: (
-                session.set_audio_source(body.name),
-                _read_audio_state(session),
-            )[1]
+            lambda session: _switch_source(session, body.name)
         )
     )
+
+
+def _switch_source(session, name: str) -> AudioStateRead:
+    """Writes the mode, then says the device is ready, as the app does.
+
+    A mode change on its own leaves the car silent until PLAY_READY follows
+    it; see `DeqSession.start`.
+    """
+    session.set_audio_source(name)
+    session.notify_play_ready()
+    return _read_audio_state(session)
 
 
 # There is deliberately no mute endpoint.

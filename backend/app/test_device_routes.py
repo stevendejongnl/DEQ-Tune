@@ -234,6 +234,37 @@ def test_play_ready_without_a_unit_answers_503(device_client: TestClient) -> Non
     assert device_client.post("/api/device/play-ready").status_code == 503
 
 
+def test_setting_the_volume_ends_with_play_ready_after_the_mode_comes_back(
+    device_client: TestClient, unit: DeqDevice
+) -> None:
+    """Moving the slider cut the car's audio: the mode went to an OTHER
+    mode and back, and returning to THROUGH alone leaves the car silent
+    until PLAY_READY follows it."""
+    device_client.post("/api/device/connect")
+    transport = unit.require_session().transport
+    sent_before = len(transport.command_order)
+
+    device_client.post("/api/device/volume", json={"volume_db": -20})
+
+    sent = transport.command_order[sent_before:]
+    # read mode, to OTHER, write volume, back to THROUGH, PLAY_READY, then the
+    # four reads that build the reply.
+    assert sent == [0x0C, 0x0B, 0x0D, 0x0B, 0x1A, 0x0C, 0x0E, 0x10, 0x11]
+
+
+def test_changing_the_audio_source_is_followed_by_play_ready(
+    device_client: TestClient, unit: DeqDevice
+) -> None:
+    device_client.post("/api/device/connect")
+    transport = unit.require_session().transport
+    sent_before = len(transport.command_order)
+
+    device_client.post("/api/device/audio-source", json={"name": "THROUGH"})
+
+    sent = transport.command_order[sent_before:]
+    assert sent[:2] == [0x0B, 0x1A]
+
+
 def test_the_audio_source_can_be_changed_and_read_back(
     device_client: TestClient,
 ) -> None:
