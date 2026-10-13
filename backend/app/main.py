@@ -54,9 +54,9 @@ def health() -> dict[str, str]:
 
 
 def register_frontend_routes(app: FastAPI, dist_dir: Path) -> None:
-    """Serves the built frontend from `dist_dir`, once it exists — the
-    Docker image builds it there; local dev serves the frontend from
-    Vite instead, so `dist_dir` legitimately won't exist then."""
+    """Serves the built frontend from `dist_dir`, once it exists. The Docker
+    image builds it there. Local dev serves the frontend from Vite instead, so
+    `dist_dir` does not exist then, and that is normal."""
     if not dist_dir.exists():
         return
 

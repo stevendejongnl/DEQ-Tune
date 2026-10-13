@@ -1,17 +1,17 @@
 """Runs the shared conformance corpus against the Python implementation.
 
-`conformance/flows.json` holds every flow the DEQ needs, with the exact
-bytes the Pioneer Sound & Tune app produces for it. Those bytes come from
-the app's own code on a running device, so the app is the oracle and this
-code is the thing under test.
+`conformance/flows.json` holds every flow the DEQ needs, with the exact bytes
+that the Pioneer Sound & Tune app produces for it. Those bytes come from the
+app's own code on a running device. So the app is the oracle, and this code is
+the thing under test.
 
-The backend owns the link to the unit, on a laptop now and on an ESP later,
-so this is the only runner. `app/testing/test_fake_deq.py` uses the same
-corpus from the other side: it checks that the fake unit the tests talk to
-answers a captured request with the real unit's own captured reply.
+The backend owns the link to the unit, so this runner is the only one.
+`app/testing/test_fake_deq.py` uses the same corpus from the other side. It
+checks that the fake unit the tests talk to answers a captured request with the
+real unit's own captured reply.
 
-This runner checks both directions wherever a flow can be read back, so a
-drift in either direction fails.
+This runner checks both directions wherever a flow can be read back, so a drift
+in either direction fails.
 """
 
 from __future__ import annotations

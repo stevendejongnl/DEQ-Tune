@@ -8,14 +8,13 @@
 #     sudo udevadm trigger
 #
 # `08e4:01ed` is the exact product id, from the app's own
-# `otg_device_filter.xml`. The second line omits idProduct entirely, which
-# matches any Pioneer device, since that file also lists a vendor-wide
-# `08e4:ffff` entry — a different DEQ model might enumerate under another
-# product id.
+# `otg_device_filter.xml`. The second line omits idProduct, so it matches
+# any Pioneer device. That file also lists a vendor-wide `08e4:ffff` entry.
+# A different DEQ model might enumerate under another product id.
 #
 # `TAG+="uaccess"` is the modern, systemd-logind-managed equivalent of the
-# older `MODE`/`GROUP` rules: it grants access to whichever user is logged
-# in at the console, with nothing to add to a group and no logout needed.
+# older `MODE`/`GROUP` rules. It grants access to the user who sits at the
+# console. Nobody has to join a group or log out.
 
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="08e4", ATTRS{idProduct}=="01ed", TAG+="uaccess"
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="08e4", TAG+="uaccess"

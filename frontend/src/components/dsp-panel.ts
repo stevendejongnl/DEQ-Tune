@@ -24,12 +24,12 @@ function renderLockIcon(): TemplateResult {
 /**
  * The DEQ device's built-in EQ-style and Live-Simulation DSP presets
  * (Super Bass, Powerful, Concert hall, ...). These run on the device's
- * own firmware. This panel only tracks which one is selected locally.
- * A selection has no effect until a unit is connected (see
+ * own firmware. This panel only tracks which one the user selects
+ * locally. A selection has no effect until a unit connects (see
  * device-status.ts).
  *
  * `eqStyleIds`/`liveSimulationIds` come from the unit's own value sets
- * (`/api/device/options`), read by app-root.ts -- this panel does not
+ * (`/api/device/options`), which app-root.ts reads. This panel does not
  * invent or hardcode the list of choices itself.
  *
  * It emits `eq-style-change` ({ id }), `live-simulation-change`

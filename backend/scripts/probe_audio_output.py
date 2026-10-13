@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Asks a real DEQ to play the audio this device writes.
 
-**It did its job: mode 5 was heard in a car on 2026-10-08.** The DEQ plays
-what this device writes once it holds `SP_OTHER_SOURCE`, and THROUGH plays
-the car's own audio with the same gadget attached. What is left for this
-script is the rest of the table -- `MIX_OTHER_SOURCE` (6) above all, which
-the session ended before reaching, and which would say whether our audio
-and the car's can play together.
+**It did its job: a person heard mode 5 in a car on 2026-10-08.** The
+DEQ plays what this device writes once it holds `SP_OTHER_SOURCE`.
+THROUGH plays the car's own audio with the same gadget attached. The
+rest of the table is still open for this script. `MIX_OTHER_SOURCE` (6)
+comes first: the session ended before it got there. It would say whether
+our audio and the car's can play together.
 
-It sends one source mode at a time and gives a person time to listen,
-which is the only way to read the answer: the unit accepts every mode with
-STATUS 0 whether or not anything comes out of the speakers.
+It sends one source mode at a time and gives a person time to listen. Only a
+listener can read the answer. The unit accepts every mode with STATUS 0,
+whether or not anything comes out of the speakers.
 
     cd backend
     DEQ_TRANSPORT=accessory PYTHONPATH=. uv run python \\
@@ -18,13 +18,13 @@ STATUS 0 whether or not anything comes out of the speakers.
 
 Run it on the Pi, where the gadget holds the link. Feed audio first: set
 `FEED_AUDIO = True` and `AUDIO_FEED_TONE_HZ = 440` in
-`pi-gadget/deq_accessory.py`, deploy, and start the gadget. Without a tone
-there is nothing for the unit to play and every mode sounds the same.
+`pi-gadget/deq_accessory.py`, deploy, and start the gadget. Without a tone the
+unit has nothing to play, and every mode sounds the same.
 
 **It writes to the unit.** Each step sends a source mode, a PLAY_READY
-notification and a volume, then puts the mode and the volume it found back
-when it finishes -- including after a Ctrl-C. Nothing it sends is outside
-what the real app sends in its own cold start.
+notification and a volume. When the script finishes, it puts back the
+mode and the volume it found, also after a Ctrl-C. It sends nothing
+outside what the real app sends in its own cold start.
 
 Rehearse it against the fake unit before the car, where it costs nothing:
 
@@ -50,10 +50,10 @@ from app.deq_transport import TransportError, TransportTimeout
 
 # The modes to try, in the order the app's own code makes likely.
 #
-# `SourceMode.a(playing, connectionKind)` is what the app calls to pick a
-# mode. Its mapping was read by running it in the emulator for all ten
-# modes and all three connection kinds on 2026-10-08, which beats reading
-# its packed-switch by eye. Over AOA, with other audio playing:
+# `SourceMode.a(playing, connectionKind)` is what the app calls to pick a mode.
+# On 2026-10-08 the emulator ran it for all ten modes and all three connection
+# kinds, and logged the mapping. That beats a read of its packed-switch by eye.
+# Over AOA, with other audio playing:
 #
 #   from THROUGH (4)       -> SP_OTHER_SOURCE (5)
 #   from STAND_ALONE (0)   -> SP_OTHER_SOURCE (5)
@@ -63,28 +63,27 @@ from app.deq_transport import TransportError, TransportTimeout
 #   from MIX_OTHER (6)     -> THROUGH (4)
 #   from CAR_SOURCE (3)    -> THROUGH (4)
 #
-# The real unit sits at THROUGH, so 5 is what the app would send, and 6 is
-# the step after it. Both PURE modes return null for every connection
-# kind, so the app never sends them; pass `--modes 7,8` to try them
-# anyway.
+# The real unit sits at THROUGH, so the app would send 5, and 6 is the step
+# after it. Both PURE modes return null for every connection kind, so the app
+# never sends them. Pass `--modes 7,8` to try them anyway.
 DEFAULT_MODE_WIRE_VALUES = (5, 6)
 
 # How long each mode stays on, so a person can hear whether it worked.
 DEFAULT_HOLD_SECONDS = 8.0
 
-# The volume to ask for while a mode is held. The unit sat at -37 dB
-# through the whole car session, which is near the bottom of its range, so
-# a tone at that level may be inaudible whatever the mode says. It refused
-# this write with STATUS -6 under THROUGH; whether it refuses under an
-# OTHER mode too is part of what this measures.
+# The volume to ask for while the probe holds a mode. The unit sat at -37 dB
+# through the whole car session, which is near the bottom of its range. So a
+# tone at that level may be inaudible whatever the mode says. The unit refused
+# this write with STATUS -6 under THROUGH. This probe also measures whether it
+# refuses under an OTHER mode.
 DEFAULT_VOLUME_DB = -20
 
 
 class ProbeLog:
     """Prints what the unit answered, one line per step.
 
-    It records nothing and decides nothing; you call `step`, `reply` or
-    `note`; it depends on a print and on nothing else.
+    It records nothing and decides nothing. You call `step`, `reply` or `note`.
+    It depends on a print and on nothing else.
     """
 
     def step(self, what: str) -> None:
@@ -108,8 +107,8 @@ def mode_name(wire_value: int) -> str:
 def read_state(session: DeqSession, log: ProbeLog) -> dict[str, int]:
     """Reads the unit's mode, volume, mute state and driving state.
 
-    All four are reads with an empty body -- 0x0c, 0x0e, 0x10 and 0x11 --
-    so this changes nothing on the unit.
+    All four are reads with an empty body (0x0c, 0x0e, 0x10 and 0x11). So this
+    function changes nothing on the unit.
     """
     state = {
         "mode": session.read_mode(),
@@ -135,9 +134,9 @@ def hold_one_mode(
     """Sets one source mode, asks for a volume, and waits.
 
     The order matters. The mode goes first, because under THROUGH the unit
-    refused the volume write; whether an OTHER mode accepts it is the
-    thing to find out. PLAY_READY follows, because the app sends it last
-    in its own cold start.
+    refused the volume write. The probe has to find out whether an OTHER mode
+    accepts it. PLAY_READY follows, because the app sends it last in its own
+    cold start.
     """
     log.step(f"mode {wire_value} ({mode_name(wire_value)})")
     reply = session.exchange(0x0B, wire_value.to_bytes(4, "little", signed=True))
@@ -171,15 +170,15 @@ def describe_status(body: bytes) -> str:
 def drain_pending_frames(transport, quiet_seconds: float = 1.5) -> int:
     """Reads and throws away whatever is already waiting on the link.
 
-    The gadget drives the link whenever no backend holds it, so stopping
-    the backend to run this leaves the gadget's own keepalive reply in
-    flight. That reply carries a transaction id far ahead of a fresh
-    session's, which `DeqSession` reports as a mismatch rather than as a
-    leftover -- and rightly so: an id ahead of the request is not stale.
+    The gadget drives the link whenever no backend holds it. So a stop of the
+    backend to run this script leaves the gadget's own keepalive reply in
+    flight. That reply carries a transaction id far ahead of a fresh session's.
+    `DeqSession` reports it as a mismatch and not as a leftover, and that is
+    right: an id ahead of the request is not stale.
 
-    It cost a car session on 2026-10-08: "sent command 0x00, got a reply
-    to 0x02". Draining first is the fix, and it belongs here rather than
-    in the session, which cannot tell a leftover from a fault.
+    It cost a car session on 2026-10-08: "sent command 0x00, got a reply to
+    0x02". A drain first fixes it. The drain belongs here and not in the
+    session, which cannot tell a leftover from a fault.
     """
     discarded = 0
     while True:
@@ -195,10 +194,10 @@ def restore_state(
 ) -> None:
     """Puts back the mode and volume the unit held before the probe.
 
-    This is what gives the car its audio back, so neither write may be
-    skipped because the other failed. The mode write timed out once on
-    2026-10-08, right after a 20-second hold in mode 5, and the volume
-    write never ran. Each one is tried twice and reports what happened.
+    This restore gives the car its audio back. So neither write may be skipped
+    because the other failed. The mode write timed out once on 2026-10-08,
+    right after a 20-second hold in mode 5, and the volume write never ran.
+    This function tries each one twice and reports what happened.
     """
     log.step("putting the unit back")
     restore_one_field(
@@ -221,10 +220,10 @@ def restore_one_field(
     what: str,
     attempts: int = 2,
 ) -> None:
-    """Writes one value back, trying again once if the unit stays quiet.
+    """Writes one value back, and tries again once if the unit stays quiet.
 
-    A failure here is reported and not raised. The next write still has to
-    run, and a person in a car needs to read which part of the restore
+    This function reports a failure here and does not raise it. The next write
+    still has to run. A person in a car needs to read which part of the restore
     worked.
     """
     for attempt in range(1, attempts + 1):

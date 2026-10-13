@@ -11,7 +11,7 @@ import { FakeDeviceApi } from "./testing/fake-device-api.ts";
 /** Holds the component's next scheduled read instead of running it.
  *
  * It records the gap the component asked for and runs the read only when
- * a test says to; `device-status` schedules through it; it depends on
+ * a test says to. `device-status` schedules through it. It depends on
  * nothing. A real timer would make these tests wait seconds.
  */
 class ManualSchedule {
@@ -68,8 +68,8 @@ async function mountWithSchedule(
 /** The pill this status element rendered.
  *
  * Selecting the element and not a class: `device-pill` is a component
- * with typed properties, so a test asserts on what it was given rather
- * than on markup it happens to produce.
+ * with typed properties, so a test asserts on the values it received
+ * rather than on markup it happens to produce.
  */
 function pillOf(element: DeviceStatus): DevicePill {
   return element.shadowRoot!.querySelector<DevicePill>("device-pill")!;
@@ -152,7 +152,7 @@ describe("device-status polling", () => {
 
     expect(element.linkState).toBe("unit-down");
 
-    // The car is switched on. Nobody presses anything.
+    // The driver switches the car on. Nobody presses anything.
     api.startConnected();
     schedule.fire();
     await element.updateComplete;

@@ -1,14 +1,14 @@
 """The DEQ's own value sets, read from the Pioneer app.
 
-The Android app is the authority on every value the unit accepts, so these
-are copied from it, not chosen here. `tools/build_enums.py` reads them out
-of the decompiled APK and writes `deq_enums.json`; this module loads that
-file.
+The Android app is the authority on every value the unit accepts. So these
+values come from it, and this module chooses none. `tools/build_enums.py` reads
+them out of the decompiled APK and writes `deq_enums.json`. This module loads
+that file.
 
 Two numbers per value, and they are not always the same. `ordinal` is the
 constant's position in the Java enum. `wire_value` is what the protocol
-carries, and it is the one to send. `BAND_13` is ordinal 0 but wire value
-13; every `UNKNOWN` in a state enum is ordinal 0 but wire value -1.
+carries, and it is the one to send. `BAND_13` is ordinal 0 but wire value 13.
+Every `UNKNOWN` in a state enum is ordinal 0 but wire value -1.
 """
 
 from __future__ import annotations
@@ -33,8 +33,8 @@ class EnumValue:
 class DeqEnum:
     """One of the DEQ's value sets.
 
-    It answers what the unit accepts for one field; you look a value up by
-    name or by wire value; it depends on nothing but the generated JSON.
+    It answers what the unit accepts for one field. You look a value up by name
+    or by wire value. It depends on nothing but the generated JSON.
     """
 
     def __init__(self, enum_name: str, apk_class: str, values: list[EnumValue]) -> None:
@@ -58,13 +58,12 @@ class DeqEnum:
     def selectable(self) -> tuple[EnumValue, ...]:
         """The values a person can choose, in wire order.
 
-        A value with no `string_id` has no label in the app's own
-        resources, so the real app never offers it. `UNKNOWN` is the
-        case that matters: it is what a decoder returns for a wire value
-        it does not recognise, not a setting. The app's own picker drops
-        such a value -- `p$f$a.a()` returns null for it and the list
-        builder skips the entry -- so anything that offers a choice must
-        read this, not `values`.
+        A value with no `string_id` has no label in the app's own resources, so
+        the real app never offers it. `UNKNOWN` is the case that matters. A
+        decoder returns it for a wire value it does not recognise, and it is no
+        setting. The app's own picker drops such a value. `p$f$a.a()` returns
+        null for it, and the list builder skips the entry. So any code that
+        offers a choice must read this property, and not `values`.
         """
         return tuple(value for value in self.values if value.string_id is not None)
 

@@ -1,25 +1,25 @@
 """Moves DEQ frames through the Pi's accessory gadget.
 
-This is a `Transport`, so `DeqSession` drives it exactly as it drives the
-fake unit. It needs no optional dependency: a Unix socket is stdlib.
+This class is a `Transport`, so `DeqSession` drives it the same way it drives
+the fake unit. It needs no optional dependency: a Unix socket is stdlib.
 
-Why it is not a direct open of `/dev/usb_accessory`. Two writers on one
+Why this class does not open `/dev/usb_accessory` itself: two writers on one
 link interleave frames, and the gadget program has to keep that handle.
-`pi-gadget/deq_accessory.py` owns the USB lifecycle -- it answers the
-DEQ's mode-switch request, re-enumerates the gadget, puts the accessory
-interface at index 2, and feeds the audio function the unit demands. None
-of that is the backend's job, and the handle cannot be shared.
+`pi-gadget/deq_accessory.py` owns the USB lifecycle. It answers the DEQ's
+mode-switch request and re-enumerates the gadget. It puts the accessory
+interface at index 2, and feeds the audio function that the unit demands. The
+backend does none of that work, and two programs cannot share the handle.
 
-So the gadget relays instead. It listens on `ACCESSORY_SOCKET_PATH` and
-passes whole frames both ways, byte for byte. While a backend is attached
-the gadget stops sending its own cold start and keepalives, because the
-session the backend runs carries them: two keepalive clocks on one link
-is the same interleaving problem in a slower form.
+So the gadget relays instead. It listens on `ACCESSORY_SOCKET_PATH` and passes
+whole frames both ways, byte for byte. While a backend holds the socket, the
+gadget stops sending its own cold start and keepalives. The session that the
+backend runs carries them. Two keepalive clocks on one link give the same
+interleave problem in a slower form.
 
-The frame markers survive the hop unchanged, so `FrameJoiner` finds the
-edges here the same way it does on a bulk USB read. A socket read returns
-whatever has arrived, like a serial port and unlike a bulk endpoint, so
-this reads what is available rather than one fixed-size packet.
+The frame markers survive the hop unchanged. So `FrameJoiner` finds the edges
+here the same way it does on a bulk USB read. A socket read returns the bytes
+that arrived, like a serial port and unlike a bulk endpoint. So this class
+reads what is available, and not one fixed-size packet.
 """
 
 from __future__ import annotations
@@ -49,8 +49,8 @@ class AccessoryUnavailable(TransportError):
 class AccessoryTransport:
     """Carries DEQ frames over a Unix socket to the gadget program.
 
-    It sends and receives whole frames; `DeqSession` calls it; it depends
-    on `deq_accessory.py` running on this machine with its relay enabled.
+    It sends and receives whole frames. `DeqSession` calls it. It depends on
+    `deq_accessory.py` running on this machine with its relay enabled.
     """
 
     def __init__(
@@ -80,10 +80,10 @@ class AccessoryTransport:
         )
 
     def read_available_bytes(self, timeout_seconds: float) -> bytes:
-        """Reads whatever the gadget has relayed, or says why it could not.
+        """Reads what the gadget relayed, or says why it could not.
 
-        An empty read means the gadget closed the socket, which is a dead
-        link rather than a slow one: the session has to be started again.
+        An empty read means the gadget closed the socket. That is a dead link,
+        and not a slow one: the session has to start again.
         """
         self.connection.settimeout(timeout_seconds)
         try:
@@ -111,8 +111,8 @@ class AccessoryTransport:
         try:
             self.connection.close()
         except Exception:
-            # The link is being given up anyway, so a failure here is not
-            # worth raising over.
+            # The caller gives the link up anyway, so a failure here is not
+            # worth a raise.
             pass
 
 

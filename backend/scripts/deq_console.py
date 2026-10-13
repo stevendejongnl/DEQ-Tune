@@ -6,8 +6,9 @@ Run the backend against the simulator, then run this beside it:
     DEQ_TRANSPORT=simulator uv run fastapi dev app/main.py
     uv run python scripts/deq_console.py
 
-The two share a state file. This writes it, the simulator re-reads it before
-each reply, so a key press shows up in the next frame and nothing restarts.
+The two share a state file. This console writes it, and the simulator reads it
+again before each reply. So a key press shows up in the next frame, and nothing
+restarts.
 
 Keys
     up / down       volume, 1 dB          m   mute
@@ -16,8 +17,8 @@ Keys
     s               go silent after 0x03  c   clear every fault
     q               quit
 
-This is development tooling. It talks to no hardware and knows nothing
-about the Pi: it only sets fields on a simulated unit in another process.
+This script is development tooling. It talks to no hardware and knows nothing
+about the Pi. It only sets fields on a simulated unit in another process.
 """
 
 from __future__ import annotations

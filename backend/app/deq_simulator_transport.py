@@ -1,16 +1,16 @@
 """A simulated DEQ whose answers a developer can change while it runs.
 
-`DEQ_TRANSPORT=simulator` serves this instead of a real unit, so the whole
-app runs with no hardware and a person can still see what happens when the
-volume moves, the unit mutes, or a command fails.
+`DEQ_TRANSPORT=simulator` serves this unit in place of a real one. So the whole
+app runs with no hardware. A person can still see what happens when the volume
+moves, the unit mutes, or a command fails.
 
 It is `FakeDeq` plus a state file. `FakeDeq` holds every protocol rule,
-measured from real traffic; this only copies the current state onto it
-before each reply. Keeping them apart is the point: the protocol rules stay
-pinned to captures, and the knobs stay out of them.
+measured from real traffic. This class only copies the current state onto it
+before each reply. The split matters: the protocol rules stay pinned to
+captures, and the knobs stay out of them.
 
-`DEQ_TRANSPORT=fake` still exists and is what the tests use. It takes its
-state from its constructor and reads no file, so a test stays hermetic.
+`DEQ_TRANSPORT=fake` still exists, and the tests use it. It takes its state
+from its constructor and reads no file, so a test stays hermetic.
 """
 
 from __future__ import annotations
@@ -23,11 +23,11 @@ from app.testing.fake_deq import FakeDeq
 
 
 class DeqSimulator(Transport):
-    """A fake DEQ that re-reads its state from a file.
+    """A fake DEQ that reads its state from a file again before each reply.
 
-    It answers frames the way `FakeDeq` does; you use it through the
-    `Transport` seam like any other link; it depends on `FakeDeq` for the
-    protocol and on a state file for what to report.
+    It answers frames the way `FakeDeq` does. You use it through the
+    `Transport` seam like any other link. It depends on `FakeDeq` for the
+    protocol, and on a state file for what to report.
     """
 
     def __init__(self, state_path: Path | None = None,

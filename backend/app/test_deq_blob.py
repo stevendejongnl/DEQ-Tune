@@ -1,8 +1,8 @@
 """Checks the blob codec against a blob the Android app itself wrote.
 
-`deq_blob_reference.json` holds the 572 bytes the app's own serializer
+`deq_blob_reference.json` holds the 572 bytes that the app's own serializer
 (`b/g/h`) produced for a default configuration in speaker mode
-`STANDARD_FL_FR_RL_RR_SW`, read out of the running app over Frida.
+`STANDARD_FL_FR_RL_RR_SW`. Frida read them out of the running app.
 """
 
 from __future__ import annotations
@@ -75,9 +75,9 @@ def test_a_default_blob_has_flat_banks() -> None:
 
 
 def test_every_speaker_record_carries_its_own_phase_flag() -> None:
-    # The app writes the phase flag first in every one of the 7 records,
-    # confirmed by hooking its own reader under the emulator -- see
-    # deq_blob.py's module docstring. The default blob's flag is 0x01.
+    # The app writes the phase flag first in every one of the 7 records. A hook
+    # on its own reader under the emulator showed this. See the module
+    # docstring of deq_blob.py. The default blob's flag is 0x01.
     assert DEFAULT_BLOB[SPEAKER_RECORD_OFFSET] == 1
     speakers = decode_blob(DEFAULT_BLOB).speakers
     assert all(speaker.is_positive_phase for speaker in speakers)
@@ -98,13 +98,13 @@ def test_the_speaker_records_are_thirteen_bytes_apart() -> None:
 
 
 def test_asymmetric_speaker_values_match_what_the_app_itself_reported() -> None:
-    """Fed this exact blob through the app's own reader under the Android
-    emulator (Frida, `b/g/h.a(ByteArrayInputStream, model/b/w$a)` hooked
-    directly) and it reported back these exact values for these three
+    """This exact blob went through the app's own reader under the Android
+    emulator (Frida, with a hook on `b/g/h.a(ByteArrayInputStream,
+    model/b/w$a)`). The reader reported back these exact values for these three
     speakers, by their real field names (`isPositivePhase`, `levelDB`,
     `timeAlignmentCm`, `levelDBExtended`). See USB_CAPTURE_NOTES.md in the
-    outer repo for the live session. This pins that result so the fix it
-    confirmed cannot silently regress."""
+    outer repo for the live session. This test pins that result, so the fix it
+    backed cannot regress unseen."""
     configuration = UserConfiguration()
     configuration.speakers[0] = SpeakerRecord(False, 1.5, -2.5, 3.5)
     configuration.speakers[3] = SpeakerRecord(True, -9.0, 100.0, 0.25)
@@ -231,9 +231,9 @@ def test_trimming_leaves_a_thirty_one_band_profile_alone() -> None:
 
 
 def test_always_false_flag_is_a_literal_the_app_writes_not_a_read_model_field() -> None:
-    """The app's writer, `b/g/h.a(z, Z, o)`, emits a hardcoded `0x0` at
-    offset 14. It never reads a model field for this position, so a profile
-    cannot carry a `true` here regardless of what is set."""
+    """The app's writer, `b/g/h.a(z, Z, o)`, emits a hardcoded `0x0` at offset
+    14. It never reads a model field for this position. So a profile cannot
+    carry a `true` here, whatever its settings say."""
     configuration = UserConfiguration(always_false_flag=0)
     assert decode_blob(encode_blob(configuration)).always_false_flag == 0
 
@@ -250,12 +250,11 @@ def test_unique_id_bytes_holds_the_presets_own_unique_id() -> None:
 
 
 def test_car_model_name_key_digest_round_trips_an_md5_hash() -> None:
-    """Offset 523's 16 bytes are MD5(carModelNameKey), or 16 zero bytes when
-    no car model is selected. `carModelNameKey` is traced to the app's own
-    JSON writer tagging this exact field with that key, then confirmed live:
-    hooking the MD5 step under the emulator showed it digests precisely a
-    known test string set on that field, byte for byte -- see
-    USB_CAPTURE_NOTES.md in the outer repo."""
+    """The 16 bytes at offset 523 are MD5(carModelNameKey), or 16 zero bytes
+    when the profile has no car model. The app's own JSON writer tags this
+    exact field with the key `carModelNameKey`. The emulator then showed it
+    live. A hook on the MD5 step showed that it digests a known test string on
+    that field, byte for byte. See USB_CAPTURE_NOTES.md in the outer repo."""
     digest = hashlib.md5(b"hello").digest()
     assert len(digest) == 16
     configuration = UserConfiguration(car_model_name_key_digest=digest)

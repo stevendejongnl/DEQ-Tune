@@ -5,8 +5,8 @@ from sqlmodel import Field, SQLModel
 
 
 class Profile(SQLModel, table=True):
-    """A DEQ tuning profile. Factory profiles are seeded read-only from
-    the bundled Pioneer presets; editing one duplicates it as `custom`."""
+    """A DEQ tuning profile. The seed loads factory profiles read-only from the
+    bundled Pioneer presets. An edit of one duplicates it as `custom`."""
 
     id: int | None = Field(default=None, primary_key=True)
     name: str

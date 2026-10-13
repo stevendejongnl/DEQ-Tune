@@ -65,12 +65,12 @@ def test_the_options_come_from_the_pioneer_app(device_client: TestClient) -> Non
 
 
 def test_the_options_offer_only_the_named_audio_sources(device_client: TestClient) -> None:
-    """`audio_source` carries no `string_id` for any value -- the real app
-    never puts it behind a labelled picker the way it does eq_style and
-    live_simulation. `AUDIO_SOURCE_CHOICES` in `schemas.py` picks the three
-    with a plain meaning by name instead; the rest (`SP_OTHER_SOURCE`, the
-    `MIX_*` pairs, `UNKNOWN`) are wire-internal states `/volume` passes
-    through on its own, not something a person should pick."""
+    """`audio_source` carries no `string_id` for any value. The real app never
+    puts it behind a labelled picker the way it does eq_style and
+    live_simulation. So `AUDIO_SOURCE_CHOICES` in `schemas.py` picks the three
+    with a plain meaning by name. The rest (`SP_OTHER_SOURCE`, the `MIX_*`
+    pairs, `UNKNOWN`) are wire-internal states that `/volume` passes through on
+    its own. A person should not pick them."""
     body = device_client.get("/api/device/options").json()
     names = [value["name"] for value in body["audio_sources"]]
 
@@ -79,11 +79,11 @@ def test_the_options_offer_only_the_named_audio_sources(device_client: TestClien
 
 
 def test_the_options_leave_out_the_unknown_sentinel(device_client: TestClient) -> None:
-    """`UNKNOWN` is what a decoder returns for a wire value it does not
-    recognise. It is not a setting, and the real app never offers it: its
-    picker reads a label from the app's resources, and an entry with none
-    never reaches the list. Offering it here put a tile with no label in
-    the picker, and choosing it would have written wire value 0."""
+    """A decoder returns `UNKNOWN` for a wire value it does not recognise. It
+    is no setting, and the real app never offers it. Its picker reads a label
+    from the app's resources, and an entry with none never reaches the list.
+    When this app offered it, the picker showed a tile with no label. A pick of
+    it would write wire value 0."""
     body = device_client.get("/api/device/options").json()
 
     assert "UNKNOWN" not in [value["name"] for value in body["eq_styles"]]
@@ -136,13 +136,13 @@ def test_a_style_goes_to_the_bank_the_unit_plays(
     device_client: TestClient, unit: DeqDevice
 ) -> None:
     """The unit keeps two equalizer banks and plays the one `bank_in_use`
-    names. Each has its own preset index, so writing bank A's index while
+    names. Each has its own preset index. So a write of bank A's index while
     the unit plays bank B changes nothing a listener can hear.
 
-    The banks are not a choice this app offers. The Pioneer app shows them
-    as "Custom A" and "Custom B" because it has nowhere else to keep a
-    curve; here a profile is a named curve and there can be any number.
-    The bank is only where a profile lands."""
+    This app does not offer the banks as a choice. The Pioneer app shows them
+    as "Custom A" and "Custom B", because it has nowhere else to keep a curve.
+    Here a profile is a named curve, and a person can keep any number. The bank
+    is only where a profile lands."""
     device_client.post("/api/device/connect")
     transport = unit.require_session().transport
     transport.configuration.bank_in_use = BANK_B
@@ -207,9 +207,9 @@ def test_setting_the_volume_puts_the_source_mode_back(
 ) -> None:
     """The unit refuses a volume write while it holds THROUGH.
 
-    So the endpoint moves to an OTHER mode, writes, and restores. Leaving
-    it on SP_OTHER_SOURCE would play whatever this device writes, which is
-    silence -- the failure the endpoint exists to get people out of.
+    So the endpoint moves to an OTHER mode, writes, and restores. A unit left
+    on SP_OTHER_SOURCE would play whatever this device writes, which is
+    silence. The endpoint exists to get people out of that failure.
     """
     device_client.post("/api/device/connect")
     body = device_client.post("/api/device/volume", json={"volume_db": -20}).json()
@@ -237,9 +237,9 @@ def test_play_ready_without_a_unit_answers_503(device_client: TestClient) -> Non
 def test_setting_the_volume_ends_with_play_ready_after_the_mode_comes_back(
     device_client: TestClient, unit: DeqDevice
 ) -> None:
-    """Moving the slider cut the car's audio: the mode went to an OTHER
-    mode and back, and returning to THROUGH alone leaves the car silent
-    until PLAY_READY follows it."""
+    """A slider move cut the car's audio. The mode went to an OTHER mode and
+    back, and a return to THROUGH alone leaves the car silent until PLAY_READY
+    follows it."""
     device_client.post("/api/device/connect")
     transport = unit.require_session().transport
     sent_before = len(transport.command_order)

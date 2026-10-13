@@ -1,7 +1,7 @@
 """Tests for the simulated DEQ's console.
 
-Only the pure parts are tested: which key makes which change, and what the
-screen says. Drawing is curses' job and is left to it.
+These tests cover only the pure parts: which key makes which change, and what
+the screen says. Curses does the drawing, and the tests leave that to it.
 """
 
 from __future__ import annotations

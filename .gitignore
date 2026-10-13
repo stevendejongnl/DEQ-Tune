@@ -16,14 +16,8 @@ Thumbs.db
 __pycache__/
 *.py[oc]
 
-# Git worktrees that Claude Code creates inside the repo
-.claude/worktrees/
-
 # Firmware lives in the private outer repo.
 firmware/
-
-# Personal working notes, deliberately not shared
-CLAUDE.local.md
 
 # The simulated DEQ's scratch state, written by scripts/deq_console.py.
 deq-simulator-state.json

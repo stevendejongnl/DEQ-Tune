@@ -64,13 +64,12 @@ def test_start_sends_the_apps_own_connect_order():
 # the rest write tuning, coefficients, volume or mute.
 WRITING_COMMANDS = (0x16, 0x1F, 0x05, 0x19, 0x0D, 0x0F)
 
-# COMMAND_SET_MODE, 0x0b, is a write and is deliberately not in the list
-# above. Not sending it is not the neutral choice: a Pi that offers an
-# audio function leaves the unit playing USB, and an empty USB input is
-# silence -- a car measured on 2026-10-08 had no audio for as long as the
-# gadget ran. So a connect sets THROUGH, which hands the car's own audio
-# back. It is the one thing a connect changes, and it changes it to the
-# state a person expects.
+# COMMAND_SET_MODE, 0x0b, is a write, and the list above leaves it out on
+# purpose. To skip it is not neutral. A Pi that offers an audio function leaves
+# the unit on USB, and an empty USB input is silence. A car measured on
+# 2026-10-08 had no audio for as long as the gadget ran. So a connect sets
+# THROUGH, which hands the car's own audio back. It is the one thing a connect
+# changes, and it changes it to the state a person expects.
 
 
 def test_start_sends_no_command_that_changes_the_units_tuning():
@@ -97,10 +96,10 @@ def test_start_hands_the_cars_own_audio_back():
 
 
 def test_start_ends_with_play_ready_after_the_mode_write():
-    """The car stayed silent whenever the Pi attached, with the unit
-    reporting THROUGH and a healthy link, until PLAY_READY was sent. The
-    real app sends it last, right after the mode write, so the order is
-    part of the behaviour."""
+    """The car stayed silent whenever the Pi attached, with the unit reporting
+    THROUGH and a healthy link, until the session sent PLAY_READY. The real app
+    sends it last, right after the mode write, so the order is part of the
+    behaviour."""
     fake = FakeDeq()
 
     DeqSession(fake).start()
@@ -208,23 +207,23 @@ def test_write_tuning_sends_three_blocks_under_the_right_config_ids():
 
 
 def test_a_push_keeps_the_crossover_slots_a_profile_does_not_speak_for():
-    """A profile carries a front and a rear high-pass filter, and nothing
-    else. The other slots belong to the person, who sets them on the
-    unit's own filter screen.
+    """A profile carries a front and a rear high-pass filter, and nothing else.
+    The other slots belong to the person, who sets them on the unit's own
+    filter screen.
 
-    Sending Pass for them would write identity biquads over a crossover
-    somebody set, and the unit would then disagree with itself: the blob
-    naming a frequency and a slope while the audio ran unfiltered. These
-    are the values a real unit held on 2026-10-08."""
+    Pass in those slots would write identity biquads over a crossover that
+    somebody set. The unit would then disagree with itself: the blob would name
+    a frequency and a slope while the audio ran unfiltered. These are the
+    values a real unit held on 2026-10-08."""
     fake = FakeDeq()
     fake.configuration.crossovers[2] = BlobCrossoverSetting(frequency=5, slope=3)
     fake.configuration.crossovers[3] = BlobCrossoverSetting(frequency=3, slope=4)
 
     DeqSession(fake).write_tuning(load_factory_tuning(), layout="network")
 
-    # Read the slots back out of the block that went on the wire. Slots 2
-    # and 3 live in block 5, two biquads each; an untouched slot leaves an
-    # identity biquad, so a kept setting is one that is not identity.
+    # Read the slots back out of the block that went on the wire. Slots 2 and 3
+    # live in block 5, two biquads each. An untouched slot leaves an identity
+    # biquad, so a kept setting is one that is not identity.
     crossover_write = [
         one
         for one in fake.exchanges
@@ -278,7 +277,7 @@ def test_a_profile_with_no_cancelling_data_sends_the_same_curve_twice():
 
 
 def test_distances_come_through_in_millimetres_with_five_slots():
-    """The profile stores centimetres for four speakers; the library wants
+    """The profile stores centimetres for four speakers. The library wants
     millimetres for five."""
     tuning = load_factory_tuning()
     distances_mm = speaker_distances_mm(tuning)
@@ -361,9 +360,9 @@ def test_close_releases_the_link():
 class ReplyingTransport:
     """Answers every request, with one chosen thing wrong.
 
-    It replies to whatever it is sent; you set one shift or status in the
-    constructor; it depends on `deq_protocol` to build the reply. The
-    session's own checks are what these shifts are meant to trip.
+    It replies to every request it receives. You set one shift or status in the
+    constructor. It depends on `deq_protocol` to build the reply. These shifts
+    exist to trip the session's own checks.
     """
 
     def __init__(
@@ -406,10 +405,9 @@ class ReplyingTransport:
 class ReplayingTransport:
     """Answers one command with one recorded frame.
 
-    It replays what a real unit actually sent; you give it the frame; it
-    depends on nothing. `FakeDeq` cannot serve this test, because it
-    answers `0x09` with exactly the 572 bytes the blob needs -- which is
-    the thing that hid this bug.
+    It replays what a real unit sent, and you give it the frame. It depends on
+    nothing. `FakeDeq` cannot serve this test. It answers `0x09` with only the
+    572 bytes the blob needs, and that hid this bug.
     """
 
     def __init__(self, reply_frame: bytes) -> None:
@@ -433,13 +431,13 @@ REAL_REPLY_PATH = (
 
 
 def test_the_blob_is_cut_out_of_a_real_units_longer_reply():
-    """A real DEQ-S1000A2 answered 0x09 with a 2032-byte body on
-    2026-10-08: four bytes of STATUS, the 572-byte blob, and 1456 bytes
-    this app has no meaning for yet.
+    """A real DEQ-S1000A2 answered 0x09 with a 2032-byte body on 2026-10-08.
+    The body held four bytes of STATUS, the 572-byte blob, and 1456 bytes that
+    have no meaning for this app yet.
 
-    Handing the whole body to `decode_blob` fails, which is what
-    `check_real_deq.py` found against the unit. The values asserted here
-    are the car's own tune, read from that capture.
+    `decode_blob` fails on the whole body, and `check_real_deq.py` found that
+    against the unit. The values asserted here are the car's own tune, read
+    from that capture.
     """
     reply_frame = bytes.fromhex(REAL_REPLY_PATH.read_text().strip())
     transport = ReplayingTransport(reply_frame)
@@ -487,7 +485,7 @@ def test_a_write_hands_back_the_bytes_the_read_did_not_decode():
 
 
 def test_a_write_with_no_read_before_it_pads_with_zeros():
-    """Nothing is known about those bytes until a read sees them, and the
+    """The meaning of those bytes stays unknown until a read sees them, and the
     car's unit had zeros in all of them."""
     session = DeqSession(FakeDeq())
 
@@ -500,10 +498,10 @@ def test_a_write_with_no_read_before_it_pads_with_zeros():
 class PushesNotificationFirst:
     """Pushes one notification, then answers, as a real unit does.
 
-    The unit sends a notification whenever something changes on it, with
-    no regard for whether a request is in flight; you give it the frame to
-    push; it depends on nothing. `FakeDeq` answers one request with one
-    reply and never pushes, so it cannot show this.
+    The unit sends a notification whenever something changes on it, even while
+    a request is in flight. You give it the frame to push. It depends on
+    nothing. `FakeDeq` answers one request with one reply and never pushes, so
+    it cannot show this.
     """
 
     def __init__(self, notification_frame: bytes) -> None:
@@ -563,10 +561,10 @@ def test_a_skipped_notification_is_kept_not_thrown_away():
 
 
 def test_setting_the_audio_source_sends_the_apk_s_own_wire_value():
-    """THROUGH is what keeps a car audible while this app is connected.
-    Its wire value is 4, not its ordinal 5 -- `SourceMode`'s constructor
-    is (name, ordinal, wireValue), and reading the wrong argument selects
-    SP_OTHER_SOURCE instead.
+    """THROUGH keeps a car audible while this app holds the link. Its wire
+    value is 4, and not its ordinal 5. The constructor of `SourceMode` is
+    (name, ordinal, wireValue), and the wrong argument selects SP_OTHER_SOURCE
+    instead.
     """
     fake = FakeDeq()
     session = DeqSession(fake)
@@ -590,10 +588,9 @@ class ReplaysAStaleReplyFirst:
     """Hands back one reply from a conversation this session did not have.
 
     The Pi's gadget and the backend both opened the link in a car on
-    2026-10-08, which left a reply in flight for a request this session
-    never sent; every later request then read the previous one's answer.
-    You give it the stale reply; it answers everything after that
-    correctly.
+    2026-10-08. That left a reply in flight for a request that this session
+    never sent. Every later request then read the answer to the previous one.
+    You give it the stale reply. It answers everything after that correctly.
     """
 
     def __init__(self, stale_reply: bytes) -> None:
@@ -620,9 +617,9 @@ class ReplaysAStaleReplyFirst:
 
 
 def test_a_reply_to_an_earlier_request_is_dropped_not_read_as_this_one():
-    """Two openers on one link leave a reply in flight. Reading it as an
-    answer put a real session one reply out of step, and the connect
-    failed with "sent command 0x21, got a reply to 0x15"."""
+    """Two openers on one link leave a reply in flight. A real session read it
+    as an answer and fell one reply out of step. The connect failed with "sent
+    command 0x21, got a reply to 0x15"."""
     stale = encode_frame(
         Message(
             direction=Direction.FROM_DEVICE,

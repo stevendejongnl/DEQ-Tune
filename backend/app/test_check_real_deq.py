@@ -1,9 +1,9 @@
 """Checks the hardware validation script, without hardware.
 
-`scripts/check_real_deq.py` only ever runs when someone plugs a DEQ in, so
-nothing else would catch it breaking. Running its checks against the fake
-unit keeps it honest: the fake answers the way the captures say a real unit
-does, so every check should pass against it.
+`scripts/check_real_deq.py` only runs when someone plugs a DEQ in. So nothing
+else would catch a break in it. Its checks, run against the fake unit, keep it
+honest. The fake answers the way the captures say a real unit does, so every
+check should pass against it.
 """
 
 from __future__ import annotations
@@ -19,14 +19,14 @@ check_real_deq = pytest.importorskip("scripts.check_real_deq")
 
 
 def test_check_link_defaults_to_the_accessory_gadget(monkeypatch) -> None:
-    """Unlike the app, whose default is the fake unit, this script's one
-    job is checking a real one -- so its own default transport is
-    `accessory`, the Pi's link to a DEQ, not `fake`."""
+    """The app's default is the fake unit. This script's one job is a check of
+    a real unit. So its own default transport is `accessory`, the Pi's link to
+    a DEQ, and not `fake`."""
     monkeypatch.delenv("DEQ_TRANSPORT", raising=False)
     report = check_real_deq.Report()
-    # No gadget is relaying on this machine, so opening always fails here
-    # -- this only checks it actually tried the accessory transport, by
-    # its error, and not a hardcoded "fake" one.
+    # No gadget relays on this machine, so the open always fails here. This
+    # test only checks, by its error, that the script tried the accessory
+    # transport and not a hardcoded "fake" one.
     with pytest.raises(TransportError, match="could not reach the gadget"):
         check_real_deq.check_link(report)
 
@@ -91,8 +91,8 @@ def test_a_failure_changes_the_exit_code(capsys) -> None:
 
 def test_the_blob_check_reads_a_real_units_reply_shape() -> None:
     """The blob is not the whole reply. A real unit answered 0x09 with a
-    2032-byte body -- STATUS, the 572-byte blob, then bytes this app has
-    no meaning for -- so the check has to cut the blob out and still pass.
+    2032-byte body: STATUS, the 572-byte blob, then bytes that have no meaning
+    for this app. So the check has to cut the blob out and still pass.
     """
     report = check_real_deq.Report()
     session = DeqSession(FakeDeq())

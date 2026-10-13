@@ -15,7 +15,7 @@ export const browserLocaleStorage: LocaleStorage = {
     try {
       window.localStorage.setItem(key, value);
     } catch {
-      // Ignore — losing the saved preference is not worth failing over.
+      // Ignore the failure. Losing the saved preference is not worth failing over.
     }
   },
 };

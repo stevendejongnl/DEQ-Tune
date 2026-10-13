@@ -4,11 +4,11 @@ The DEQ speaks a SysEx-style framing over Android Open Accessory. The DEQ is
 the accessory and the phone, or this app, is the host.
 
 The rules here come from the Sound & Tune app's own codec, `b/g/d.pack()` and
-`b/g/c.unpack()` in the decompiled APK, and were then checked against captured
-traffic between the real app and a real unit. An earlier version of this
-module guessed the layout from raw byte offsets; those offsets landed inside
-the nibble-packed payload and happened to read correctly for two cases. This
-version is the decoded rule.
+`b/g/c.unpack()` in the decompiled APK. Captured traffic between the real app
+and a real unit then checked them. An earlier version of this module guessed
+the layout from raw byte offsets. Those offsets landed inside the nibble-packed
+payload, and gave the right values for two cases by chance. This version is the
+decoded rule.
 
 A frame on the wire:
 
@@ -22,8 +22,8 @@ A frame on the wire:
         multiple of 512 bytes
 
 Nibble expansion keeps every payload byte below 0x80, so the payload can never
-look like a MIDI status byte. The payload length is not written anywhere; a
-reader derives it from the frame size.
+look like a MIDI status byte. The frame holds no payload length. A reader
+derives it from the frame size.
 
 A payload, once unpacked, is little-endian throughout:
 
@@ -33,19 +33,19 @@ A payload, once unpacked, is little-endian throughout:
     8..15   transaction id, mirrored unchanged into the reply
     16..    the command's own fields
 
-`deq_commands.json` lists every command's fields for both directions. It is
-generated from the field enums in the APK, so it covers commands this app has
-never seen on the wire.
+`deq_commands.json` lists every command's fields for both directions. A
+generator builds it from the field enums in the APK. So it covers commands that
+this app never saw on the wire.
 
 Two traps in that table:
 
-- A declared field width is a floor, not the truth. Command 0x05 says its
-  CONFIGURATION is 16 bytes; a real equalizer write carries 2080. Read a
-  configuration as "the rest of the payload".
-- The pad rule above can never fire with the 7-byte header this unit uses,
-  because a frame is then always an odd number of bytes. The codec keeps the
-  rule because the header comes from a config object that another unit could
-  set differently.
+- A declared field width is a floor, and not the truth. Command 0x05 says
+  its CONFIGURATION is 16 bytes. A real equalizer write carries 2080.
+  Read a configuration as "the rest of the payload".
+- The pad rule above can never fire with the 7-byte header this unit
+  uses. A frame is then always an odd number of bytes. The codec keeps the
+  rule, because the header comes from a config object that another unit
+  could set differently.
 """
 
 from __future__ import annotations
@@ -137,8 +137,9 @@ class Message:
     command_id: int
     transaction_id: bytes
     body: bytes = b""
-    # The length the payload claimed. It should equal the real one; a frame
-    # that disagrees is kept as-is so a caller can see the disagreement.
+    # The length that the payload claimed. It should equal the real one. This
+    # function keeps a frame that disagrees as it is, so a caller can see the
+    # disagreement.
     declared_length: int | None = field(default=None, compare=False)
 
     @property
@@ -176,11 +177,11 @@ def encode_message(message: Message) -> bytes:
 def decode_message(payload: bytes) -> Message:
     """Returns the message one payload carries.
 
-    A notification is shorter than a reply and has no transaction id, so
-    the body offset depends on the direction. Reading every frame at the
-    reply's offset is what made a real unit look silent: it pushed a
-    volume notification per knob step on 2026-10-08, and each one was
-    rejected as "shorter than its header".
+    A notification is shorter than a reply and has no transaction id. So the
+    body offset depends on the direction. An earlier version read every frame
+    at the reply's offset, and a real unit then looked silent. On 2026-10-08 it
+    pushed a volume notification per knob step. The reader rejected each one as
+    "shorter than its header".
     """
     direction = read_direction(payload)
     body_offset = (
@@ -312,8 +313,9 @@ def read_field(payload: bytes, command_field: CommandField) -> int:
 # answers only the 0x00 and then nothing is refusing the open: see SYNC_BODY
 # below for the body that 0x00 must carry.
 #
-# `b/e/ai.k()` returns 0x2710, which is 10000, as the only TIMEOUT_INTERVAL
-# the app ever sends. The value is hardcoded, so there is nothing to choose.
+# `b/e/ai.k()` returns 0x2710, which is 10000, as the only TIMEOUT_INTERVAL the
+# app ever sends. The APK holds this value as a constant, so the backend has
+# nothing to choose.
 TIMEOUT_INTERVAL_MILLISECONDS = 10000
 
 # `b/e.d()` calls `c(I)` with v5, which `const/4 v5, 0x0` sets at the top of
@@ -355,13 +357,12 @@ def build_get_opal_configuration_body(config_id: int = INITIAL_CONFIG_ID) -> byt
 #   bytes 16..19  a boolean, false, which `b/g/a.b(Z)` writes as four zeros
 #   bytes 20..23  a zero int
 #
-# 0x00 is not the special-cased command an earlier reading of the APK took
-# it for: `b/e/q` is a different request that the cold start never sends.
-# The app's 0x00 is `b/e/b` and goes through the normal packer.
+# An earlier reading of the APK took 0x00 for a special-cased command. It is
+# not one. `b/e/q` is a different request that the cold start never sends. The
+# app's 0x00 is `b/e/b` and goes through the normal packer.
 #
-# Confirmed twice over: the literal above decodes to these bytes, and five
-# emulator cold starts between 2026-10-01 and 2026-10-08 put exactly them on
-# the wire.
+# Two checks agree. The literal above decodes to these bytes. Five emulator
+# cold starts between 2026-10-01 and 2026-10-08 put the same bytes on the wire.
 #
 # A real unit accepted these bytes on 2026-10-08 and then answered every
 # command of the cold start with STATUS 0.

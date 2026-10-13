@@ -1,43 +1,42 @@
 #!/usr/bin/env python3
 """Checks this app against a real DEQ unit.
 
-Everything in this project was built from the Pioneer app and from captured
-traffic, with a fake unit standing in for the hardware. No real unit has
-answered it yet. This script is what closes that gap: plug a DEQ in, run it,
-and read what matched.
+This project came from the Pioneer app and from captured traffic, with a fake
+unit in place of the hardware. Before this script, no real unit answered it.
+This script closes that gap: plug a DEQ in, run the script, and read what
+matched.
 
     cd backend
     PYTHONPATH=. uv run python scripts/check_real_deq.py
 
-It only reads, by default. Every step that writes to the unit is off unless
-you ask for it:
+By default it only reads. Every step that writes to the unit is off unless you
+ask for it:
 
     PYTHONPATH=. uv run python scripts/check_real_deq.py --write
 
-This uses `DEQ_TRANSPORT`, same as the app itself (`deq_device.py`). Run it
-on the Pi, where the gadget holds the link:
+This script uses `DEQ_TRANSPORT`, the same as the app itself (`deq_device.py`).
+Run it on the Pi, where the gadget holds the link:
 
     DEQ_TRANSPORT=accessory PYTHONPATH=. uv run python scripts/check_real_deq.py
 
-`accessory` is the default transport for this script specifically (unlike
-the app, whose default is `fake`) — checking a real unit is the one reason
-to run it, and the Pi is what reaches one. `DEQ_TRANSPORT=fake` is rejected
-here, since a check against the fake tells nothing about a real unit, which
-is this script's only job.
+`accessory` is the default transport for this script (the app's default is
+`fake`). A check of a real unit is the one reason to run the script, and the Pi
+reaches one. The script rejects `DEQ_TRANSPORT=fake`. A check against the fake
+tells nothing about a real unit, and the script has no other job.
 
 `DEQ_TRANSPORT=usb` is the other real option, for a machine that can present
-the device side of a USB link. It needs the `usb` extra
-(`uv sync --extra usb`), and on Linux a plain user cannot usually open a USB
-device directly: either run it with `sudo -E env PYTHONPATH=. ...`, or
-install `scripts/99-pioneer-deq.rules` as a udev rule (install steps in its
-own comment). The `accessory` transport needs neither, because it opens a
-Unix socket and not the device.
+the device side of a USB link. It needs the `usb` extra (`uv sync --extra
+usb`). On Linux a plain user usually cannot open a USB device. Either run the
+script with `sudo -E env PYTHONPATH=. ...`, or install
+`scripts/99-pioneer-deq.rules` as a udev rule (install steps in its own
+comment). The `accessory` transport needs neither, because it opens a Unix
+socket and not the device.
 
-What it prints is a list of checks, each `ok`, `differs` or `failed`, and a
-count at the end. A `differs` line is the interesting one: it means the unit
-answered, but not the way the captures and the APK said it would. Record any
-of those in `USB_CAPTURE_NOTES.md` in the outer repo, because the app is the
-authority and this code is what is under test.
+The script prints a list of checks, each `ok`, `differs` or `failed`, and a
+count at the end. A `differs` line is the interesting one. It means the unit
+answered, but not the way the captures and the APK said it would. Record each
+of those in `USB_CAPTURE_NOTES.md` in the outer repo. The app is the authority,
+and this code is the thing under test.
 """
 
 from __future__ import annotations
@@ -69,7 +68,7 @@ EXPECTED_BLOB_BYTES = 572
 class Report:
     """Collects what matched and what did not.
 
-    It records one line per check; you call `ok`, `differs` or `failed`; it
+    It records one line per check, and you call `ok`, `differs` or `failed`. It
     depends on nothing but a print.
     """
 
@@ -161,16 +160,15 @@ def check_configuration(
 ) -> None:
     """Reads the settings blob and checks it round-trips.
 
-    This is the strongest read-only check there is. The blob is the unit's
-    whole semantic state, and `deq_blob` was written from the app's own
-    reader, so a byte-exact round trip means that reader is right.
+    No read-only check is stronger than this one. The blob is the unit's whole
+    semantic state. `deq_blob` follows the app's own reader, so a byte-exact
+    round trip means that reader is right.
 
-    There is no cross-check of the speaker mode against `0x04`'s reply any
-    more. The APK declares a SPEAKER_MODE field there at payload offset 36,
-    and a real unit answered `0x04` with 24 payload bytes on 2026-10-08 --
-    the field is past the end of the reply. This check reported `0` against
-    the blob's `3` for exactly that reason. The blob is the only place the
-    speaker mode is actually readable.
+    This check no longer compares the speaker mode with the reply of `0x04`.
+    The APK declares a SPEAKER_MODE field there at payload offset 36. A real
+    unit answered `0x04` with 24 payload bytes on 2026-10-08. So the field lies
+    past the end of the reply. For that reason this check reported `0` against
+    the blob's `3`. Only the blob holds a readable speaker mode.
     """
     print("\nReading the settings blob")
     try:
@@ -191,9 +189,9 @@ def check_configuration(
     report.ok("equalizer bands", str(configuration.band_count))
     report.ok("bank in use", str(configuration.bank_in_use))
 
-    # Three fields the APK's writer explained; this is the first chance to
-    # check any of them against a real unit. See USB_CAPTURE_NOTES.md in
-    # the outer repo for the trace.
+    # The APK's writer explained three fields. This check is the first chance
+    # to compare any of them with a real unit. See USB_CAPTURE_NOTES.md in the
+    # outer repo for the trace.
     if configuration.always_false_flag != 0:
         report.differs(
             "always_false_flag",
@@ -232,8 +230,8 @@ def check_keepalive(report: Report, session: DeqSession) -> None:
 def check_write_back(report: Report, session: DeqSession) -> None:
     """Writes the unit's own settings back to it, unchanged.
 
-    This is the gentlest write there is: the blob that comes back is the one
-    that went in, so a unit that accepts it is left exactly as it was.
+    No write is gentler than this one. The blob that comes back is the one that
+    went in. So a unit that accepts it stays as it was.
     """
     print("\nWriting the blob back, unchanged")
     try:

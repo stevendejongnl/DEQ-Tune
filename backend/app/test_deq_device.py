@@ -1,6 +1,6 @@
-"""Checks transport selection, the one part of deq_device.py that does not
-need a running device to test: which transport a name picks, and what an
-unknown or incomplete one reports.
+"""Checks transport selection. That part of deq_device.py needs no running
+device to test: which transport a name picks, and what an unknown or incomplete
+one reports.
 """
 
 from __future__ import annotations
@@ -39,21 +39,19 @@ def test_an_unknown_name_is_an_error():
 
 
 def test_accessory_without_the_gadget_running_says_what_to_check():
-    """The gadget's socket exists only while a DEQ session runs, so this
-    is what a developer asking for the real transport on a laptop gets.
-    Reaching the socket is `AccessoryTransport`'s own job, so its failure
-    comes back as the transport's own error, not wrapped in
-    `DeviceUnavailable` -- `DeqDevice.connect()` is what catches
-    `TransportError` and turns it into a reported problem;
-    `build_transport` itself does not."""
+    """The gadget's socket exists only while a DEQ session runs. So a developer
+    who asks for the real transport on a laptop gets this result.
+    `AccessoryTransport` itself reaches the socket. So its failure comes back
+    as the transport's own error, and not wrapped in `DeviceUnavailable`.
+    `DeqDevice.connect()` catches `TransportError` and turns it into a reported
+    problem. `build_transport` itself does not."""
     with pytest.raises(AccessoryUnavailable, match="could not reach the gadget"):
         build_transport(ACCESSORY_TRANSPORT_NAME)
 
 
 def test_usb_with_no_pyusb_installed_says_so():
-    """`usb` is an optional extra; CI never installs it, so this is the
-    path CI actually exercises. `UsbUnavailable` is the transport's own
-    error, not `DeviceUnavailable`."""
+    """`usb` is an optional extra. CI never installs it, so CI runs this path.
+    `UsbUnavailable` is the transport's own error, not `DeviceUnavailable`."""
     try:
         import usb.core  # noqa: F401
 
@@ -67,9 +65,9 @@ def test_usb_with_no_pyusb_installed_says_so():
 class RecordingWait:
     """Answers the keeper's waits, and stops it after a set number.
 
-    It counts the waits and returns False on the last one; `LinkKeeper`
-    calls it in place of sleeping; it depends on nothing. Without this a
-    test of a retry loop would have to sleep in real time.
+    It counts the waits and returns False on the last one. `LinkKeeper` calls
+    it in place of a sleep. It depends on nothing. Without this a test of a
+    retry loop would have to sleep in real time.
     """
 
     def __init__(self, allowed_waits: int) -> None:
@@ -84,7 +82,7 @@ class RecordingWait:
 class CountingDevice:
     """A device that records connect calls and reports a chosen state.
 
-    It stands in for `DeqDevice`; `LinkKeeper` drives it; it depends on
+    It stands in for `DeqDevice`, and `LinkKeeper` drives it. It depends on
     nothing. `connect_results` gives one state per call, so a test can say
     "fail, fail, then succeed".
     """
@@ -228,7 +226,7 @@ def test_the_keeper_waits_the_interval_it_was_given():
 
 
 def test_the_keeper_connects_a_real_device_to_the_fake_unit():
-    """End to end against `FakeDeq`, so the loop is proved against the
+    """End to end against `FakeDeq`, so the test proves the loop against the
     real `DeqDevice` and not only against a stand-in."""
     unit = DeqDevice(build_transport_function=FakeDeq)
     wait = RecordingWait(allowed_waits=1)
@@ -241,7 +239,7 @@ def test_the_keeper_connects_a_real_device_to_the_fake_unit():
 
 
 def test_start_and_stop_run_the_loop_in_a_thread():
-    """`start` must actually connect, and `stop` must end the thread."""
+    """`start` must connect, and `stop` must end the thread."""
     unit = DeqDevice(build_transport_function=FakeDeq)
     keeper = LinkKeeper(unit, retry_seconds=0.01)
 
@@ -289,13 +287,13 @@ def test_a_link_that_comes_up_forgets_the_old_reason():
 class SingleLinkFakeDeq(FakeDeq):
     """A fake unit that allows one open link at a time, like the Pi's relay.
 
-    The gadget relays for a single backend, because two writers on one DEQ
-    link interleave frames. So a second transport is refused while the
-    first is open; you build these through `open_link`; it depends on the
-    counter that tracks how many are open.
+    The gadget relays for a single backend, because two writers on one DEQ link
+    interleave frames. So it refuses a second transport while the first is
+    open. You build these through `open_link`. It depends on the counter that
+    tracks how many are open.
 
-    `FakeDeq` alone cannot catch a second open, since it allows any number.
-    This is the seam that makes the refusal visible to a test.
+    `FakeDeq` alone cannot catch a second open, because it allows any number.
+    This seam makes the refusal visible to a test.
     """
 
     def __init__(self, open_links: list) -> None:
@@ -339,9 +337,9 @@ def test_connecting_twice_releases_the_first_link_instead_of_being_refused():
 class FailsOnKeepalive(FakeDeq):
     """Answers the connect sequence, then refuses the next keepalive.
 
-    This is a unit that went away mid-session -- the car switched off, or
-    the cable moved. You connect, then the first keepalive fails; it
-    depends on nothing beyond `FakeDeq`.
+    It plays a unit that went away mid-session: the car switched off, or the
+    cable moved. You connect, then the first keepalive fails. It depends on
+    nothing beyond `FakeDeq`.
     """
 
     def __init__(self) -> None:

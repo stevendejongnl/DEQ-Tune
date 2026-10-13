@@ -47,7 +47,7 @@ dev-frontend:
 # Fills the frontend's dependency cache without starting a server. The
 # ttsc transform writes imports of typia's deep internals, so without this
 # Vite discovers them on the first page load, re-optimizes and reloads.
-# `make install` runs it; run it again after a typia or vite change.
+# `make install` runs it. Run it again after a typia or vite change.
 warm:
 	cd frontend && npm run warm
 

@@ -7,7 +7,7 @@ function sampleSpeaker(): Speaker {
   return { isPositivePhase: true, levelDB: 0, timeAlignmentCm: 0, levelDBExtended: 0 };
 }
 
-/** A minimal but schema-valid TuningDataDto — all bands flat, all speakers neutral. */
+/** A minimal but schema-valid TuningDataDto: all bands flat, all speakers neutral. */
 export function sampleTuningData(): TuningDataDto {
   return {
     foundationEq: {

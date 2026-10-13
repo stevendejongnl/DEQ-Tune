@@ -18,9 +18,9 @@ leave the rest.
 
 ## What you can translate
 
-One file per language, under `frontend/src/i18n/locales/`. That is the whole
+One file per language, under `frontend/src/i18n/locales/`. Those files hold the whole
 app: buttons, labels, hints, and messages. English (`en.json`) is the source
-text; Weblate shows it beside every string.
+text. Weblate shows it beside every string.
 
 ## What you must not translate
 
@@ -33,24 +33,24 @@ Three groups of names come from Pioneer's own Android app, not from us:
 They live in `frontend/src/i18n/dsp-presets.ts` and
 `frontend/src/i18n/preset-names.ts`, and Weblate cannot reach them. This is on
 purpose. The user reads these same names on the DEQ unit's own screen, so the
-app must print what the unit prints — even where Pioneer's text is odd, cut
-short, or still English. If one looks wrong, open an issue; do not work around
+app must print what the unit prints. That holds even where Pioneer's text is odd, cut
+short, or still English. If one looks wrong, open an issue. Do not work around
 it in a string you can edit.
 
 ## Rules for a good translation
 
-**Keep a placeholder exactly as it is.** `{count}` is replaced with a number
-while the app runs. Translate the words around it, never the placeholder.
+**Keep a placeholder as it is.** The app puts a number in place of `{count}`
+while it runs. Translate the words around it, never the placeholder.
 
 - English: `Edited · {count} bands`
 - Dutch: `Bewerkt · {count} banden`
-- Wrong: `Bewerkt · {aantal} banden` — the user then reads `{aantal}`.
+- Wrong: `Bewerkt · {aantal} banden`. The user then reads `{aantal}`.
 
 A test refuses a pull request that loses a placeholder, so Weblate will not let
 this one through.
 
-**Keep the short strings short.** These sit in a header, a tab, or a badge, and
-long text is cut off: `connectShort`, `revertShort`, `saveShort`,
+**Keep the short strings short.** These sit in a header, a tab, or a badge. The
+app cuts long text off: `connectShort`, `revertShort`, `saveShort`,
 `speakerPioneerShort`, `speakerStockShort`, `tabEq`, `tabStyle`.
 
 **Keep these words as they are:** DEQ, EQ, Pioneer, Carrozzeria, Mazda.
@@ -60,8 +60,8 @@ words, no jargon that a hi-fi shop would use.
 
 ## Asking for a new language
 
-Open an issue and name the language. Weblate can start the file, but the app
-needs three small code edits before it offers the language in its picker, so a
+Open an issue and name the language. Weblate can start the file. But the app
+needs three small code edits before it offers the language in its picker. A
 maintainer has to do that part.
 
 ## For maintainers
@@ -79,6 +79,6 @@ cleanup addon prunes it from the translations.
 Never merge one without reading it.
 
 **From the command line.** The `.weblate` file at the repo root points `wlc` at
-the project, so `wlc pull`, `wlc commit`, and `wlc push` work from here. Put
+the project. So `wlc pull`, `wlc commit`, and `wlc push` work from here. Put
 your API key in `~/.config/weblate` or the `WLC_KEY` environment variable, never
 in the repo.

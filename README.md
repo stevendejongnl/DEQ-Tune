@@ -2,7 +2,7 @@
 
 A web app for the equalizer and sound-profile part of Pioneer's Sound & Tune app.
 
-This app edits DEQ tuning profiles: the 13-band graphic EQ, per-speaker level and time alignment, the high-pass filter, and fader/balance. It ships with the factory Mazda presets, extracted from the official Android app, and the device's built-in EQ-style and Live-Simulation DSP presets (Powerful, Super Bass, Concert hall, ...). The UI works in English, Japanese, German, French, Spanish, and Dutch, auto-detected from the browser. The profile list is a permanent sidebar on a desktop screen, a drawer on a tablet, and a bottom sheet on a phone. You can edit a factory preset directly, then revert it or save it as your own profile. It's also a PWA — installable, with an offline app shell. The backend speaks the DEQ's USB protocol and drives the unit over a Raspberry Pi that answers the DEQ's accessory handshake and relays frames (see [Status](#status)).
+This app edits DEQ tuning profiles: the 13-band graphic EQ, per-speaker level and time alignment, the high-pass filter, and fader/balance. It ships with the factory Mazda presets from the official Android app. It also ships the device's built-in EQ-style and Live-Simulation DSP presets (Powerful, Super Bass, Concert hall, ...). The UI works in English, Japanese, German, French, Spanish, and Dutch. The app picks the language from the browser. The profile list is a permanent sidebar on a desktop screen, a drawer on a tablet, and a bottom sheet on a phone. You can edit a factory preset, then revert it or save it as your own profile. The app is also a PWA: you can install it, and it keeps an offline app shell. The backend speaks the DEQ's USB protocol and drives the unit through a Raspberry Pi. The Pi answers the DEQ's accessory handshake and relays frames (see [Status](#status)).
 
 ## Project layout
 
@@ -21,16 +21,16 @@ Makefile       Shortcuts for install/dev/test/generate-dto/clean. Run `make help
 
 ## Setup
 
-You need Python 3.13+ with [`uv`](https://docs.astral.sh/uv/), Node.js 22+, and a Go toolchain (`go` on your `PATH`) — the frontend's `typia` transform compiles a small native plugin on first install.
+You need Python 3.13+ with [`uv`](https://docs.astral.sh/uv/), Node.js 22+, and a Go toolchain (`go` on your `PATH`). The frontend's `typia` transform compiles a small native plugin on first install.
 
 ```bash
 cd backend && uv sync
 cd ../frontend && npm install
 ```
 
-`npm install` also runs a one-time native build for the frontend's DTO-validation toolchain. On a fresh install this takes one to three minutes; let it finish.
+`npm install` also runs a one-time native build for the frontend's DTO-validation toolchain. On a fresh install this build takes one to three minutes. Let it finish.
 
-`make install` then runs `make warm`, which fills the frontend's dependency cache. Without it the first page load stalls: the `ttsc` transform writes imports of `typia`'s deep internals, so Vite cannot see them when it first scans, and it discovers them mid-load, re-optimizes and reloads. Warming takes about a second and makes `make dev` start in well under a second. Run `make warm` again after a `typia` or `vite` version change.
+`make install` then runs `make warm`, which fills the frontend's dependency cache. Without it the first page load stalls. The `ttsc` transform writes imports of `typia`'s deep internals, so Vite cannot see them when it first scans. Vite then discovers them mid-load, re-optimizes and reloads. Warming takes about a second and makes `make dev` start in well under a second. Run `make warm` again after a `typia` or `vite` version change.
 
 ## Makefile
 
@@ -93,15 +93,15 @@ Playwright never pick up each other's files.
 ## Translating
 
 The app's text lives in `frontend/src/i18n/locales/`, one JSON file per
-language. `en.json` is the source text and changes with the code. The other
-five are translated by the community at
+language. `en.json` is the source text and changes with the code. The community
+translates the other five at
 <https://hosted.weblate.org/projects/deq-tune/>, which opens a pull request on this repository for every batch of
 changes.
 
 A string nobody translated yet reads English, so a part-done language still
 works. [TRANSLATING.md](TRANSLATING.md) explains how to help, and which names
-are deliberately **not** translatable: the EQ-style, Live-Simulation, car model,
-and speaker-type names are copied from Pioneer's own app so the web UI matches
+are deliberately **not** translatable. The EQ-style, Live-Simulation, car model,
+and speaker-type names come from Pioneer's own app, so the web UI matches
 what the DEQ unit shows.
 
 
@@ -114,16 +114,16 @@ cd backend && PYTHONPATH=. uv run python scripts/export_openapi.py
 cd ../frontend && npm run generate:dto
 ```
 
-Commit the updated `openapi.json` and `frontend/src/dto/generated/openapi.d.ts` together with the schema change. The frontend's API client validates every request and response against these generated types at runtime (`typia.assert`), so a mismatch fails loudly instead of silently.
+Commit the updated `openapi.json` and `frontend/src/dto/generated/openapi.d.ts` together with the schema change. The frontend's API client checks every request and response against these generated types at runtime (`typia.assert`), so a mismatch fails loudly instead of silently.
 
 ## Licence
 
 [GNU AGPL-3.0](LICENSE).
 
 **Scope.** The licence covers this project's own code. It does not cover the
-material taken from Pioneer's Android app: the bundled preset files in
-`data/presets/`, and the car model, speaker type, EQ-style and Live-Simulation
-names transcribed in `backend/app/preset_translations.py`,
+material taken from Pioneer's Android app. That material is the bundled preset
+files in `data/presets/`. It is also the car model, speaker type, EQ-style and
+Live-Simulation names transcribed in `backend/app/preset_translations.py`,
 `frontend/src/i18n/preset-names.ts`, and `frontend/src/i18n/dsp-presets.ts`.
 Those stay Pioneer's, and they are here so this app can talk to the same device
 and show the same names on screen. This project is not made by, or connected
@@ -131,26 +131,26 @@ to, Pioneer.
 
 ## Status
 
-- **Profile editing** — works. Factory Mazda presets plus your own custom profiles, backed by the FastAPI backend.
-- **Localization** — works. English, Japanese, German, French, Spanish, and Dutch, auto-detected from the browser on first visit and remembered after. The UI text lives in `frontend/src/i18n/locales/`, one JSON file per language, translated by the community in Weblate (see [TRANSLATING.md](TRANSLATING.md)). Preset and DSP-preset names are copied from the APK's own string resources per locale (`backend/app/preset_translations.py`, `frontend/src/i18n/preset-names.ts`, `frontend/src/i18n/dsp-presets.ts`) — the bundled preset JSON itself only carries Japanese display text. Note: Pioneer never localized the car/speaker-type names for German/French/Spanish/Dutch, so those show the same English text there; the EQ-style and Live-Simulation DSP preset names are genuinely translated in all six locales.
-- **EQ Style / Live Simulation** — works, against a connected unit. These are the DEQ hardware's own built-in DSP presets (Powerful, Super Bass, Concert hall, ...), which the unit runs itself. Neither has a command of its own: both live in the settings blob, as a bank's preset index and `sound_field`, so selecting one reads the blob, changes that byte and writes it back. The lists come from the Pioneer app's own enums, read out of the APK by `tools/build_enums.py` into `backend/app/deq_enums.json`. The enums hold 21 EQ styles and 8 live-simulation modes; the app offers fewer, and leaves out two kinds of value the real app never shows. `UNKNOWN` is what a decoder returns for a wire value it does not recognise, not a setting, so `/api/device/options` returns the 20 and 7 that remain. Five more have no label in the APK's own resources — the app ships 16 `eq_preset_*` strings and 5 live-simulation strings — and the Pioneer app drops an entry whose label lookup fails, so the picker shows 17 styles (the 16 plus Custom) and 5 modes.
+- **Profile editing**: works. Factory Mazda presets plus your own custom profiles, backed by the FastAPI backend.
+- **Localization**: works. English, Japanese, German, French, Spanish, and Dutch. The app picks the language from the browser on the first visit and remembers it after. The UI text lives in `frontend/src/i18n/locales/`, one JSON file per language. The community translates it in Weblate (see [TRANSLATING.md](TRANSLATING.md)). The preset and DSP-preset names come from the APK's own string resources per locale (`backend/app/preset_translations.py`, `frontend/src/i18n/preset-names.ts`, `frontend/src/i18n/dsp-presets.ts`). The bundled preset JSON itself only carries Japanese text. Note: Pioneer never localized the car/speaker-type names for German/French/Spanish/Dutch, so those locales show the English text. Pioneer translated the EQ-style and Live-Simulation DSP preset names in all six locales.
+- **EQ Style / Live Simulation**: works, against a connected unit. These presets are the DEQ hardware's own built-in DSP presets (Powerful, Super Bass, Concert hall, ...), and the unit runs them itself. Neither has a command of its own. Both live in the settings blob, as a bank's preset index and `sound_field`. A selection reads the blob, changes that byte and writes the blob back. The lists come from the Pioneer app's own enums. `tools/build_enums.py` reads them out of the APK into `backend/app/deq_enums.json`. The enums hold 21 EQ styles and 8 live-simulation modes. The app offers fewer, and leaves out two kinds of value that the real app never shows. A decoder returns `UNKNOWN` for a wire value it does not recognise. `UNKNOWN` is no setting, so `/api/device/options` returns the 20 and 7 that remain. Five more have no label in the APK's own resources. The APK ships 16 `eq_preset_*` strings and 5 live-simulation strings. The Pioneer app drops an entry whose label lookup fails, so the picker shows 17 styles (the 16 plus Custom) and 5 modes.
 
-  The unit keeps two equalizer banks, which the Pioneer app offers as "Custom A" and "Custom B" because it has nowhere else to keep a curve. This app has named profiles instead, so there is one "Custom" entry, and the bank is only where a profile lands: a style write goes to whichever bank `bank_in_use` names.
-- **Browsers** — all of them. The backend owns the USB link, so the frontend needs no WebUSB and the app has no browser requirement. It once blocked Safari, Firefox and iOS for a capability it no longer uses.
-- **DSP coefficients** — works. `backend/app/deq_dsp.py` computes the numbers the DEQ expects: the 13-band equalizer, the crossover filters, and the time alignment. The DEQ designs no filters of its own; the Android app sends finished coefficients, so this app has to produce the same ones. The maths is checked against coefficients captured from the Android app's own designer library (`backend/app/deq_dsp_reference.json`, 253 cases) and matches to within one Q27 step. The equalizer needs one step beyond filter design: the library spreads every band's gain over the other bands before it designs a biquad, so two raised bands are not two independent peakers. `fit_equalizer_gains` reproduces that step from the library's own constant tables. `conformance/flows.json` then checks whole payloads, byte for byte, against what the Android app produces (`backend/app/test_conformance.py`).
-- **Driving the unit** — works, apart from the wire. `backend/app/deq_session.py` runs the unit's own startup sequence, matches every reply to its request, and sends a profile's DSP settings as the three blocks of command `0x05` the unit wants: the equalizer under CONFIG_ID 13, the time alignment under 10, and the crossover under 11 or 12. Each of those CONFIG_IDs comes from the APK's own dispatch table, and each payload size matches the field width that table declares. `backend/app/deq_protocol.py` reads and writes the wire format, and `backend/app/deq_commands.json` lists every command's fields in both directions, generated from the Android app's field enums. `backend/app/deq_blob.py` reads and writes the settings blob — speaker mode, both equalizer banks, crossovers, per-speaker values.
+  The unit keeps two equalizer banks. The Pioneer app offers them as "Custom A" and "Custom B", because it has nowhere else to keep a curve. This app keeps named profiles instead, so it shows one "Custom" entry. The bank is only where a profile lands: a style write goes to the bank that `bank_in_use` names.
+- **Browsers**: all of them. The backend owns the USB link, so the frontend needs no WebUSB and the app has no browser requirement. It once blocked Safari, Firefox and iOS for a capability it no longer uses.
+- **DSP coefficients**: works. `backend/app/deq_dsp.py` computes the numbers the DEQ expects: the 13-band equalizer, the crossover filters, and the time alignment. The DEQ designs no filters of its own. The Android app sends finished coefficients, so this app has to produce the same ones. The tests check the maths against coefficients captured from the Android app's own designer library (`backend/app/deq_dsp_reference.json`, 253 cases). The maths matches to within one Q27 step. The equalizer needs one step beyond filter design. The library spreads every band's gain over the other bands before it designs a biquad. So two raised bands are not two independent peakers. `fit_equalizer_gains` reproduces that step from the library's own constant tables. `conformance/flows.json` then checks whole payloads, byte for byte, against what the Android app produces (`backend/app/test_conformance.py`).
+- **Driving the unit**: works, apart from the wire. `backend/app/deq_session.py` runs the unit's own startup sequence and matches every reply to its request. It sends a profile's DSP settings as the three blocks of command `0x05` that the unit wants. The equalizer goes under CONFIG_ID 13, the time alignment under 10, and the crossover under 11 or 12. Each of those CONFIG_IDs comes from the APK's own dispatch table. Each payload size matches the field width that table declares. `backend/app/deq_protocol.py` reads and writes the wire format. `backend/app/deq_commands.json` lists every command's fields in both directions, generated from the Android app's field enums. `backend/app/deq_blob.py` reads and writes the settings blob: speaker mode, both equalizer banks, crossovers, per-speaker values.
 
-  A profile carries only a front and a rear high-pass filter, which are the first two of the unit's five crossover slots. The rest belong to the person, who sets them on the unit itself, so a push reads the unit's stored crossover and keeps those slots rather than sending Pass over them. Sending Pass would write identity biquads into the audio path while the blob still named a frequency and a slope, and the unit would disagree with itself.
+  A profile carries only a front and a rear high-pass filter. Those two are the first of the unit's five crossover slots. The person sets the rest on the unit itself. So a push reads the unit's stored crossover and keeps those slots, and does not send Pass over them. Pass would write identity biquads into the audio path while the blob still named a frequency and a slope. The unit would then disagree with itself.
 
   The frontend asks for all of this over `/api/device`, so the browser never touches USB.
 
-  `/api/bridge` reports the machine the backend runs on, which is not the DEQ. A Pi that browns out drops its USB link and its Wi-Fi at once, so without this the app shows only the symptom and a person debugs the wrong thing. It reads the Pi's undervoltage flags through `vcgencmd`, and answers `null` on any machine that has none, so a laptop and CI are not special cases.
+  `/api/bridge` reports the machine the backend runs on, which is not the DEQ. A Pi that browns out drops its USB link and its Wi-Fi at once. Without this report the app shows only the symptom, and a person debugs the wrong thing. The endpoint reads the Pi's undervoltage flags through `vcgencmd`. It answers `null` on any machine that has none, so a laptop and CI are not special cases.
 
-  A fault there is recorded as a **notice that stays until the bridge restarts** (`backend/app/bridge_notices.py`). A dip lasting a second is gone from every live reading by the time anyone looks, and it still explains the link that dropped, so clearing it when the condition passes would hide the only evidence. Restarting the bridge clears them, which matches the hardware's own sticky undervoltage bit.
+  The backend records a fault there as a **notice that stays until the bridge restarts** (`backend/app/bridge_notices.py`). A dip that lasts a second is gone from every live reading by the time anyone looks. It still explains the link that dropped. A clear when the condition passes would hide the only evidence. Restarting the bridge clears them, which matches the hardware's own sticky undervoltage bit.
 
-  The backend connects by itself. `LinkKeeper` in `backend/app/deq_device.py` runs in its own thread, started with the app, and calls `connect()` until the link is up and again whenever it drops. So the frontend has no connect button: it reads `/api/device` and reports what it finds. A thread and not an asyncio task, because a transport read blocks for its whole timeout and would otherwise stall every request being served at the time. One lock guards the link, since the keeper's thread and the request handlers both reach it and the protocol is one request and then its reply over a single transport.
+  The backend connects by itself. `LinkKeeper` in `backend/app/deq_device.py` runs in its own thread, which starts with the app. It calls `connect()` until the link is up, and again whenever the link drops. So the frontend has no connect button: it reads `/api/device` and reports what it finds. The keeper is a thread and not an asyncio task. A transport read blocks for its whole timeout, and in an asyncio task it would stall every request in progress. One lock guards the link, because the keeper's thread and the request handlers both reach it. The protocol is one request and then its reply, over a single transport.
 
-  Four transports sit behind `backend/app/deq_transport.py`, which also holds the piece they share: `FrameJoiner` cuts whole frames out of whatever a link hands back, because every link carries the same frames and only the read differs — a bulk USB read returns one 512-byte packet, a socket read returns whatever has arrived. It imports nothing optional, so `app/test_deq_transport.py` tests the framing, the 512-byte pad rule included, with no USB stack installed. `DEQ_TRANSPORT=fake` is the default and talks to `backend/app/testing/fake_deq.py`, which answers by the rules measured from 217 request-and-reply pairs of real DEQ-S1000A2 traffic; `app/testing/test_fake_deq.py` checks that it reproduces a captured reply byte for byte, so it stands in for the unit rather than for our own guesses. `DEQ_TRANSPORT=usb` talks to a real unit over bulk transfers through `backend/app/usb_transport.py`, which needs the `usb` extra:
+  Four transports sit behind `backend/app/deq_transport.py`. That file also holds the piece they share. `FrameJoiner` cuts whole frames out of the bytes a link hands back. Every link carries the same frames, and only the read differs. A bulk USB read returns one 512-byte packet. A socket read returns the bytes that arrived. `FrameJoiner` imports nothing optional, so `app/test_deq_transport.py` tests the framing with no USB stack installed, the 512-byte pad rule included. `DEQ_TRANSPORT=fake` is the default. It talks to `backend/app/testing/fake_deq.py`, which answers by the rules measured from 217 request-and-reply pairs of real DEQ-S1000A2 traffic. `app/testing/test_fake_deq.py` checks that the fake reproduces a captured reply byte for byte. So the fake stands in for the unit and not for our own guesses. `DEQ_TRANSPORT=usb` talks to a real unit over bulk transfers through `backend/app/usb_transport.py`, which needs the `usb` extra:
 
 ```bash
 cd backend && uv sync --extra usb
@@ -164,24 +164,24 @@ cd backend
 PYTHONPATH=. DEQ_TRANSPORT=accessory uv run uvicorn app.main:app --port 8420
 ```
 
-  `DEQ_TRANSPORT=simulator` is the fake unit with knobs on, for working on the frontend without hardware. It is `FakeDeq` plus a state file, so every protocol rule stays pinned to real captures and only the reported state varies. `backend/scripts/deq_console.py` is a small curses console that writes that file; the simulator re-reads it before each reply, so a key press shows up in the next frame and nothing restarts. Run the two side by side:
+  `DEQ_TRANSPORT=simulator` is the fake unit with knobs on, for working on the frontend without hardware. It is `FakeDeq` plus a state file, so every protocol rule stays pinned to real captures and only the reported state varies. `backend/scripts/deq_console.py` is a small curses console that writes that file. The simulator reads the file again before each reply. So a key press shows up in the next frame, and nothing restarts. Run the two side by side:
 
 ```bash
 make dev-sim    # the whole stack against the simulated unit
 make console    # in a second terminal, to change what it reports
 ```
 
-  It moves the volume, mutes, sets the driving state, and turns on the faults a real unit can show: refusing the open with `STATUS -5` and then going quiet, failing one command, and reporting system error flags. Refuse the open and `/api/device` reports `connected: false` with the unit's own reason; clear it and the link comes back. `DEQ_SIMULATOR_STATE` names the file if the default `deq-simulator-state.json` is in the way.
+  The console moves the volume, mutes, and sets the driving state. It also turns on the faults a real unit can show. The unit can refuse the open with `STATUS -5` and then go quiet, fail one command, or report system error flags. Refuse the open and `/api/device` reports `connected: false` with the unit's own reason. Clear the fault and the link comes back. `DEQ_SIMULATOR_STATE` names the file if the default `deq-simulator-state.json` is in the way.
 
-  It knows nothing about the Pi and reaches no hardware. There is deliberately no "audio flowing" switch either: audio is a separate USB function and the DEQ never reports on it, so the switch would invent a protocol field that does not exist.
+  The simulator knows nothing about the Pi and reaches no hardware. It also has no "audio flowing" switch, on purpose. Audio is a separate USB function, and the DEQ never reports on it. So the switch would invent a protocol field that does not exist.
 
-  That transport exists because a laptop's own USB-C port is usually host-only hardware, and the DEQ is itself a USB host when connected over its own USB-A port: two hosts plugged together answer each other with silence, not an error. A Pi can present the device side, so it runs a gadget that answers the DEQ's Android Open Accessory handshake — the unit expects to talk to a tablet running Pioneer's own app, and the Pi takes that place.
+  The accessory transport exists because a laptop's own USB-C port is usually host-only hardware. The DEQ is itself a USB host when connected over its own USB-A port. Two hosts plugged together answer each other with silence, and give no error. A Pi can present the device side. So it runs a gadget that answers the DEQ's Android Open Accessory handshake. The unit expects to talk to a tablet that runs Pioneer's own app, and the Pi takes that place.
 
-  The gadget program owns the USB handle, not the backend. It answers the mode-switch request, re-enumerates the gadget, puts the accessory interface where the unit expects it, and feeds the audio function the unit demands before it will talk. None of that is the backend's work, and the handle cannot be shared: two writers on one link interleave frames. So the gadget keeps the handle and relays whole frames over a Unix socket, and `accessory_transport.py` is the other end of that socket. While the backend is attached the gadget sends nothing of its own — no cold start, no keepalive — because the backend's session carries both; when the backend detaches, the gadget takes the link back over so it does not drop. The SysEx framing and all command parsing stay in `deq_protocol.py`, unchanged. The gadget program itself is not in this repository.
+  The gadget program owns the USB handle. The backend does not. The gadget answers the mode-switch request and re-enumerates the gadget. It puts the accessory interface where the unit expects it. It feeds the audio function that the unit demands before it will talk. The backend does none of that work. Two programs also cannot share the handle, because two writers on one link interleave frames. So the gadget keeps the handle and relays whole frames over a Unix socket. `accessory_transport.py` is the other end of that socket. While the backend holds the socket, the gadget sends nothing of its own: no cold start and no keepalive. The backend's session carries both. When the backend detaches, the gadget takes the link back, so the link does not drop. The SysEx framing and all command parsing stay in `deq_protocol.py`, unchanged. The gadget program itself is not in this repository.
 
-- **A real unit** — answering. A DEQ-S1000A2 in a car answered all ten commands of the read-only cold start, each with `STATUS 0`: its firmware version (2.02), its device id, and 2032 bytes of tuning state that this app's own blob decoder read on the first try. So the protocol work is confirmed against hardware and not only against captures.
+- **A real unit**: answering. A DEQ-S1000A2 in a car answered all ten commands of the read-only cold start, each with `STATUS 0`. It sent its firmware version (2.02), its device id, and 2032 bytes of tuning state. This app's own blob decoder read that state on the first try. So the hardware itself backs the protocol work, and not only the captures.
 
-  Getting there cost four bugs worth knowing about, because anything reimplementing this inherits them. The session must open with `0x00` and that frame must carry its 24-byte body — an empty one is answered with `STATUS -5` in 40ms and then ignored, which reads exactly like success if nobody checks `STATUS`. Every capture shows `0x02` opening instead, because every capture was taken mid-session. The accessory interface has to land at index 2, and the audio function has to be a source rather than a sink.
+  The road there had four bugs worth knowing about, because any reimplementation inherits them. The session must open with `0x00`, and that frame must carry its 24-byte body. The unit answers an empty one with `STATUS -5` in 40ms and then ignores it. That reads like success if nobody checks `STATUS`. Every capture shows `0x02` as the opener instead, because every capture started mid-session. The accessory interface has to land at index 2, and the audio function has to be a source rather than a sink.
 
   `backend/scripts/check_real_deq.py` is the check to run against a unit. It uses `DEQ_TRANSPORT`, same as the app itself:
 
@@ -193,9 +193,9 @@ cd backend && uv sync --extra usb
 DEQ_TRANSPORT=usb PYTHONPATH=. uv run python scripts/check_real_deq.py
 ```
 
-  It reads only, unless you pass `--write` (which writes the unit's own settings back unchanged). Each check prints `ok`, `DIFFERS` or `FAILED`. A `DIFFERS` line is the valuable one: the unit answered, but not the way the app and the captures predicted. Record those in the private notes — the Pioneer app and the unit are the authority, and this code is what is under test. The `accessory` transport opens a socket and needs no privileges of its own. The `usb` transport opens a USB device, which on Linux usually needs root or a udev rule: `backend/scripts/99-pioneer-deq.rules` is one, with the install steps in its own comment.
+  It reads only, unless you pass `--write` (which writes the unit's own settings back unchanged). Each check prints `ok`, `DIFFERS` or `FAILED`. A `DIFFERS` line is the valuable one: the unit answered, but not the way the app and the captures predicted. Record those in the private notes. The Pioneer app and the unit are the authority, and this code is the thing under test. The `accessory` transport opens a socket and needs no privileges of its own. The `usb` transport opens a USB device, which on Linux usually needs root or a udev rule. `backend/scripts/99-pioneer-deq.rules` is one, with the install steps in its own comment.
 
-  `backend/scripts/probe_audio_output.py` sends source modes to a real unit and holds each one long enough to hear what comes out. It answered the hardware question this project was stuck on, in a car on 2026-10-08: on `SP_OTHER_SOURCE` the unit plays what this device writes over USB, and on `THROUGH` it plays the car's own audio — both with the USB audio function attached, so a session and the car radio are not in conflict. `THROUGH` is what a connect leaves the unit on. One catch the probe also found: the unit refuses a volume write with `STATUS -6` while it holds `THROUGH` and accepts one on an OTHER mode, so the mode goes first.
+  `backend/scripts/probe_audio_output.py` sends source modes to a real unit and holds each one long enough to hear what comes out. It answered the hardware question that blocked this project, in a car on 2026-10-08. On `SP_OTHER_SOURCE` the unit plays what this device writes over USB. On `THROUGH` it plays the car's own audio. Both hold with the USB audio function attached, so a session and the car radio do not conflict. `THROUGH` is what a connect leaves the unit on. The probe also found one catch. The unit refuses a volume write with `STATUS -6` while it holds `THROUGH`, and accepts one on an OTHER mode. So the mode goes first.
 
 ```bash
 cd backend

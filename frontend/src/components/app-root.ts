@@ -118,8 +118,8 @@ export class AppRoot extends LitElement {
   @state() private liveSimulation: LiveSimulationId | null = null;
   @state() private profilesDrawerOpen = false;
   @state() private layout: AppLayout = "desktop";
-  /** The phone opens on the audio tab: it answers "is anything actually
-   * audible right now", the question a driver has before touching a
+  /** The phone opens on the audio tab: it answers "is anything audible
+   * right now", the question a driver has before touching a
    * profile or an EQ band. See `audio-controls.ts` for why that question
    * had no answer before this panel existed. */
   @state() private phoneTab: PhoneTab = "audio";
@@ -132,8 +132,8 @@ export class AppRoot extends LitElement {
   /** Edits to a factory preset live here until the user saves them. */
   @state() private draft: TuningDataDto | null = null;
 
-  /** `confirmDiscard` asks before a draft is dropped. It defaults to
-   * the browser dialog but a test can answer it without one. */
+  /** `confirmDiscard` asks before the component drops a draft. It
+   * defaults to the browser dialog, but a test can answer it without one. */
   @property({ attribute: false }) confirmDiscard: (question: string) => boolean = (question) =>
     typeof window === "undefined" ? true : window.confirm(question);
 
@@ -293,9 +293,9 @@ export class AppRoot extends LitElement {
 
   /** The breadcrumb and the model name, with the edit badge and the
    * save actions. A custom profile shows the name the user typed, and
-   * no breadcrumb: it carries the car model it was duplicated from, but
-   * that says which car the tuning suits rather than what the profile
-   * is called. */
+   * no breadcrumb. It carries the car model of the preset the user
+   * duplicated, but that field says which car the tuning suits rather
+   * than the profile's name. */
   private renderHeadingRow(strings: UiStrings, profile: ProfileDto): TemplateResult {
     const brand = profile.brand_name;
     const speakerType = localizedSpeakerTypeLabel(profile, this.locale);
@@ -519,9 +519,9 @@ export class AppRoot extends LitElement {
   }
 
   /** The ids this panel offers are the unit's own value sets, read once
-   * at startup. A unit that is not connected (or not yet responded) shows
-   * an empty panel rather than a guessed list -- see dsp-presets.ts for
-   * why there is no local fallback list any more. */
+   * at startup. A unit that is not connected (or has not yet responded)
+   * shows an empty panel rather than a guessed list. See dsp-presets.ts
+   * for why there is no local fallback list any more. */
   private async loadDeviceOptions(): Promise<void> {
     try {
       const options = await this.api.readDeviceOptions();
@@ -532,7 +532,7 @@ export class AppRoot extends LitElement {
       this.audioSourceNames = options.audio_sources.map((value) => value.name);
     } catch {
       // The unit is not reachable yet. The panel stays empty until a
-      // later connect succeeds; device-status.ts already reports why.
+      // later connect succeeds. device-status.ts already reports why.
     }
   }
 
@@ -554,10 +554,6 @@ export class AppRoot extends LitElement {
     `;
   }
 
-  /** Reads what the unit is actually doing with sound. Not polled with the
-   * header, because unlike that poll this opens a link -- see the note in
-   * `audio-controls.ts`. Failure leaves the last known state up rather than
-   * clearing it: a stale reading beats no reading while retrying. */
   /** The audio panel follows the link. It reads as soon as the unit comes up
    * and then on a timer, and it forgets what it read when the unit goes
    * away: a volume shown for a unit that is not there is a stale number
@@ -603,9 +599,11 @@ export class AppRoot extends LitElement {
     }
   }
 
-  /** Reads what the unit is actually doing with sound. Failure leaves the
-   * last known state up rather than clearing it: a stale reading beats no
-   * reading while the next poll retries. */
+  /** Reads what the unit does with sound. The header poll leaves it out,
+   * because this read opens a link and that poll does not. See the note
+   * in `audio-controls.ts`. Failure leaves the last known state up rather
+   * than clearing it: a stale reading beats no reading while the next poll
+   * retries. */
   private async refreshAudioState(): Promise<void> {
     if (!this.unitConnected) {
       return;
@@ -629,7 +627,7 @@ export class AppRoot extends LitElement {
     try {
       this.audioState = await this.api.setVolume(volumeDb);
     } catch {
-      // The unit is not reachable; the control reverts to the last
+      // The unit is not reachable. The control reverts to the last
       // known state on its own next render.
     } finally {
       this.audioBusy = false;
@@ -653,7 +651,7 @@ export class AppRoot extends LitElement {
   /** The unit's DSP runs these, so the choice goes to the device as well as
    * to local state. A unit that is not connected answers 503, which is not
    * worth a message: the panel still shows the choice. The id already is
-   * the device's own wire name, so it is sent as-is. */
+   * the device's own wire name, so the component sends it as-is. */
   private async changeEqStyle(id: EqStyleId): Promise<void> {
     this.eqStyle = id;
     await this.sendToUnit(() => this.api.selectEqStyle(id));
@@ -730,7 +728,7 @@ export class AppRoot extends LitElement {
   }
 
   /** Starts a profile of your own. It copies the data of the selected
-   * profile, or of the first factory preset when nothing is selected,
+   * profile, or of the first factory preset when the user selected none,
    * so the new profile has a valid curve to edit. */
   private async createProfile(): Promise<void> {
     const source = this.selectedProfile ?? this.profiles.find((profile) => profile.source === "factory");

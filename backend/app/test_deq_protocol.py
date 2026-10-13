@@ -1,6 +1,6 @@
 """Checks the frame codec against traffic captured from a real DEQ.
 
-The four frames below are two request and reply pairs, taken verbatim from
+The four frames below are two request and reply pairs. They come verbatim from
 `captures/20260929_session_full.log` in the outer repo: the Sound & Tune
 Android app talking to a physical DEQ-S1000A2 over USB.
 """
@@ -99,10 +99,10 @@ def test_the_payload_is_nibble_expanded() -> None:
 
 
 def test_the_pad_rule_never_fires_with_the_header_this_unit_uses() -> None:
-    # The app pads a frame whose size is an exact multiple of 512. With the
-    # 7-byte header this unit uses, a frame is 2 * payload + 9 bytes, which is
-    # always odd, so the rule can never fire. The codec keeps it because the
-    # header comes from a config object and another unit could set a header
+    # The app pads a frame whose size is an exact multiple of 512. This unit
+    # uses a 7-byte header. With it, a frame is 2 * payload + 9 bytes, which is
+    # always odd, so the rule can never fire. The codec keeps the rule, because
+    # the header comes from a config object. Another unit could set a header
     # that makes the total even.
     for payload_length in range(248, 260):
         assert len(pack_frame(bytes(payload_length))) == payload_length * 2 + 9
@@ -258,12 +258,12 @@ REAL_NOTIFICATIONS = (
 
 @pytest.mark.parametrize("hex_frame,command_id,value", REAL_NOTIFICATIONS)
 def test_a_pushed_notification_decodes(hex_frame, command_id, value):
-    """The unit pushes these with no request behind them, and they are
-    shorter than a reply: 12 payload bytes and no transaction id.
+    """The unit pushes these with no request behind them, and they are shorter
+    than a reply: 12 payload bytes and no transaction id.
 
-    Reading them at a reply's body offset is what made a real unit look
-    silent. Every one of these was rejected as "shorter than its header"
-    while the car's volume knob was turning.
+    A read of them at a reply's body offset made a real unit look silent. The
+    reader rejected every one as "shorter than its header" while the car's
+    volume knob turned.
     """
     message = decode_frame(bytes.fromhex(hex_frame))
 

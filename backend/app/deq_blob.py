@@ -1,55 +1,53 @@
 """Reads and writes the DEQ's USER_CONFIGURATION blob.
 
-The blob is the unit's whole semantic state: which speakers it drives, the
-band gains of both equalizer banks, the crossover settings, the per-speaker
-levels and delays. Command 0x09 reads it and command 0x08 writes it back.
+The blob is the unit's whole semantic state. It holds which speakers the unit
+drives, the band gains of both equalizer banks, the crossover settings, and the
+per-speaker levels and delays. Command 0x09 reads it and command 0x08 writes it
+back.
 
-The coefficients in command 0x05 are what the DSP acts on, so a profile has
-to send both. See `deq_dsp.py` for the coefficient side.
+The DSP acts on the coefficients in command 0x05, so a profile has to send
+both. See `deq_dsp.py` for the coefficient side.
 
-The layout was mapped by changing one setting at a time in the Android app
-and diffing the bytes it wrote, against a single baseline: speaker mode
-`STANDARD_FL_FR_RL_RR_SW`, blob version 3, 572 bytes. A NETWORK mode writes
-two speaker records fewer and so runs 26 bytes shorter; this module reads
-and writes the STANDARD form only.
+The layout map came from one setting change at a time in the Android app. A
+diff compared the bytes the app wrote after each change, from a single
+baseline: speaker mode `STANDARD_FL_FR_RL_RR_SW`, blob version 3, 572 bytes. A
+NETWORK mode writes two speaker records fewer, so it runs 26 bytes shorter.
+This module reads and writes the STANDARD form only.
 
-Four fields an earlier version of this module held as unknown bytes are
-now named. Three were read from the app's own writer
-(`b/g/h.a(z, Z, o)[B` in the decompiled APK); the fourth needed the app's
-own reader, run live under an Android emulator with Frida, because static
-reading alone did not settle it (see `USB_CAPTURE_NOTES.md` in the outer
-repo for both traces):
+An earlier version of this module held four fields as unknown bytes. They now
+have names. The app's own writer (`b/g/h.a(z, Z, o)[B` in the decompiled APK)
+gave three of them. The fourth needed the app's own reader, run live under an
+Android emulator with Frida, because a static read alone did not settle it. See
+`USB_CAPTURE_NOTES.md` in the outer repo for both traces:
 
-- Offset 14 is a literal `false` the app always writes. It reads no model
-  field at all.
-- The 32 bytes at offset 484 are `uniqueId`, the same string the preset
-  JSON header carries (`"uniqueId": "1-0000-..."`). A default blob holds
-  zeros there because the app's own default state has no id, not because
-  this is unresolved.
+- Offset 14 is a literal `false` that the app always writes. It reads no
+  model field at all.
+- The 32 bytes at offset 484 are `uniqueId`, the same string that the
+  preset JSON header carries (`"uniqueId": "1-0000-..."`). A default blob
+  holds zeros there because the app's own default state has no id. The field itself has a known meaning.
 - The 16 bytes at offset 523 are `MD5(carModelNameKey)`, or 16 zero bytes
-  when no car model is selected (`carModelNameKey` empty).
-  `carModelNameKey` is the same string the preset JSON header's own
-  `carModelStringsKey` carries (`eq_data.py`'s `Header`) -- found from the
-  app's JSON writer, which tags its source field with that exact key, then
-  confirmed live under the emulator: hooking the MD5 step directly showed
-  it digests precisely the string a known test value was set to, byte for
-  byte.
-- Offset 279 is not a standalone flag between the crossover block and the
-  speaker records. It is byte 0 of speaker record 0's own phase flag.
-  Hooking the app's real per-speaker reader
-  (`b/g/h.a(ByteArrayInputStream, model/b/w$a)`) and logging the stream
-  position before and after each of its 7 calls showed every record reads
-  one phase-flag byte, then three float32 -- not three floats then a
-  trailing byte, which is what this module read before. The two errors
-  mostly cancelled (the floats still landed on the right bytes), so every
-  existing round-trip test passed; what broke was which speaker each
-  phase flag belongs to.
+  when the profile has no car model (`carModelNameKey` empty).
+  `carModelNameKey` is the same string that the preset JSON header's own
+  `carModelStringsKey` carries (`Header` in `eq_data.py`). The app's JSON
+  writer tags its source field with that exact key, which gave the match.
+  The emulator then showed it live. A hook on the MD5 step showed that it
+  digests the string of a known test value, byte for byte.
+- Offset 279 is no standalone flag between the crossover block and the
+  speaker records. It is byte 0 of the phase flag of speaker record 0. A
+  hook on the app's real per-speaker reader
+  (`b/g/h.a(ByteArrayInputStream, model/b/w$a)`) logged the stream
+  position before and after each of its 7 calls. Every record reads one
+  phase-flag byte, then three float32. This module read three floats
+  and then a trailing byte before. The two errors mostly cancelled, and
+  the floats still landed on the right bytes. So every existing
+  round-trip test passed. The error was in which speaker each phase
+  flag belongs to.
 
-**A bank always reserves 31 slots, but `band_count` says how many the unit
-reads.** Set `band_count` to 13 and the app drops whatever stands in slots
-13 to 30. Write a gain above the band count and it will not survive the
-unit's next write. `trim_gains_to_band_count` does that trimming here, so a
-caller can see it happen instead of losing the value later.
+**A bank always reserves 31 slots, but the unit reads only `band_count`
+of them.** Set `band_count` to 13 and the app drops all values in slots 13
+to 30. A gain above the band count does not survive the unit's next
+write. `trim_gains_to_band_count` does that trim here, so a caller can
+see it happen and does not lose the value later.
 """
 
 from __future__ import annotations
@@ -90,15 +88,17 @@ SOUND_FIELD_OFFSET = 270
 CROSSOVER_OFFSET = 271
 CROSSOVER_SPEAKER_COUNT = 4
 
-# Each record is one phase flag then three float32, confirmed by hooking
-# the app's own reader (`b/g/h.a(ByteArrayInputStream, model/b/w$a)`) under
-# the Android emulator and logging the stream position before and after
-# each call: every one of the 7 calls reads 1 byte then 4+4+4, never the
-# other order. An earlier version of this module read the floats first and
-# a trailing "separator" byte last, offset by one record -- the byte it
-# called speaker N's separator was really speaker N+1's own flag, and
-# speaker 0's real flag (byte 279) was never read into any record at all.
-# See USB_CAPTURE_NOTES.md in the outer repo for the full trace.
+# Each record is one phase flag, then three float32. A hook on the app's own
+# reader (`b/g/h.a(ByteArrayInputStream, model/b/w$a)`) under the Android
+# emulator showed this. It logged the stream position before and after each
+# call. Every one of the 7 calls reads 1 byte then 4+4+4, never the other
+# order.
+#
+# An earlier version of this module read the floats first and a trailing
+# "separator" byte last, offset by one record. The byte it called the separator
+# of speaker N was the flag of speaker N+1. The real flag of speaker 0 (byte
+# 279) never reached any record. See USB_CAPTURE_NOTES.md in the outer repo for
+# the full trace.
 SPEAKER_RECORD_OFFSET = 279
 SPEAKER_RECORD_COUNT = 7
 SPEAKER_RECORD_STRIDE = 13
@@ -146,15 +146,14 @@ class BlobLengthError(ValueError):
 class SpeakerRecord:
     """One speaker's phase flag and its three stored values.
 
-    `is_positive_phase` is the one byte the app's own reader takes before
-    the three floats, confirmed by hooking that reader directly (see
-    `deq_blob.py`'s module docstring). Every one of the 7 speakers has
-    this flag; none of them lacks it.
+    `is_positive_phase` is the one byte that the app's own reader takes before
+    the three floats. A hook on that reader showed this (see the module
+    docstring of `deq_blob.py`). All 7 speakers have this flag.
 
-    The three floats' names come straight from the app's own JSON writer
-    (`i/d/c.smali`), which serializes this exact object as
-    `{isPositivePhase, levelDB, timeAlignmentCm, levelDBExtended}` --
-    the same four keys already in `eq_data.py`'s `Speaker` model.
+    The names of the three floats come from the app's own JSON writer
+    (`i/d/c.smali`). It serializes this exact object as `{isPositivePhase,
+    levelDB, timeAlignmentCm, levelDBExtended}`. The `Speaker` model in
+    `eq_data.py` already has the same four keys.
     """
 
     is_positive_phase: bool = True
@@ -210,12 +209,13 @@ class UserConfiguration:
     )
     manual_left: float = 0.0
     manual_right: float = 0.0
-    # 484..515. The preset JSON header's own `uniqueId` string, encoded by
-    # the writer's string-to-bytes call. Zero when the profile carries none.
-    # `deq_session.py` never builds a configuration from scratch and writes
-    # it: every write path reads the unit's current blob first, so this
-    # default is never sent over the wire as-is. Keep it that way -- a write
-    # path that skips the read would zero out the unit's real uniqueId.
+    # 484..515. The preset JSON header's own `uniqueId` string, encoded by the
+    # writer's string-to-bytes call. Zero when the profile carries none.
+    #
+    # `deq_session.py` never builds a configuration from scratch and writes it.
+    # Every write path reads the unit's current blob first. So this default
+    # never goes over the wire as it is. Keep it that way. A write path that
+    # skips the read would zero out the unit's real uniqueId.
     unique_id_bytes: bytes = bytes(NAME_BYTES)
     source_type: int = 0xFF
     bank_type: int = 0
@@ -228,11 +228,12 @@ class UserConfiguration:
 
 
 def trim_gains_to_band_count(configuration: UserConfiguration) -> UserConfiguration:
-    """Zeroes every band gain the unit will ignore.
+    """Zeroes every band gain that the unit will ignore.
 
     The unit reads `band_count` bands and leaves the rest of the 31 slots
-    alone, so a gain above that count is dropped on its next write. Applying
-    this first keeps what is sent and what comes back the same.
+    alone. So the unit drops a gain above that count on its next write. This
+    function, applied first, keeps the sent values and the returned values the
+    same.
     """
     for gains in (configuration.bank_a_gains_db, configuration.bank_b_gains_db):
         for slot in range(configuration.band_count, BANK_BAND_SLOTS):

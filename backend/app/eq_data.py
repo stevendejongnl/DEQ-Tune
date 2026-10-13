@@ -1,12 +1,12 @@
 """Pydantic models for the DEQ tuning-data blob.
 
-Mirrors the shape found in the Pioneer Sound Tune app's bundled preset
-JSON files (see data/presets/mazda/*.json) as closely as possible, so
-factory presets round-trip without reshaping and a future USB bridge
-can write the same structure back to a device.
+Mirrors the shape of the Pioneer Sound Tune app's bundled preset JSON files
+(see data/presets/mazda/*.json) as closely as possible. So factory presets
+round-trip without a reshape, and a future USB bridge can write the same
+structure back to a device.
 
-Note the real structure nests `expandEq` *inside* `foundationEq`
-(confirmed across all 14 bundled presets) — it is not a sibling field.
+Note: the real structure nests `expandEq` *inside* `foundationEq`, and not as a
+sibling field. All 14 bundled presets show this.
 """
 
 from __future__ import annotations
@@ -34,11 +34,10 @@ class Header(BaseModel):
 
 
 class LRBank(BaseModel):
-    """A combined L+R graphic-EQ slot. `banks` holds one 13-value gain
-    array per storable bank (device has multiple slots); `selectedBank`
-    picks which one is active. Frequencies follow the fixed 13-band
-    table also given explicitly per-channel in `expandEq` (50Hz-12.5kHz,
-    doubling)."""
+    """A combined L+R graphic-EQ slot. `banks` holds one 13-value gain array
+    per storable bank (the device has multiple slots). `selectedBank` picks
+    which one is active. Frequencies follow the fixed 13-band table that
+    `expandEq` also gives explicitly per channel (50Hz-12.5kHz, doubling)."""
 
     isLocked: bool
     numOfBand: int
@@ -115,8 +114,8 @@ class TimeAlignment(BaseModel):
 
 
 class TuningData(BaseModel):
-    """Everything except `header` — the part that's actually editable
-    in the EQ UI and (eventually) written to the device."""
+    """Everything except `header`: the part that the EQ UI edits, and that the
+    backend writes to the device."""
 
     foundationEq: FoundationEq
     speakers: dict[str, Speaker]

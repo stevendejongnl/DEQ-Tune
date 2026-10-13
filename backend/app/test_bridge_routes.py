@@ -13,9 +13,8 @@ from app.main import app
 def bridge_client():
     """A client with an empty notice log.
 
-    The log is module state that outlives one request on purpose, so a
-    test has to start from a known one or the tests see each other's
-    notices.
+    The log is module state that outlives one request, on purpose. So a test
+    has to start from a known log, or the tests see each other's notices.
     """
     notice_log.clear()
     with TestClient(app) as client:

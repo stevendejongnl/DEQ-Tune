@@ -3,8 +3,8 @@ import type { ProfileDto } from "../dto/profile.dto.ts";
 
 /**
  * English and Japanese are the only locales with model/speaker-type
- * names that actually differ in the Pioneer app's own string
- * resources — German/French/Spanish ship the same English text there.
+ * names that differ in the Pioneer app's own string resources.
+ * German/French/Spanish ship the same English text there.
  * Locales without an entry here fall back to English.
  */
 const MODEL_NAMES: Partial<Record<Locale, Record<string, string>>> = {
@@ -54,8 +54,8 @@ function translateSpeakerType(locale: Locale, speakerType: string): string {
  *
  * Returns null for a custom profile, which shows the name the user
  * typed instead. A custom profile does carry a `car_model`: duplicating
- * a factory preset copies it, so the tuning keeps the car it was made
- * for. That field says which car the numbers suit; it is not the
+ * a factory preset copies it, so the tuning keeps the car Pioneer made
+ * it for. That field says which car the numbers suit. It is not the
  * profile's name, and showing it in place of the name hid every rename
  * a user made. */
 export function localizedModelName(profile: ProfileDto, locale: Locale): string | null {
@@ -80,8 +80,8 @@ export function localizedSpeakerTypeLabel(profile: ProfileDto, locale: Locale): 
 }
 
 /** A factory preset's name in `locale`, built from its car model and
- * speaker type. A custom (user-created) profile's name is never
- * translated — it's the name the user typed. */
+ * speaker type. The function never translates a custom (user-created)
+ * profile's name: it is the name the user typed. */
 export function localizedProfileName(profile: ProfileDto, locale: Locale): string {
   if (profile.source !== "factory" || profile.car_model === null || profile.speaker_type === null) {
     return profile.name;

@@ -1,14 +1,14 @@
 """Checks the accessory transport's framing, without a Pi or a socket.
 
-Same story as `test_usb_transport.py`: this covers cutting whole frames
-out of a byte stream, which is where a real link would most likely catch
-this code out. The gadget relays the DEQ's own framing unchanged, so this
-reuses the same frames and the same pad-byte rule.
+`test_usb_transport.py` works the same way. This file covers the cut of whole
+frames out of a byte stream. A real link would most likely catch this code out
+there. The gadget relays the DEQ's own framing unchanged, so this file reuses
+the same frames and the same pad-byte rule.
 
-The fake is a socket rather than a serial port, and the two differ in how
-they report quiet: a socket raises `socket.timeout` and returns zero bytes
-only when the far end has closed. Both cases are covered below, because
-they mean different things to a session.
+The fake is a socket and not a serial port. The two report quiet in different
+ways. A socket raises `socket.timeout`, and returns zero bytes only when the
+far end closed. The tests below cover both cases, because they mean different
+things to a session.
 """
 
 from __future__ import annotations
@@ -51,11 +51,10 @@ def build_frame(body_bytes: int) -> bytes:
 class FakeGadgetSocket:
     """One Unix socket, backed by bytes in memory.
 
-    It serves the stream the gadget would relay; you give it that stream;
-    it depends on nothing. An exhausted stream raises `socket.timeout`,
-    the way a real socket with a timeout set does -- a closed far end is
-    a separate fixture below, because it means a dead link and not a
-    quiet one.
+    It serves the stream that the gadget would relay. You give it that stream.
+    It depends on nothing. An exhausted stream raises `socket.timeout`, the way
+    a real socket with a timeout set does. A closed far end is a separate
+    fixture below, because it means a dead link and not a quiet one.
     """
 
     def __init__(self, stream: bytes = b"") -> None:
@@ -117,10 +116,10 @@ def test_two_frames_in_one_stream_come_back_one_at_a_time():
 
 
 def test_a_frame_that_fills_whole_packets_keeps_its_pad_byte():
-    """`pack_frame` adds one zero byte when a frame would otherwise be an
-    exact multiple of 512 -- a rule that belongs to the DEQ's own USB link,
-    which the gadget relays unchanged. The reader has to take that byte
-    with the frame and not leave it to confuse the next read."""
+    """`pack_frame` adds one zero byte when a frame would otherwise be an exact
+    multiple of 512. That rule belongs to the DEQ's own USB link, which the
+    gadget relays unchanged. The reader has to take that byte with the frame,
+    and not leave it to confuse the next read."""
     padded = next(
         frame
         for body_bytes in range(1, 600)
@@ -144,9 +143,9 @@ def test_a_quiet_gadget_times_out():
 
 
 def test_a_closed_socket_is_a_dead_link_and_not_a_timeout():
-    """The gadget closes the socket when its session ends -- the car slept,
-    or the DEQ dropped the link. A session cannot wait that out, so this
-    must not look like a slow reply."""
+    """The gadget closes the socket when its session ends: the car slept, or
+    the DEQ dropped the link. A session cannot wait that out, so this must not
+    look like a slow reply."""
     transport = build_transport()
 
     class ClosedConnection:

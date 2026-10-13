@@ -11,9 +11,9 @@ const HEALTHY: BridgeDto = {
 /**
  * An in-memory `BridgeApi` fixture: real behaviour, no network, no mocking.
  *
- * It answers as a healthy bridge; you call `raiseNotice` to give it a
- * fault, or set `unreachable` to make the request fail; it counts the
- * reads so a test can prove it asked again.
+ * It answers as a healthy bridge. Call `raiseNotice` to give it a fault,
+ * or set `unreachable` to make the request fail. It counts the reads, so a
+ * test can prove that the component asked for the bridge state again.
  */
 export class FakeBridgeApi implements BridgeApi {
   unreachable = false;

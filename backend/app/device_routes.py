@@ -28,7 +28,7 @@ from app.deq_enums import AUDIO_SOURCE, MUTE_STATE
 
 router = APIRouter(prefix="/device", tags=["device"])
 
-# 503, not 500: the unit being unplugged is a normal state, not a bug.
+# 503, not 500: an unplugged unit is a normal state, and no bug.
 DEVICE_UNAVAILABLE_STATUS = 503
 
 
@@ -47,8 +47,8 @@ def read_device(unit: DeqDevice = Depends(get_device)) -> DeviceRead:
 def connect_device(unit: DeqDevice = Depends(get_device)) -> DeviceRead:
     """Opens the link and runs the unit's startup sequence.
 
-    A failure is reported in the body, not as an error status: the frontend
-    shows the reason in the header rather than treating it as a broken
+    This route reports a failure in the body, and not as an error status. The
+    frontend shows the reason in the header, and does not treat it as a broken
     request.
     """
     return DeviceRead(**vars(unit.connect()))
@@ -64,11 +64,11 @@ def disconnect_device(unit: DeqDevice = Depends(get_device)) -> DeviceRead:
 def read_audio_state(unit: DeqDevice = Depends(get_device)) -> AudioStateRead:
     """Reads what the unit is doing with sound, live from the unit.
 
-    Four reads in one action, so they are one lock and one consistent
-    picture rather than four that can interleave with another caller.
+    Four reads in one action, so they share one lock and give one consistent
+    picture. Four separate reads could interleave with another caller.
 
-    This is not part of `GET /api/device` on purpose: that one is polled
-    by the header and never opens a link, and these cost USB exchanges.
+    This route stays out of `GET /api/device` on purpose. The header polls that
+    route, and it never opens a link. These reads cost USB exchanges.
     """
     return run_on_unit(lambda: unit.run(_read_audio_state))
 
@@ -108,11 +108,10 @@ def set_volume(
 ) -> AudioStateRead:
     """Sets the master volume, in dB.
 
-    The unit refuses a volume write with STATUS -6 while it holds
-    THROUGH, and takes one on an OTHER mode, so this moves the mode,
-    writes, and puts the mode back. That is the same dance
-    `scripts/probe_audio_output.py` does, and the reason a volume could
-    not be set from the app before.
+    The unit refuses a volume write with STATUS -6 while it holds THROUGH, and
+    takes one on an OTHER mode. So this route moves the mode, writes, and puts
+    the mode back. `scripts/probe_audio_output.py` does the same dance. Without
+    it, the app could not set a volume before.
     """
 
     def action(session) -> AudioStateRead:
@@ -123,16 +122,15 @@ def set_volume(
         try:
             session.set_volume(body.volume_db)
         finally:
-            # Always put the mode back, including when the write fails.
-            # Leaving the unit on SP_OTHER_SOURCE plays whatever this
-            # device writes, which is silence -- the exact failure this
-            # endpoint exists to get people out of.
+            # Always put the mode back, also when the write fails. A unit left
+            # on SP_OTHER_SOURCE plays whatever this device writes, which is
+            # silence. This endpoint exists to get people out of that failure.
             if original == "THROUGH":
                 session.set_audio_source(original)
-                # Returning to THROUGH is not enough. Without PLAY_READY the
-                # car stays silent after the mode comes back, the same way a
-                # fresh connect did before `start` sent it. Moving the
-                # slider cut the audio for exactly this reason.
+                # A return to THROUGH is not enough. Without PLAY_READY the car
+                # stays silent after the mode comes back, the same way a fresh
+                # connect did before `start` sent it. A slider move cut the
+                # audio for this reason.
                 session.notify_play_ready()
         return _read_audio_state(session)
 
@@ -144,10 +142,10 @@ def send_play_ready(unit: DeqDevice = Depends(get_device)) -> AudioStateRead:
     """Tells the unit this device is ready to play audio (0x1a).
 
     The real app sends it at the end of every cold start, and so does the
-    connect sequence here. Without it the car stayed silent for as long as
-    the Pi was attached; sent alone in a car on 2026-10-11 it brought the
-    audio back at once. This endpoint stays as a lever for a link that is
-    up but silent. It has no body and the reply is a status only.
+    connect sequence here. Without it the car stayed silent for as long as the
+    Pi stayed attached. Sent alone in a car on 2026-10-11, it brought the audio
+    back at once. This endpoint stays as a lever for a link that is up but
+    silent. It has no body and the reply is a status only.
     """
     return run_on_unit(
         lambda: unit.run(
@@ -173,26 +171,26 @@ def set_audio_source(
 def _switch_source(session, name: str) -> AudioStateRead:
     """Writes the mode, then says the device is ready, as the app does.
 
-    A mode change on its own leaves the car silent until PLAY_READY follows
-    it; see `DeqSession.start`.
+    A mode change on its own leaves the car silent until PLAY_READY follows it.
+    See `DeqSession.start`.
     """
     session.set_audio_source(name)
     session.notify_play_ready()
     return _read_audio_state(session)
 
 
-# There is deliberately no mute endpoint.
+# This module has no mute endpoint, on purpose.
 #
-# `SET_MUTE_STATE` (0x0f) is not honoured by a real unit: it answered
-# SOUND_OFF with STATUS 0 and then reported SOUND_ON anyway, captured in
-# `20261008_mute_state_reply.hex`, which is why `FakeDeq.accept_mute_state`
-# keeps its own state unchanged. An endpoint built on it would acknowledge
-# every request and change nothing, which is worse than not having one.
+# A real unit ignores `SET_MUTE_STATE` (0x0f). It answered SOUND_OFF with
+# STATUS 0 and then reported SOUND_ON anyway. `20261008_mute_state_reply.hex`
+# holds that capture, and `FakeDeq.accept_mute_state` keeps its own state
+# unchanged for that reason. An endpoint built on it would acknowledge every
+# request and change nothing. That is worse than no endpoint.
 #
-# Mute is still reported by `GET /device/audio`, because reading it is
-# useful even when setting it is not. If muting ever needs to work from
-# here, the untried candidates are SET_SPEAKER_MUTE_STATE (0x13) and
-# SET_SYSTEM_MUTE_STATE (0x1b); both need a real unit to confirm.
+# `GET /device/audio` still reports mute, because a read of it is useful even
+# when a write is not. If mute ever needs to work from here, the untried
+# candidates are SET_SPEAKER_MUTE_STATE (0x13) and SET_SYSTEM_MUTE_STATE
+# (0x1b). Both need a real unit to check them.
 
 @router.get("/options", response_model=DeviceOptionsRead)
 def read_device_options() -> DeviceOptionsRead:
@@ -210,8 +208,8 @@ def write_tuning(
     profile = session.get(Profile, profile_id)
     if profile is None:
         raise HTTPException(status_code=404, detail="profile not found")
-    # The column stores the tuning as plain JSON, so validate it before
-    # the DSP code reads it by attribute.
+    # The column stores the tuning as plain JSON. So check it before the DSP
+    # code reads it by attribute.
     tuning = TuningData.model_validate(profile.data)
     run_on_unit(lambda: unit.write_tuning(tuning))
     return DeviceRead(**vars(unit.state()))
@@ -238,13 +236,13 @@ def select_live_simulation(
 
 
 def run_on_unit(action):
-    """Runs one action, turning an unreachable unit into a 503.
+    """Runs one action, and turns an unreachable unit into a 503.
 
     A bad value name is the caller's mistake, so it answers 400 instead.
 
-    Returns whatever the action returned. The existing callers write to
-    the unit and then build their own reply from `unit.state()`, so they
-    ignore it; the audio endpoints read from the unit and need it.
+    Returns whatever the action returned. The existing callers write to the
+    unit and then build their own reply from `unit.state()`, so they ignore the
+    return value. The audio endpoints read from the unit and need it.
     """
     try:
         return action()

@@ -7,8 +7,8 @@ import { audioControlsStyles } from "./audio-controls.styles.ts";
 
 /** The wire name is what the unit speaks and what this emits, but not
  * what a driver should read. Only the three names `/options` ever
- * returns reach this map -- see `AUDIO_SOURCE_CHOICES` in
- * `backend/app/schemas.py` for why the rest are excluded. */
+ * returns reach this map. See `AUDIO_SOURCE_CHOICES` in
+ * `backend/app/schemas.py` for why the backend leaves out the rest. */
 function sourceLabel(strings: UiStrings, name: string): string {
   switch (name) {
     case "STAND_ALONE":
@@ -37,20 +37,20 @@ function muteLabel(strings: UiStrings, state: AudioStateDto): string {
 /**
  * What the unit is doing with sound, and the two controls that change it.
  *
- * This exists because a tuning can apply perfectly and still produce
- * silence, with nothing on screen to say why. On 2026-10-09 profiles and
- * EQ styles were applied in a car with no sound at all, and there was no
- * way to tell whether the unit was muted, near the bottom of its volume
- * range, or holding a source that plays nothing. Every one of those is
- * now visible.
+ * This component exists because a tuning can apply without error and
+ * still produce silence, with no message on screen to say why. On 2026-10-09,
+ * a session in a car applied profiles and EQ styles and got no sound at
+ * all. Nobody could tell whether the unit's mute was on, its volume sat
+ * near the bottom of its range, or it held a source that plays nothing.
+ * The panel now shows every one of those.
  *
- * `app-root` refreshes it on a timer while the unit is linked. Each read costs
- * requests and replies over USB, unlike the header's device poll, which is
- * why that timer only runs while this panel can be seen.
+ * `app-root` refreshes it on a timer while the link is up. Each read
+ * costs requests and replies over USB, unlike the header's device poll. So
+ * that timer only runs while this panel is on screen.
  *
- * Mute is shown but cannot be set. A real unit answered SET_MUTE_STATE
- * with STATUS 0 and stayed unmuted, so a mute control here would do
- * nothing while looking like it worked -- see the note in
+ * The panel shows mute but cannot set it. A real unit answered
+ * SET_MUTE_STATE with STATUS 0 and stayed unmuted. A mute control here
+ * would have no effect while looking like it worked. See the note in
  * `backend/app/device_routes.py`.
  *
  * Presentational, like the other panels: it emits `volume-change`
@@ -65,16 +65,16 @@ export class AudioControls extends LitElement {
   @property({ type: Object }) state: AudioStateDto | null = null;
   @property({ type: Array }) sourceNames: readonly string[] = [];
   @property({ type: Boolean }) busy = false;
-  /** False while the unit is not linked. Nothing here can reach it then, so
-   * every control is off and the panel says why. */
+  /** False while the unit is not linked. The controls cannot reach it
+   * then, so each one is off and the panel says why. */
   @property({ type: Boolean }) connected = false;
 
   /** True while a finger or pointer holds the volume slider. */
   private holdingSlider = false;
 
   /** A poll hands over a new state object every few seconds. Re-rendering
-   * mid-drag would snap the thumb back to the unit's value under the
-   * finger, so a state-only update waits until the slider is released. */
+   * mid-drag would snap the thumb back to the last polled value under the
+   * finger, so a state-only update waits until the user releases the slider. */
   protected override shouldUpdate(changed: PropertyValues): boolean {
     return !(this.holdingSlider && changed.size === 1 && changed.has("state"));
   }

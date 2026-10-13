@@ -1,9 +1,9 @@
 """Checks the audio probe against the fake unit.
 
-The probe writes to a real DEQ, so the thing worth testing is the order it
-writes in and that it puts the unit back. The fake is honest about the
-three state commands -- its replies are pinned to bytes the real unit sent
-on 2026-10-08 -- so a rehearsal here says what a car run will do.
+The probe writes to a real DEQ. So the things worth a test are the order it
+writes in, and that it puts the unit back. The fake is honest about the three
+state commands. Its replies match bytes that the real unit sent on 2026-10-08.
+So a rehearsal here says what a car run will do.
 """
 
 from __future__ import annotations
@@ -75,8 +75,8 @@ def test_the_probe_puts_the_mode_and_volume_back():
 
 
 def test_the_probe_puts_the_unit_back_even_when_a_mode_fails():
-    """The restore runs in a `finally`, so a refusal mid-probe still
-    leaves the unit as it was found."""
+    """The restore runs in a `finally`. So a refusal mid-probe still leaves the
+    unit as the probe found it."""
     fake = FakeDeq(volume_db=-37, status_by_command={0x1A: -5})
     session = DeqSession(fake)
 
@@ -116,9 +116,9 @@ def test_it_reads_the_state_without_writing_first():
 class FailsTheFirstRestoreWrite(FakeDeq):
     """A unit that stays quiet for one write, then answers normally.
 
-    The real unit did this on 2026-10-08: the mode write that would have
-    put it back timed out right after a 20-second hold in mode 5, and the
-    volume write never ran at all.
+    The real unit did this on 2026-10-08. The mode write that would have put it
+    back timed out right after a 20-second hold in mode 5. The volume write
+    never ran at all.
     """
 
     def __init__(self, **keywords) -> None:
@@ -133,7 +133,7 @@ class FailsTheFirstRestoreWrite(FakeDeq):
 
 
 def test_a_failed_restore_write_is_retried_and_the_volume_still_runs():
-    """A quiet unit must not cost the car its audio: the mode is tried
+    """A quiet unit must not cost the car its audio. The restore tries the mode
     again, and the volume write runs whatever happened to the mode."""
     fake = FailsTheFirstRestoreWrite(volume_db=-37)
     session = DeqSession(fake)

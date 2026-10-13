@@ -5,8 +5,8 @@ import { defineConfig, devices } from "@playwright/test";
  *
  * These cover what jsdom cannot: real rendering, real CSS nesting, and the
  * whole path from a click to the backend and back. `vitest` keeps the unit
- * tests next to their components; these use `.spec.ts` under `e2e/` so the
- * two runners never pick up each other's files.
+ * tests next to their components. These tests use `.spec.ts` under `e2e/`,
+ * so the two runners never pick up each other's files.
  *
  * The backend runs with `DEQ_TRANSPORT=fake`, so the unit the tests connect
  * to is the fake DEQ. No hardware, and the replies are the ones measured
@@ -21,8 +21,8 @@ export default defineConfig({
   // A failing assertion here is a real bug, not a flake to retry away.
   retries: 0,
   // The frontend's `typia` transform compiles the module graph on the first
-  // request, which takes about twenty seconds on a cold cache. That is the
-  // one slow step; every test after it is fast.
+  // request, which takes about twenty seconds on a cold cache. That compile
+  // is the one slow step. Every test after it is fast.
   timeout: 120_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,

@@ -1,8 +1,8 @@
 """Checks the generated enums against what the APK says.
 
-These values are copied from the Pioneer app, so a test here guards the
-copy, not a design choice. Every expected value below was read from the
-smali by hand and is quoted in `USB_CAPTURE_NOTES.md`.
+These values come from the Pioneer app. So a test here guards the copy, and not
+a design choice. A person read every expected value below from the smali by
+hand, and `USB_CAPTURE_NOTES.md` quotes each one.
 """
 
 from __future__ import annotations
@@ -110,9 +110,9 @@ def test_speaker_channel_covers_every_output():
 
 
 def test_audio_source_names_the_connect_sequences_mode_command():
-    """`0x0b`/MODE sends one of these. CAR_SOURCE and THROUGH both appear
-    in `service/g.smali`'s real (non-debug) state machine, not just the
-    "playground" screen -- confirmed while tracing what `0x0b` meant."""
+    """`0x0b`/MODE sends one of these. CAR_SOURCE and THROUGH both appear in
+    the real (non-debug) state machine of `service/g.smali`, and not only on
+    the "playground" screen. A trace of what `0x0b` meant showed this."""
     assert AUDIO_SOURCE.by_name("UNKNOWN").wire_value == -1
     assert AUDIO_SOURCE.by_name("CAR_SOURCE").wire_value == 3
     assert AUDIO_SOURCE.by_name("THROUGH").wire_value == 4

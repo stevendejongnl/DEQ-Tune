@@ -1,8 +1,8 @@
 """Checks the DSP maths against the app's own library.
 
 `deq_dsp_reference.json` holds coefficients captured from
-`jp.pioneer.mle.pmg.util.OpalParameter` on a running Sound & Tune app, with
-the input that produced each one. A coefficient is stored as Q27, so two
+`jp.pioneer.mle.pmg.util.OpalParameter` on a running Sound & Tune app, with the
+input that produced each one. The unit stores a coefficient as Q27. So two
 designs that agree to one Q27 step produce the same bytes.
 """
 
@@ -234,9 +234,9 @@ def test_a_band_at_one_db_or_less_pushes_nothing() -> None:
 
 
 def test_spreading_never_leaves_a_band_past_the_slider_range() -> None:
-    # A band keeps a share of its own push, so a band at the top of the range
-    # with quiet same-sign neighbours ends up above 12 dB before the clamp.
-    # The library clamps there and so does this code; without the clamp the
+    # A band keeps a share of its own push. So a band at the top of the range,
+    # with quiet same-sign neighbours, ends up above 12 dB before the clamp.
+    # The library clamps there, and so does this code. Without the clamp, the
     # designed coefficient differs from the library's.
     gains = [12.0, 1.5, -6.0, 5.0, -12.0, -4.0, -4.5, -8.5, 8.5, 6.5, 12.0,
              -6.0, -2.0]
@@ -257,8 +257,8 @@ def test_a_delay_counts_only_the_spread_not_the_distance() -> None:
 
 
 def test_a_spread_wider_than_the_screen_offers_is_an_error() -> None:
-    # The library answers 100 instead of coefficients, so this is a bad input
-    # rather than something to clamp quietly.
+    # The library answers 100 and no coefficients. So this value is a bad
+    # input, and not something to clamp without a word.
     with pytest.raises(ValueError):
         time_alignment_delays([3501, 0, 0, 0, 0])
 

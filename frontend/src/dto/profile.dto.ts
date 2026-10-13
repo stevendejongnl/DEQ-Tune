@@ -1,8 +1,8 @@
 // Data Transfer Objects for the DEQ backend API.
-// Mirrors backend/app/eq_data.py and backend/app/schemas.py — keep in sync.
-// Validated at the API boundary with typia (see ../api/client.ts) — do
-// not trust a value typed as one of these without going through that
-// boundary first.
+// Mirrors backend/app/eq_data.py and backend/app/schemas.py. Keep them in
+// sync. The client validates these at the API boundary with typia (see
+// ../api/client.ts). Do not trust a value typed as one of these without
+// going through that boundary first.
 
 export interface LRBank {
   isLocked: boolean;
@@ -124,10 +124,10 @@ export interface DeviceDto {
 }
 
 /**
- * What the unit is actually doing with sound, read live from it.
+ * What the unit does with sound, read live from it.
  *
- * Separate from `DeviceDto` on purpose: that one is polled for the header
- * and never opens a link, while every field here costs a request and a
+ * Separate from `DeviceDto` on purpose. The header polls `DeviceDto`, and
+ * that read never opens a link. Every field here costs a request and a
  * reply over USB. Ask for it when someone is looking at it.
  */
 export interface AudioStateDto {
@@ -166,10 +166,10 @@ export interface LiveSimulationWriteDto {
   name: string;
 }
 
-/** One fault the bridge has seen since it started.
+/** One fault the bridge recorded after it started.
  *
- * A notice stays until the bridge restarts, so this can describe
- * something that is no longer happening. That is deliberate: a power dip
+ * A notice stays until the bridge restarts, so it can describe something
+ * that is no longer happening. The bridge keeps it on purpose: a power dip
  * that lasted a second still explains a link that dropped.
  */
 export interface BridgeNoticeDto {

@@ -2,8 +2,8 @@ import type { DeviceDto } from "../dto/profile.dto.ts";
 
 /** What the app can see of the link, and nothing more.
  *
- * There are two links, not one: the phone reaches the bridge over Wi-Fi,
- * and the bridge reaches the unit over USB. They fail separately and ask
+ * There are two links. The phone reaches the bridge over Wi-Fi, and the
+ * bridge reaches the unit over USB. They fail separately and ask
  * different things of the person reading the pill, so they are different
  * states here. Telling them apart needs no backend change, because the
  * two arrive by different routes: see `readLinkState`.

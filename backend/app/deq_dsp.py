@@ -4,22 +4,22 @@ The DEQ does no filter design of its own. The Sound & Tune app computes every
 coefficient and sends the finished numbers. To replace that app, this module
 computes the same numbers.
 
-The rules here are not guesses. The app ships its designer as
+The rules here come from measurement. The app ships its designer as
 `libOpalParameterJNI.so` and calls it through
-`jp.pioneer.mle.pmg.util.OpalParameter`. That class was called directly over
-Frida with known inputs, and the output of this module matches it to within
-one Q27 step. `deq_dsp_reference.json` holds those captured input/output
-pairs; `test_deq_dsp.py` checks every one of them.
+`jp.pioneer.mle.pmg.util.OpalParameter`. A Frida hook called that class with
+known inputs, and the output of this module matches it to within one Q27 step.
+`deq_dsp_reference.json` holds those captured input/output pairs.
+`test_deq_dsp.py` checks every one of them.
 
 The equalizer needs one step more than a filter design. The library spreads
-every band's gain over the other bands before it designs a biquad, so a
-curve with two raised bands is not two independent peakers. Its
-`fittingEqGain` function does that step, from three constant tables. This
-module reproduces it in `fit_equalizer_gains`, and matches the library's own
-output to 1e-14 dB over every gain the sliders can send.
+every band's gain over the other bands before it designs a biquad. So a curve
+with two raised bands is not two independent peakers. Its `fittingEqGain`
+function does that step, from three constant tables. This module reproduces it
+in `fit_equalizer_gains`, and matches the library's own output to 1e-14 dB over
+every gain the sliders can send.
 
-See `USB_CAPTURE_NOTES.md` in the outer repo for how the values were read
-off the unit and the library.
+See `USB_CAPTURE_NOTES.md` in the outer repo for how the values came off the
+unit and the library.
 """
 
 from __future__ import annotations
@@ -48,27 +48,27 @@ EQUALIZER_Q = 4.7
 EQUALIZER_CHANNELS_PER_BLOCK = 4
 EQUALIZER_BAND_COUNT = len(EQUALIZER_BAND_CENTRES_HZ)
 
-# A crossover slot that is set to Pass passes the signal through untouched.
+# A crossover slot on Pass lets the signal through untouched.
 IDENTITY_SECTION = (1.0, 0.0, 0.0, 0.0, 0.0)
 
-# The cutoff list the app offers. The enum carries 22 names, but the library
-# folds them onto these 11 positions; the speaker's role decides whether a
-# position means this frequency or fifty times it.
+# The cutoff list the app offers. The enum carries 22 names. The library folds
+# them onto these 11 positions. The speaker's role decides whether a position
+# means this frequency or fifty times it.
 CROSSOVER_CUTOFFS_HZ = (
     25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250,
 )
-# The high range is its own 1/3-octave series, not fifty times the low one.
-# Nine of the eleven positions happen to match fifty times the low value, but
-# 31.5 Hz pairs with 1600 Hz and 125 Hz with 6300 Hz, not 1575 and 6250. The
-# app's own enum names say so (FREQUENCY_1_6KHZ, FREQUENCY_6_3KHZ), and the
-# library confirms it: those two cutoffs design a different filter.
+# The high range is its own 1/3-octave series, and not fifty times the low one.
+# Nine of the eleven positions match fifty times the low value. But 31.5 Hz
+# pairs with 1600 Hz and 125 Hz with 6300 Hz, not 1575 and 6250. The app's own
+# enum names say so (FREQUENCY_1_6KHZ, FREQUENCY_6_3KHZ). The library agrees:
+# those two cutoffs design a different filter.
 CROSSOVER_HIGH_CUTOFFS_HZ = (
     1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500,
 )
 
 
-# A crossover payload is several blocks, concatenated in config-id order.
-# Each block is a run of biquads; one block also carries a spare word.
+# A crossover payload is several blocks, concatenated in config-id order. Each
+# block is a run of biquads. One block also carries a spare word.
 CROSSOVER_BLOCK_BIQUADS = {3: 6, 4: 3, 5: 12}
 CROSSOVER_BLOCK_SPARE_WORDS = {4: 1}
 
@@ -91,25 +91,25 @@ CROSSOVER_SLOT_POSITIONS = {
 CROSSOVER_SLOT_COUNT = 5
 
 # Distances travel as millimetres and come back as sample delays. The library
-# takes the speed of sound as exactly 340 m/s.
+# takes the speed of sound as 340 m/s, with no rounding.
 SPEED_OF_SOUND_MM_PER_SECOND = 340_000
 TIME_ALIGNMENT_SLOT_COUNT = 5
 TIME_ALIGNMENT_BLOCK_WORDS = 8
 
-# The screen stops at 350 cm between the nearest and the farthest speaker.
-# Exactly that spread earns 453 samples, and the library refuses a wider one
-# rather than clamping it, so this module refuses it too. What the library does
-# clamp is the delay, not the distance: two layouts with the same spread give
-# the same delays however far away both speakers are.
+# The screen stops at 350 cm between the nearest and the farthest speaker. That
+# spread earns 453 samples. The library refuses a wider one and does not clamp
+# it, so this module refuses it too. The library clamps the delay, and not the
+# distance. Two layouts with the same spread give the same delays, however far
+# away both speakers are.
 TIME_ALIGNMENT_MAX_SPREAD_MM = 3500
 TIME_ALIGNMENT_MAX_DELAY_SAMPLES = 453
 
 
-# The library does not design each equalizer band straight from its slider.
-# It first spreads every band's gain over its neighbours, then designs the
-# biquads from the spread gains. `fit_equalizer_gains` below does that step.
-# The three tables come from the library's own constant pool; the comments
-# say what each one controls.
+# The library does not design each equalizer band straight from its slider. It
+# first spreads every band's gain over its neighbours, then designs the biquads
+# from the spread gains. `fit_equalizer_gains` below does that step. The three
+# tables come from the library's own constant pool. The comments say what each
+# one controls.
 
 # How hard a band pushes, by its gain rounded up to whole dB. A band at
 # 1 dB or less pushes nothing, so the table starts at 2 dB.
@@ -182,7 +182,7 @@ class FilterKind(str, Enum):
 
 
 class FilterSlope(int, Enum):
-    """Crossover steepness in dB per octave; the value is the filter order."""
+    """Crossover steepness in dB per octave. The value is the filter order."""
 
     PASS = 0
     SLOPE_6 = 1
@@ -222,12 +222,13 @@ def crossover_cutoff_hz(position: int, uses_high_range: bool) -> float:
     return float(table[position])
 
 
-# The unit addresses five filter slots whatever the layout drives. This says
-# which side of the crossover each slot is, and which cutoff range its
-# position code means. Both were read back out of the library's own output,
-# and `conformance/flows.json` checks them byte for byte.
+# The unit addresses five filter slots, whatever the layout drives. This table
+# says which side of the crossover each slot is, and which cutoff range its
+# position code means. Both came back out of the library's own output, and
+# `conformance/flows.json` checks them byte for byte.
 #
-# A slot missing from a layout's table is one that layout does not drive.
+# A slot that a layout's table does not hold is a slot that layout does not
+# drive.
 SLOT_ROLES: dict[str, dict[int, tuple[FilterKind, bool]]] = {
     "standard": {
         0: (FilterKind.HIGH_PASS, False),
@@ -304,15 +305,15 @@ def equalizer_band_push(gain_db: float) -> float:
 def fit_equalizer_gains(band_gains_db: list[float]) -> list[float]:
     """Returns the gains the library designs its biquads from.
 
-    A band that shares its sign with another band pulls that band towards
-    zero. Two bands of opposite sign do not interact at all, so a band left
-    at zero stays at zero. Spreading can push a band past the slider range,
-    so the result is clamped to the range the sliders allow.
+    A band that shares its sign with another band pulls that band towards zero.
+    Two bands of opposite sign do not interact at all, so a band left at zero
+    stays at zero. The spread can push a band past the slider range, so this
+    function clamps the result to the range the sliders allow.
     """
     # The order of these multiplies and adds follows the library's own, step
-    # for step. Collecting the terms algebraically gives the same number in
-    # real arithmetic but a different last bit in float64, and the equalizer
-    # truncates, so a last bit can change a stored coefficient.
+    # for step. Collected terms give the same number in real arithmetic. In
+    # float64 they give a different last bit. The equalizer truncates, so a
+    # last bit can change a stored coefficient.
     fitted_gains_db = list(band_gains_db)
     for source in range(len(band_gains_db)):
         if band_gains_db[source] == 0:
@@ -336,11 +337,11 @@ def fit_equalizer_gains(band_gains_db: list[float]) -> list[float]:
 def design_equalizer_band(centre_hz: float, gain_db: float) -> Biquad:
     """Returns one equalizer section.
 
-    The filter is an asymmetric constant-Q peaker. A boost widens the
-    numerator and leaves the denominator alone; a cut widens the denominator
-    and leaves the numerator alone. At 0 dB both branches give a section whose
-    numerator mirrors its denominator, so it passes the signal unchanged while
-    keeping its centre and Q.
+    The filter is an asymmetric constant-Q peaker. A boost widens the numerator
+    and leaves the denominator alone. A cut widens the denominator and leaves
+    the numerator alone. At 0 dB both branches give a section whose numerator
+    mirrors its denominator. So the section passes the signal unchanged and
+    keeps its centre and Q.
     """
     angular_frequency = 2 * math.pi * centre_hz / EQUALIZER_SAMPLE_RATE
     alpha = math.sin(angular_frequency) / (2 * EQUALIZER_Q)
@@ -492,11 +493,12 @@ def build_crossover_payload(
 def time_alignment_delays(distances_mm: list[int]) -> list[int]:
     """Returns one delay in samples per speaker.
 
-    The farthest speaker gets no delay; every nearer speaker waits for it. The
+    The farthest speaker gets no delay. Every nearer speaker waits for it. The
     library subtracts the distances first and scales afterwards, and truncates
-    rather than rounds. It stops at the delay the screen's longest distance
-    earns. A wider spread than the screen offers is an error, not something to
-    clamp: the library refuses it, so this function raises.
+    and does not round. It stops at the delay that the screen's longest
+    distance earns. A wider spread than the screen offers is an error, and this
+    function does not clamp it. The library refuses it, so this function
+    raises.
     """
     if len(distances_mm) != TIME_ALIGNMENT_SLOT_COUNT:
         raise ValueError(
@@ -549,10 +551,10 @@ def build_time_alignment_payload(
 class Rounding(str, Enum):
     """How a coefficient reaches its stored integer.
 
-    The library does not pick one rule. Its equalizer builder truncates
-    towards zero and its crossover builder rounds to nearest, and the two
-    disagree on about two coefficients in five. Each builder below passes the
-    rule its own payload needs; getting it wrong changes the bytes.
+    The library does not pick one rule. Its equalizer builder truncates towards
+    zero and its crossover builder rounds to nearest. The two disagree on about
+    two coefficients in five. Each builder below passes the rule its own
+    payload needs. The wrong rule changes the bytes.
     """
 
     TRUNCATE = "truncate"

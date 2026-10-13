@@ -9,12 +9,12 @@ import type { Locale } from "./locale.ts";
  *
  * Names come from the Pioneer app's own string resources where one
  * exists. A handful of newer enum members (see NO_STRING_RESOURCE below)
- * have no resource in any locale of the decompiled APK at all -- not even
- * English -- so their name here is a plain title-cased fallback, not a
+ * have no resource in any locale of the decompiled APK at all, not even
+ * English. Their name here is a plain title-cased fallback, not a
  * translation of anything Pioneer shipped.
  *
- * Selecting one of these only takes effect on a connected device -- see
- * dsp-panel.ts. There's no local curve data for them to preview; the DSP
+ * Selecting one of these only takes effect on a connected device (see
+ * dsp-panel.ts). There's no local curve data for them to preview. The DSP
  * itself lives in the device's firmware.
  */
 
@@ -55,10 +55,10 @@ export type LiveSimulationId = (typeof LIVE_SIMULATION_IDS)[number];
 
 /**
  * Enum members with no string resource in any locale of the decompiled
- * APK, English included -- confirmed by searching every values-\* strings.xml
- * for each one. Newer additions to the device's enum that Pioneer has not
- * yet wired up to display text. Named here with a plain title-cased
- * fallback rather than left blank.
+ * APK, English included. A search of every values-\* strings.xml for each
+ * one confirmed this. They are newer additions to the device's enum that
+ * Pioneer has not yet given a string resource. This file names them with a
+ * plain title-cased fallback rather than leaving them blank.
  */
 const NO_STRING_RESOURCE_EQ_STYLES: ReadonlySet<EqStyleId> = new Set([
   "ULTRA_BASS",
@@ -95,10 +95,10 @@ const ENGLISH_EQ_STYLE_NAMES: Record<EqStyleId, string> = {
 
 /**
  * A locale without an entry for a given id shows the English name. Most
- * of these ids were only ever shipped with one Pioneer translation (often
- * literally the English text reused), so most locales below are sparse on
- * purpose -- that sparseness is itself what the APK's own strings.xml
- * files show, not a gap in this app's translation.
+ * of these ids only ever shipped with one Pioneer translation (often the
+ * English text reused word for word). So most locales below are sparse on
+ * purpose. The APK's own strings.xml files have the same gaps. They are
+ * not a gap in this app's translation.
  */
 const EQ_STYLE_NAMES: Partial<Record<Locale, Partial<Record<EqStyleId, string>>>> = {
   en: ENGLISH_EQ_STYLE_NAMES,
@@ -173,9 +173,9 @@ const ENGLISH_LIVE_SIMULATION_NAMES: Record<LiveSimulationId, string> = {
 };
 
 /**
- * OPERA_HALL and DJ_DANCE_PARTY have no entry anywhere -- see
- * NO_STRING_RESOURCE_LIVE_SIMULATIONS above -- so every locale below is
- * missing those two on purpose.
+ * OPERA_HALL and DJ_DANCE_PARTY have no entry anywhere (see
+ * NO_STRING_RESOURCE_LIVE_SIMULATIONS above). So every locale below leaves
+ * out those two on purpose.
  */
 const LIVE_SIMULATION_NAMES: Partial<Record<Locale, Partial<Record<LiveSimulationId, string>>>> =
   {

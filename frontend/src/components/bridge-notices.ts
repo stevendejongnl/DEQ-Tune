@@ -8,15 +8,15 @@ import { bridgeNoticesStyles } from "./bridge-notices.styles.ts";
 
 /** How often to ask the bridge how it is, in milliseconds.
  *
- * Slower than the device poll. A notice stays once raised, so nothing is
- * missed by asking less often, and the answer rarely changes.
+ * Slower than the device poll. A notice stays once raised, so a slower
+ * poll misses nothing, and the answer rarely changes.
  */
 export const BRIDGE_POLL_MS = 30000;
 
 export const WARNING_SEVERITY = "warning";
 
 /** Runs an action after a delay, and returns a handle to cancel it with.
- * `setTimeout` is one; a test supplies another. */
+ * `setTimeout` is one such function. A test supplies another. */
 export type ScheduleFunction = (action: () => void, delayMs: number) => unknown;
 
 export type CancelFunction = (handle: unknown) => void;
@@ -24,13 +24,13 @@ export type CancelFunction = (handle: unknown) => void;
 /**
  * Shows what has gone wrong on the machine holding the link.
  *
- * It renders nothing at all while the bridge is well; `app-root` places
- * it in the header; it depends on a `BridgeApi` and a way to schedule
+ * It renders nothing at all while the bridge is well. `app-root` places
+ * it in the header. It depends on a `BridgeApi` and a way to schedule
  * the next read.
  *
- * A notice stays raised until the bridge restarts, so this can show a
- * fault that is no longer happening. That is the point: a power dip
- * lasting a second drops the USB link and the Wi-Fi, and by the time
+ * A notice stays raised until the bridge restarts, so the component can
+ * show a fault that is no longer happening. It does so on purpose. A power
+ * dip lasting a second drops the USB link and the Wi-Fi. By the time
  * anyone looks, every live reading is healthy again.
  */
 @customElement("bridge-notices")
@@ -111,9 +111,9 @@ export class BridgeNotices extends LitElement {
     try {
       this.notices = (await this.api.readBridge()).notices;
     } catch {
-      // A bridge out of reach is already reported by the device pill, so
-      // this stays quiet rather than saying the same thing twice. The
-      // notices it has are kept: they describe what happened before.
+      // The device pill already reports a bridge out of reach, so this
+      // component stays quiet rather than saying the same thing twice. It
+      // keeps the notices it has: they describe what happened before.
     }
   }
 

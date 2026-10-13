@@ -1,32 +1,32 @@
 """Moves DEQ frames over a real USB link.
 
-This is a `Transport`, so `DeqSession` drives it exactly as it drives the
-fake unit. It needs `pyusb`, which is an optional dependency: install it
+This class is a `Transport`, so `DeqSession` drives it the same way it drives
+the fake unit. It needs `pyusb`, which is an optional dependency. Install it
 with `uv sync --extra usb`. Without it the app still runs on the fake
 transport.
 
-What the Pioneer app does, and what this copies:
+What the Pioneer app does, and what this module copies:
 
 - The unit is `08e4:01ed`, from the app's own `otg_device_filter.xml`.
-  That file also lists a vendor-wide `08e4:ffff`, so this tries the exact
-  product first and then any Pioneer device.
-- The native library the app ships, `libaeusb.so`, is stock libusb, and it
-  calls `libusb_bulk_transfer`. So the frames move over a bulk endpoint
-  pair, not control transfers.
+  That file also lists a vendor-wide `08e4:ffff`, so this module tries the
+  exact product first and then any Pioneer device.
+- The native library that the app ships, `libaeusb.so`, is stock libusb,
+  and it calls `libusb_bulk_transfer`. So the frames move over a bulk
+  endpoint pair, not control transfers.
 - A frame whose length is an exact multiple of 512 carries one extra zero
-  byte. `deq_protocol.pack_frame` already adds it. That rule only makes
-  sense for a 512-byte bulk endpoint, and it is what stops a full-size
+  byte. `deq_protocol.pack_frame` already adds it. That rule makes sense
+  only for a 512-byte bulk endpoint. The extra byte stops a full-size
   frame from looking like the end of a transfer.
 
-The endpoints are not written down anywhere in the app, so this reads them
-off the device's own descriptors rather than hard-coding a number.
+The app writes the endpoints down nowhere. So this module reads them off the
+device's own descriptors, and does not hard-code a number.
 
-**No real unit has been driven with this yet.** The DEQ has never
-enumerated on the development laptop, in either position of its mode
-switch, so this code is written from the protocol and the app's own native
-calls, not from a session it has completed. `scripts/check_real_deq.py`
-is the script to run once a unit does appear: it exercises this transport
-against the hardware and says what matched.
+**This module has not driven a real unit yet.** The DEQ never enumerated
+on the development laptop, in either position of its mode switch. So
+this code comes from the protocol and the app's own native calls, and
+not from a session it completed. Run `scripts/check_real_deq.py` once a
+unit does appear. It exercises this transport against the hardware and
+says what matched.
 """
 
 from __future__ import annotations
@@ -64,16 +64,16 @@ def find_usb_core():
 class UsbTransport:
     """Carries DEQ frames over a bulk endpoint pair.
 
-    It sends and receives whole frames; `DeqSession` calls it; it depends
-    on `pyusb` and on a DEQ being on the bus.
+    It sends and receives whole frames. `DeqSession` calls it. It depends on
+    `pyusb` and on a DEQ on the bus.
     """
 
     def __init__(self, device=None, endpoints=None) -> None:
         """Opens the link, or takes endpoints a caller already has.
 
-        `endpoints` is the seam the framing tests use: an interface number
-        and an IN and OUT endpoint. Passing it skips both the bus search
-        and the interface claim, so the framing can be tested with no
+        `endpoints` is the seam the framing tests use: an interface number and
+        an IN and OUT endpoint. With it, this constructor skips both the bus
+        search and the interface claim. So a test can check the framing with no
         `pyusb` installed and no unit on the bus.
         """
         if endpoints is None:
@@ -112,10 +112,9 @@ class UsbTransport:
     def read_one_packet(self, timeout_milliseconds: int) -> bytes:
         """Reads one bulk packet, or says why it could not.
 
-        A timeout is told apart by the name of the exception rather than by
-        importing `pyusb` to get the class. That keeps the framing above
-        this method working without the optional dependency, which is how
-        it is tested.
+        This method tells a timeout apart by the name of the exception. It does
+        not import `pyusb` to get the class. So the framing above this method
+        works without the optional dependency, and the tests rely on that.
         """
         try:
             return bytes(self.in_endpoint.read(BULK_PACKET_BYTES, timeout_milliseconds))
@@ -139,17 +138,17 @@ class UsbTransport:
             usb.util.release_interface(self.device, self.interface_number)
             self.device.reset()
         except Exception:
-            # The link is being given up anyway, so a failure here is not
-            # worth raising over.
+            # The caller gives the link up anyway, so a failure here is not
+            # worth a raise.
             pass
 
 
 def is_timeout(caught_error: BaseException) -> bool:
     """Says whether one exception is a USB read timeout.
 
-    `pyusb` raises `usb.core.USBTimeoutError`, and this reads its name so
-    the check needs no import. A timeout means the unit simply had nothing
-    to send, which is not the same as a broken link.
+    `pyusb` raises `usb.core.USBTimeoutError`, and this function reads its
+    name, so the check needs no import. A timeout means the unit had nothing to
+    send. A broken link is a different case.
     """
     return type(caught_error).__name__ == "USBTimeoutError"
 
@@ -222,7 +221,7 @@ def detach_kernel_driver(device, interface_number: int) -> None:
         # No kernel driver concept on this platform, so nothing to detach.
         pass
     except Exception:
-        # Let the claim report what is actually wrong.
+        # Let the claim report what is wrong.
         pass
 
 

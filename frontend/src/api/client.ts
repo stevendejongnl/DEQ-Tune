@@ -54,7 +54,7 @@ async function readJsonBody(response: Response): Promise<unknown> {
 }
 
 /** What app-root depends on. DeqApiClient implements it against the real
- * backend; tests inject a small hand-written fake instead. */
+ * backend, and tests inject a small hand-written fake instead. */
 export interface ProfileApi {
   listProfiles(): Promise<ProfileDto[]>;
   getProfile(id: number): Promise<ProfileDto>;
@@ -65,7 +65,7 @@ export interface ProfileApi {
 }
 
 /** The unit, as the backend presents it. The backend owns the USB link,
- * so this is plain HTTP; tests inject a hand-written fake. */
+ * so the client uses plain HTTP. Tests inject a hand-written fake. */
 export interface DeviceApi {
   readDevice(): Promise<DeviceDto>;
   connectDevice(): Promise<DeviceDto>;
@@ -82,7 +82,7 @@ export interface DeviceApi {
 /** What the app can ask about the machine holding the link.
  *
  * Separate from `DeviceApi` because it answers a different question. The
- * DEQ being off is normal; the bridge being unwell is a fault.
+ * DEQ being off is normal. The bridge being unwell is a fault.
  */
 export interface BridgeApi {
   readBridge(): Promise<BridgeDto>;

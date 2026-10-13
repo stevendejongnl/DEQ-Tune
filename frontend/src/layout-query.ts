@@ -11,7 +11,7 @@ export const DESKTOP_MEDIA_QUERY = "(min-width: 1200px)";
  * draws the EQ chart at its own size, so the app needs this answer in
  * JavaScript and not only in CSS.
  *
- * Call `current()` to read the layout now. Call `subscribe()` to follow
+ * Call `current()` to read the layout now, and `subscribe()` to follow
  * later changes. It depends on `window.matchMedia`.
  */
 export interface LayoutQuery {

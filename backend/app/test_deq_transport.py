@@ -1,11 +1,11 @@
 """Checks the frame joiner, the one piece every link shares.
 
-Each transport differs only in the call that reads bytes. Cutting a frame
-out of what that call returns is the same work on all of them, so it is
-tested once here and the transport tests cover their own read instead.
+Each transport differs only in the call that reads bytes. The cut of a frame
+out of what that call returns is the same work on all of them. So this file
+tests it once, and the transport tests cover their own read.
 
-The frames come from `conformance/flows.json`, so they are the bytes a
-real DEQ-S1000A2 put on the wire.
+The frames come from `conformance/flows.json`, so they are the bytes a real
+DEQ-S1000A2 put on the wire.
 """
 
 from __future__ import annotations
@@ -61,9 +61,9 @@ def build_padded_frame() -> bytes:
 class FakeLink:
     """Hands out a byte stream in pieces of a fixed size.
 
-    It answers one read at a time; `receive_frame_by_reading` calls it;
-    it depends on nothing. A piece size of one byte is the hardest case
-    for the joiner, so a test can ask for that.
+    It answers one read at a time, and `receive_frame_by_reading` calls it. It
+    depends on nothing. A piece size of one byte is the hardest case for the
+    joiner, so a test can ask for that.
     """
 
     def __init__(self, stream: bytes, piece_size: int = BULK_PACKET_BYTES) -> None:

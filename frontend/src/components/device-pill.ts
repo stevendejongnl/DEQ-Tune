@@ -10,8 +10,8 @@ import type { LinkState } from "./link-state.ts";
  * The header's status pill: a dot, what the link is doing, and the
  * unit's firmware version when there is one.
  *
- * It shows one link state and nothing else; `device-status` sets its
- * properties; it depends only on the UI strings. It reads no API and
+ * It shows one link state and nothing else. `device-status` sets its
+ * properties. It depends only on the UI strings. It reads no API and
  * holds no state of its own, so it renders the same way for the same
  * inputs every time.
  *
@@ -29,7 +29,7 @@ export class DevicePill extends LitElement {
   @property({ type: String }) layout: AppLayout = "desktop";
 
   /** The phone header has room for the dot alone, so it drops the status
-   * text until a unit is connected. */
+   * text until a unit connects. */
   private get showsLabel(): boolean {
     return this.linkState === "connected" || this.layout !== "phone";
   }

@@ -1,7 +1,7 @@
 """Checks the bridge health report, on a machine that is not a Pi.
 
-Everything here runs without `vcgencmd`, which is the point: the report
-has to answer on a laptop and in CI, not only on the Pi it describes.
+Everything here runs without `vcgencmd`, on purpose. The report has to answer
+on a laptop and in CI, and not only on the Pi it describes.
 """
 
 from __future__ import annotations
@@ -25,9 +25,9 @@ class FakeCompletedCommand:
 class FakeVcgencmd:
     """Answers as `vcgencmd get_throttled` does, with chosen flags.
 
-    It returns one line of output; `read_throttled_flags` calls it; it
-    depends on nothing. A test picks the flags instead of needing a Pi in
-    the right state.
+    It returns one line of output, and `read_throttled_flags` calls it. It
+    depends on nothing. A test picks the flags, and needs no Pi in the right
+    state.
     """
 
     def __init__(self, output: str) -> None:

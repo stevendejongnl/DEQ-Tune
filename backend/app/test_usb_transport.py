@@ -1,9 +1,9 @@
 """Checks the USB transport's framing, without a USB device.
 
-The parts that need hardware cannot be tested here, so this covers the part
-that does not: cutting whole frames out of a stream of 512-byte bulk
-packets. That is where a real unit would most likely catch this code out,
-because a bulk read returns one packet and a frame can be far longer.
+This file cannot test the parts that need hardware. So it covers the part that
+does not: the cut of whole frames out of a stream of 512-byte bulk packets. A
+real unit would most likely catch this code out there, because a bulk read
+returns one packet and a frame can be far longer.
 
 The frames come from `conformance/flows.json`, so they are the bytes a real
 DEQ-S1000A2 put on the wire.
@@ -48,8 +48,8 @@ def build_frame(body_bytes: int) -> bytes:
 class FakeEndpoint:
     """One bulk endpoint, backed by bytes in memory.
 
-    It hands out one packet per read, the way a real bulk endpoint does;
-    you give it the stream to serve; it depends on nothing.
+    It hands out one packet per read, the way a real bulk endpoint does. You
+    give it the stream to serve. It depends on nothing.
     """
 
     def __init__(self, stream: bytes = b"") -> None:
@@ -88,10 +88,10 @@ def build_transport(stream: bytes = b"") -> UsbTransport:
 def test_the_end_marker_cannot_appear_inside_a_frame():
     """What the whole reader rests on.
 
-    Searching for `0xf7` is only safe because nibble expansion puts every
-    body byte in `0x00`..`0x0f`, so the marker cannot occur in a body
-    whatever the payload holds. This checks that with a body carrying every
-    byte value.
+    A search for `0xf7` is safe only because nibble expansion puts every body
+    byte in `0x00`..`0x0f`. So the marker cannot occur in a body, whatever the
+    payload holds. This test checks that with a body that carries every byte
+    value.
     """
     every_byte_value = bytes(range(256)) * 8
     frame = encode_frame(
@@ -213,8 +213,8 @@ def test_closing_twice_is_safe():
 class FakeDevice:
     """A device that reports whether the kernel holds its interface.
 
-    It answers `is_kernel_driver_active` and records a detach; you set
-    `kernel_holds_it`; it depends on nothing.
+    It answers `is_kernel_driver_active` and records a detach. You set
+    `kernel_holds_it`, and it depends on nothing.
     """
 
     def __init__(self, kernel_holds_it: bool, raises: Exception | None = None) -> None:

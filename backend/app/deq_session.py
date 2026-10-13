@@ -1,28 +1,28 @@
 """Drives the conversation with the DEQ.
 
 `deq_protocol` says what one message looks like. This module says which
-messages to send, in what order, and what a reply has to satisfy before the
-app believes it.
+messages to send, in what order, and what a reply has to satisfy before the app
+believes it.
 
-The order comes from the real app. `USB_CAPTURE_NOTES.md` records the
-sequence the Sound & Tune app sends on connect, read from a session that
-reached a working connected state, and the same order appears in traffic
-captured from a physical unit. The app is the authority on it, so
-`STARTUP_STEPS` copies that order rather than inventing one.
+The order comes from the real app. `USB_CAPTURE_NOTES.md` records the sequence
+that the Sound & Tune app sends on connect. The notes read it from a session
+that reached a working connected state. Traffic captured from a physical unit
+shows the same order. The app is the authority on it, so `STARTUP_STEPS` copies
+that order and invents none.
 
-Roles are the other way around from the capture. There the app is the host
-and the DEQ answers. This app takes the host's place, so it sends those
-commands and reads the DEQ's replies.
+The roles are the reverse of the capture. There the app is the host and the DEQ
+answers. This app takes the host's place, so it sends those commands and reads
+the DEQ's replies.
 
-Three rules every reply must satisfy, all three confirmed against captured
-traffic between the app and a real DEQ-S1000A2:
+Every reply must satisfy three rules. Captured traffic between the app and a
+real DEQ-S1000A2 shows all three:
 
 - the reply's command id equals the request's
 - the reply's transaction id equals the request's, byte for byte
 - STATUS, the first four body bytes, is zero
 
-A reply that breaks one of these is not a reply to our request. The app's
-own error codes come from the same checks: it raises `[Code:601]` when a
+A reply that breaks one of these rules does not answer our request. The app's
+own error codes come from the same checks. The app raises `[Code:601]` when a
 reply's content does not fit the request it answers.
 """
 
@@ -61,12 +61,11 @@ from app.deq_transport import Transport, TransportTimeout
 from app.eq_data import TuningData
 
 # Command ids. The APK names every one of them in its own debug screen,
-# `fragment/playground/i$d`, which is an enum of (name, ordinal, wire
-# value). The names below are that enum's, not guesses, and each one
-# agrees with the request and reply fields `deq_commands.json` carries for
-# the same id. Read the enum before inventing a name: four of the names
-# here used to be wrong, and one of them sent a read at the wrong command
-# for three weeks.
+# `fragment/playground/i$d`, which is an enum of (name, ordinal, wire value).
+# The names below come from that enum. Each one agrees with the request and
+# reply fields that `deq_commands.json` carries for the same id. Read the enum
+# before you invent a name. Four of the names here were wrong at one time. One
+# of them sent a read at the wrong command for three weeks.
 #
 #   0x00 CONNECT          0x01 SEND             0x02 PING
 #   0x03 GET_VERSION      0x04 GET_HW_INFORMATION
@@ -111,21 +110,21 @@ COMMAND_SET_USB_CONDITIONER_TABLE = 0x1F
 COMMAND_GET_USB_CONDITIONER_TABLE = 0x20
 COMMAND_SET_TIMEOUT_INTERVAL = 0x21
 
-# `COMMAND_SYNC` was this program's name for 0x00 before the APK's own
-# enum was read. It is kept so nothing that imports it breaks.
+# This program used the name `COMMAND_SYNC` for 0x00 before anyone read the
+# APK's own enum. The name stays, so nothing that imports it breaks.
 COMMAND_SYNC = COMMAND_CONNECT
 
-# Which CONFIG_ID carries which block of command 0x05. Read from the APK:
-# `b/e/ab`'s dispatch maps each id to the field enum that declares its
-# CONFIGURATION size, and the sizes settle the mapping.
+# Which CONFIG_ID carries which block of command 0x05. The APK holds the
+# answer. The dispatch in `b/e/ab` maps each id to the field enum that declares
+# its CONFIGURATION size. The sizes settle the mapping.
 #
 #   id 10 -> af$a$g, 0x20 = 32 bytes, two 16-byte time-alignment blocks
 #   id 11 -> af$a$e, 0xb8 = 184 bytes, the standard crossover
 #   id 12 -> af$a$f, 0x1a8 = 424 bytes, the network crossover
 #   id 13 -> af$a$h, 0x82c = 2080 bytes, the equalizer
 #
-# The 2080 and the two crossover sizes match `conformance/flows.json` byte
-# for byte, so the mapping is checked, not assumed.
+# The 2080 and the two crossover sizes match `conformance/flows.json` byte for
+# byte. So a test checks the mapping, and nobody assumes it.
 CONFIG_ID_TIME_ALIGNMENT = 10
 CONFIG_ID_CROSSOVER_STANDARD = 11
 CONFIG_ID_CROSSOVER_NETWORK = 12
@@ -150,29 +149,29 @@ STATUS_OFFSET = 0
 STATUS_BYTES = 4
 STATUS_OK = 0
 
-# How many bytes `0x08`'s USER_CONFIGURATION field carries, from
-# `deq_commands.json`. It is the whole structure, of which this app decodes
-# the first 572; `0x09` returns exactly this many after its STATUS. A real
-# unit refused a bare 572-byte write with STATUS -5.
+# How many bytes the USER_CONFIGURATION field of `0x08` carries, from
+# `deq_commands.json`. It is the whole structure. This app decodes the first
+# 572. `0x09` returns the same count after its STATUS. A real unit refused a
+# bare 572-byte write with STATUS -5.
 CONFIGURATION_PAYLOAD_BYTES = 2028
 
-# How long to wait for one reply. The app's own keepalive runs about every
-# nine seconds, so a reply that takes longer than this is a dead link.
+# How long to wait for one reply. The app's own keepalive runs about every nine
+# seconds. So a reply that takes longer than this timeout means a dead link.
 DEFAULT_TIMEOUT_SECONDS = 5.0
 
 # Which input the unit plays once a link is up. THROUGH passes the car's
 # own audio through, so connecting this app never costs a person their
 # radio.
 #
-# This is the app's own choice, not a guess. The real Sound & Tune app was
-# run against a fake accessory in the emulator on 2026-10-08, and its cold
-# start sends `0x0b` with body `04000000` -- SourceMode THROUGH, wire
-# value 4. See `DeqSession.set_audio_source`.
+# The app itself makes this choice, so the value is no guess. On 2026-10-08 the
+# real Sound & Tune app ran against a fake accessory in the emulator. Its cold
+# start sends `0x0b` with body `04000000`: SourceMode THROUGH, wire value 4.
+# See `DeqSession.set_audio_source`.
 DEFAULT_AUDIO_SOURCE = "THROUGH"
 
-# The order the app sends on connect. Each entry is a command id and the
-# body to send with it; a body of `b""` means the command carries nothing
-# but its transaction id.
+# The order the app sends on connect. Each entry is a command id and the body
+# to send with it. A body of `b""` means the command carries nothing but its
+# transaction id.
 STARTUP_STEPS: tuple[tuple[int, bytes], ...] = (
     # COMMAND_SYNC must carry its body. A real DEQ refused an empty one in
     # the car on 2026-10-08 with STATUS -5 and then ignored every frame
@@ -188,13 +187,13 @@ STARTUP_STEPS: tuple[tuple[int, bytes], ...] = (
     (COMMAND_GET_USB_CONDITIONER_TABLE, b""),
     (COMMAND_READ_USER_CONFIGURATION, b""),
     (COMMAND_READ_CONFIGURATION_TABLE, build_get_opal_configuration_body()),
-    # This sequence is the app's own, with every writing command removed.
-    # The app also sends 0x16, 0x1f, 0x05 (twice), 0x19, 0x0d, 0x0b and
-    # 0x1a. All of those change the unit: 0x16 erases its crash log, 0x1f
-    # is a SET, and the rest write tuning, coefficients, volume or mode.
-    # A connect should read and change nothing, so none is sent here.
-    # Three of them were sent by an earlier version of this list -- 0x16,
-    # 0x1f and COMMAND_SELF_SAVE_CONFIGURATION_ENABLE -- and should not have been.
+    # This sequence is the app's own, minus every command that writes. The app
+    # also sends 0x16, 0x1f, 0x05 (twice), 0x19, 0x0d, 0x0b and 0x1a. All of
+    # those change the unit. 0x16 erases its crash log, and 0x1f is a SET. The
+    # rest write tuning, coefficients, volume or mode. A connect must read and
+    # change nothing, so this list sends none of them. An earlier version of
+    # this list sent three of them by mistake: 0x16, 0x1f and
+    # COMMAND_SELF_SAVE_CONFIGURATION_ENABLE.
 )
 
 
@@ -203,7 +202,7 @@ class SessionError(Exception):
 
 
 class ReplyMismatchError(SessionError):
-    """A reply did not answer the request that was sent."""
+    """A reply did not answer the request that this session sent."""
 
 
 class SessionTimeoutError(SessionError):
@@ -213,8 +212,8 @@ class SessionTimeoutError(SessionError):
 class DeviceStatusError(SessionError):
     """The unit answered, and said no.
 
-    `status` is the value it reported. Non-zero means it refused the
-    request; the app surfaces the same condition as a communication error.
+    `status` is the value it reported. A non-zero value means it refused the
+    request. The app shows the same condition as a communication error.
     """
 
     def __init__(self, command_id: int, status: int) -> None:
@@ -229,21 +228,21 @@ class DeviceIdentity:
 
     firmware_version: int
     serial: str
-    # No speaker mode here, though `deq_commands.json` declares one. The
-    # APK says `0x04` answers with 40 payload bytes and SPEAKER_MODE at
-    # offset 36; a real DEQ-S1000A2 answered with 24 on 2026-10-08 -- four
-    # of STATUS, twelve of ASCII serial, eight zero. So the field is past
-    # the end of the reply and could only ever read zero, which is what it
-    # did: the conformance check reported 0 against the blob's 3. The
-    # blob's own `speaker_mode` is the one to read.
+    # This class has no speaker mode, though `deq_commands.json` declares one.
+    # The APK says `0x04` answers with 40 payload bytes and SPEAKER_MODE at
+    # offset 36. A real DEQ-S1000A2 answered with 24 on 2026-10-08: four of
+    # STATUS, twelve of ASCII serial, eight zero. So the field lies past the
+    # end of the reply and can only read zero. It did read zero: the
+    # conformance check reported 0 against the blob's 3. Read the blob's own
+    # `speaker_mode` instead.
 
 
 class DeqSession:
     """Talks to one DEQ unit.
 
-    It sends the unit's commands in the order the app sends them; you call
-    `start()` and then the request methods; it depends on a `Transport` for
-    the wire and on `deq_protocol` for the format.
+    It sends the unit's commands in the order the app sends them. You call
+    `start()` and then the request methods. It depends on a `Transport` for the
+    wire and on `deq_protocol` for the format.
     """
 
     def __init__(
@@ -258,18 +257,18 @@ class DeqSession:
         # at 1. A test that replays a captured reply gives the number of
         # transactions the capture had before it, so the ids line up.
         self._transaction_counter = transactions_already_sent
-        # What a configuration read saw past the blob. A write has to send
-        # it back; see `write_user_configuration`.
+        # What a configuration read saw past the blob. A write has to send it
+        # back. See `write_user_configuration`.
         self._configuration_trailing_bytes: bytes | None = None
-        # Frames the unit pushed with nothing having asked for them. A
-        # caller reads these to see what changed on the unit itself.
+        # Frames that the unit pushed with no request for them. A caller reads
+        # these to see what changed on the unit itself.
         self.notifications: list[Message] = []
 
     def next_transaction_id(self) -> bytes:
         """Returns the next transaction id, 8 bytes little-endian.
 
-        The unit mirrors this back unchanged, which is how a reply is
-        matched to its request.
+        The unit mirrors this id back unchanged. The id lets a reply match its
+        request.
         """
         self._transaction_counter += 1
         return self._transaction_counter.to_bytes(8, "little")
@@ -288,15 +287,15 @@ class DeqSession:
         return reply
 
     def _read_reply(self, request: Message) -> Message:
-        """Returns the reply to one request, skipping what it is not.
+        """Returns the reply to one request, and skips every other frame.
 
-        The unit pushes notifications with nothing having asked for them --
-        a real DEQ-S1000A2 sent one per step of the car's own volume knob
-        on 2026-10-08. One of those arriving between a request and its
-        reply is not an answer to anything, so it is recorded and passed
-        over rather than compared against the request. Treating it as a
-        reply raised `ReplyMismatchError` and broke the session, which is
-        what turning the volume knob mid-request used to do.
+        The unit pushes notifications that nothing asked for. A real
+        DEQ-S1000A2 sent one per step of the car's own volume knob on
+        2026-10-08. If one of those arrives between a request and its reply, it
+        answers nothing. So this method records it and passes over it, and does
+        not compare it with the request. An earlier version took it as a reply.
+        That raised `ReplyMismatchError` and broke the session whenever the
+        volume knob turned mid-request.
         """
         while True:
             try:
@@ -311,12 +310,12 @@ class DeqSession:
                 self.notifications.append(message)
                 continue
             if self._answers_an_earlier_request(request, message):
-                # A reply left over from a conversation this session did
-                # not have. Reading it as an answer puts every later
-                # request one reply out of step, which is what a car
-                # session hit on 2026-10-08 when the Pi's gadget and this
-                # backend both opened the link: "sent command 0x21, got a
-                # reply to 0x15". Dropping it recovers instead.
+                # A reply left over from a conversation that this session did
+                # not have. If the session reads it as an answer, every later
+                # request falls one reply out of step. A car session hit that
+                # on 2026-10-08. The Pi's gadget and this backend both opened
+                # the link, and the error read: "sent command 0x21, got a reply
+                # to 0x15". The session drops the stale reply and recovers.
                 continue
             self._check_matches(request, message)
             return message
@@ -324,9 +323,9 @@ class DeqSession:
     def _answers_an_earlier_request(self, request: Message, reply: Message) -> bool:
         """True when a reply belongs to a request this session already sent.
 
-        The transaction id says so: it counts up, so an id below the one
-        in flight is stale. An id this session never sent at all is not
-        stale but wrong, and `_check_matches` reports it.
+        The transaction id tells. It counts up, so an id below the one in
+        flight is stale. An id that this session never sent is wrong, and
+        `_check_matches` reports it.
         """
         if reply.transaction_id == request.transaction_id:
             return False
@@ -352,14 +351,14 @@ class DeqSession:
     def _check_status(self, reply: Message) -> None:
         """Raises when the unit reports a non-zero STATUS.
 
-        The sync reply is checked like every other. An earlier version
-        skipped it, which is exactly how a STATUS of -5 went unnoticed for
-        two car sessions: the unit was refusing the open and saying so.
+        This method checks the sync reply like every other. An earlier version
+        skipped it. That let a STATUS of -5 go unnoticed for two car sessions:
+        the unit refused the open and said so.
         """
         if len(reply.body) < STATUS_BYTES:
             return
-        # Signed: the unit reports failure as a negative number, and -5 read
-        # unsigned is 4294967291, which tells a reader nothing.
+        # Signed: the unit reports failure as a negative number. Read as
+        # unsigned, -5 is 4294967291, which tells a reader nothing.
         status = int.from_bytes(
             reply.body[STATUS_OFFSET:STATUS_BYTES], "little", signed=True
         )
@@ -369,25 +368,24 @@ class DeqSession:
     def start(self) -> None:
         """Runs the app's own connect sequence, then claims no audio.
 
-        `STARTUP_STEPS` reads and changes nothing. The source mode is the
-        one exception, and it is sent here rather than added to that table
-        so the table keeps its property: every frame in it is a read.
+        `STARTUP_STEPS` reads and changes nothing. The source mode is the one
+        exception. This method sends it, and the table does not hold it. So the
+        table keeps its property: every frame in it is a read.
 
-        The mode has to be set because not setting it is not neutral. A Pi
-        offering an audio function leaves the unit playing USB, and an
-        empty USB input is silence -- measured in a car on 2026-10-08,
-        where the audio returned within seconds of stopping the gadget.
-        `THROUGH` hands the car's own audio back. Playing our own audio is
-        a deliberate act on top of this, not the state a link starts in.
+        The mode has to be set, because an unset mode has an effect too. A Pi
+        that offers an audio function leaves the unit on USB, and an empty USB
+        input is silence. A car on 2026-10-08 showed this: the audio came back
+        within seconds of a stop of the gadget. `THROUGH` hands the car's own
+        audio back. Our own audio needs a deliberate step on top of this. A
+        link does not start in that state.
 
-        The last frame is PLAY_READY, and it is what gives the car its
-        audio. The real app ends every cold start with it, right after the
-        mode write. A connect that stopped at the mode write left the car
-        silent for as long as the Pi was attached, with the unit reporting
-        THROUGH, a sane volume and a healthy link the whole time. Sent on
-        its own in a car on 2026-10-11, the audio came back at once. It is
-        not a write the unit stores: it carries no body, and the reply is
-        a status only.
+        The last frame is PLAY_READY, and it gives the car its audio. The real
+        app ends every cold start with it, right after the mode write. A
+        connect that stopped at the mode write left the car silent for as long
+        as the Pi stayed attached. The unit reported THROUGH, a sane volume and
+        a healthy link the whole time. In a car on 2026-10-11, PLAY_READY sent
+        on its own brought the audio back at once. The unit stores nothing from
+        this frame. It carries no body, and the reply is a status only.
         """
         for command_id, body in STARTUP_STEPS:
             self.exchange(command_id, body)
@@ -395,7 +393,7 @@ class DeqSession:
         self.notify_play_ready()
 
     def send_keepalive(self) -> None:
-        """Sends one keepalive. The app repeats this for the whole session."""
+        """Sends one keepalive. The app repeats it for the whole session."""
         self.exchange(COMMAND_KEEPALIVE)
 
     def read_device_identity(self) -> DeviceIdentity:
@@ -410,12 +408,12 @@ class DeqSession:
     def read_user_configuration(self) -> UserConfiguration:
         """Reads the unit's settings blob.
 
-        The reply carries more than the blob. A real DEQ-S1000A2 answered
-        with a 2032-byte body on 2026-10-08: four bytes of STATUS, the
-        572-byte blob, and then 1456 bytes this app has no meaning for
-        yet. So the blob has to be cut out rather than handed over whole,
-        and `decode_blob` refuses the whole body -- with a message blaming
-        NETWORK mode, which is misleading, since the unit was in STANDARD.
+        The reply carries more than the blob. A real DEQ-S1000A2 answered with
+        a 2032-byte body on 2026-10-08. The body held four bytes of STATUS, the
+        572-byte blob, and then 1456 bytes that have no meaning for this app
+        yet. So this method cuts the blob out and does not hand the body over
+        whole. `decode_blob` refuses the whole body. Its message blames NETWORK
+        mode, which misleads, because the unit was in STANDARD.
         """
         reply = self.exchange(COMMAND_READ_USER_CONFIGURATION)
         payload = reply.body[STATUS_BYTES:]
@@ -427,18 +425,17 @@ class DeqSession:
     def write_user_configuration(self, configuration: UserConfiguration) -> None:
         """Writes the settings blob back to the unit.
 
-        The unit wants the whole structure, not just the part this app
-        decodes. `deq_commands.json` declares `0x08`'s USER_CONFIGURATION
-        as 2028 bytes, which is exactly what `0x09` returns after its
-        STATUS, and a real DEQ-S1000A2 refused a bare 572-byte blob with
-        STATUS -5 on 2026-10-08.
+        The unit wants the whole structure, and not only the part this app
+        decodes. `deq_commands.json` declares the USER_CONFIGURATION of `0x08`
+        as 2028 bytes. `0x09` returns the same 2028 bytes after its STATUS. A
+        real DEQ-S1000A2 refused a bare 572-byte blob with STATUS -5 on
+        2026-10-08.
 
-        So the 572 bytes this app understands go in front, and the rest is
-        carried through from the last read. Keeping what the unit sent is
-        the point: those bytes have no known meaning here, and inventing
-        them would write a guess into a car's audio processor. A write with
-        no read before it pads with zeros, which is what this unit had in
-        all 1456 of them.
+        So the 572 bytes this app understands go in front. The rest comes
+        through from the last read. The write keeps what the unit sent on
+        purpose. Those bytes have no known meaning here, and an invented value
+        would write a guess into a car's audio processor. A write with no read
+        before it pads with zeros. This unit had zeros in all 1456 of them.
         """
         self.exchange(
             COMMAND_WRITE_USER_CONFIGURATION,
@@ -456,8 +453,8 @@ class DeqSession:
     def write_coefficients(self, config_id: int, configuration: bytes) -> None:
         """Sends one block of DSP coefficients.
 
-        `deq_dsp` builds `configuration`. The unit answers a write with a
-        short acknowledgement; it never echoes the block back.
+        `deq_dsp` builds `configuration`. The unit answers a write with a short
+        acknowledgement. It never echoes the block back.
         """
         self.exchange(
             COMMAND_WRITE_COEFFICIENTS,
@@ -469,8 +466,8 @@ class DeqSession:
 
         Three blocks of command 0x05, each under its own CONFIG_ID: the
         equalizer, the time alignment, and the crossover. `deq_dsp` builds
-        every one of them; this method only says which CONFIG_ID carries
-        which and in what order.
+        every one of them. This method only says which CONFIG_ID carries which,
+        and in what order.
         """
         self.write_equalizer(tuning)
         self.write_time_alignment(tuning)
@@ -496,19 +493,19 @@ class DeqSession:
     def write_crossover(self, tuning: TuningData, layout: str) -> None:
         """Sends the crossover for one speaker layout.
 
-        A profile carries only a front and a rear high-pass filter, which
-        are slots 0 and 1. The other slots belong to the person, not to
-        the preset: Pioneer sets the factory high-pass per car model and
+        A profile carries only a front and a rear high-pass filter, which are
+        slots 0 and 1. The other slots belong to the person, and the preset has
+        no say in them. Pioneer sets the factory high-pass per car model. It
         leaves the rest to its own Filter screen, which writes the unit's
         settings blob.
 
-        So the unit's stored crossover fills the slots the profile says
-        nothing about. Sending Pass for them instead would write identity
-        biquads over a crossover somebody set, and the unit would then
-        disagree with itself: the blob would still name a frequency and a
-        slope while the audio ran unfiltered. A real unit read slot 2 at
-        slope 3 and slot 3 at slope 4 on 2026-10-08, so this is a live
-        setting on a real car and not a hypothetical one.
+        So the unit's stored crossover fills the slots that the profile does
+        not name. Pass in those slots would write identity biquads over a
+        crossover that somebody set. The unit would then disagree with itself:
+        the blob would still name a frequency and a slope while the audio ran
+        unfiltered. A real unit read slot 2 at slope 3 and slot 3 at slope 4 on
+        2026-10-08. So a real car uses this setting, and the case is no
+        hypothesis.
         """
         if layout not in CROSSOVER_CONFIG_IDS:
             raise ValueError(f"unknown crossover layout {layout!r}")
@@ -525,13 +522,13 @@ class DeqSession:
     ) -> None:
         """Puts the unit's own crossover into the slots a profile omits.
 
-        `crossover_slot_inputs` fills slots 0 and 1 from the profile and
-        leaves the rest at Pass. This replaces those with what the unit
-        already stores, so a push changes only what the profile speaks
-        for. It edits both lists in place.
+        `crossover_slot_inputs` fills slots 0 and 1 from the profile and leaves
+        the rest at Pass. This function puts the values the unit already stores
+        in their place. So a push changes only the slots the profile names. It
+        edits both lists in place.
 
-        The blob holds four slots, and the unit addresses five. The fifth
-        has no stored value, so it stays as it came.
+        The blob holds four slots, and the unit addresses five. The fifth has
+        no stored value, so it stays as it came.
         """
         configuration = self.read_user_configuration()
         for slot in range(PROFILE_CROSSOVER_SLOT_COUNT, len(configuration.crossovers)):
@@ -543,17 +540,17 @@ class DeqSession:
         """Picks one of the unit's built-in EQ styles.
 
         No command carries a style as its own field. The style lives in the
-        settings blob, as the preset index of the bank in use, so selecting
-        one means reading the blob, changing that byte and writing it back.
+        settings blob, as the preset index of the bank in use. So a selection
+        reads the blob, changes that byte and writes the blob back.
 
-        The unit keeps two banks, A and B, each with its own preset index,
-        and `bank_in_use` says which one plays. The Pioneer app shows them
-        as two more entries in its own picker, "Custom A" and "Custom B",
-        because the app has nowhere else to keep a curve. This app does:
-        a profile is a named curve, and there can be any number of them.
-        So the banks are not a choice offered to a person here. They are
-        only where a profile lands on the unit, and this writes whichever
-        bank the unit already plays.
+        The unit keeps two banks, A and B, each with its own preset index.
+        `bank_in_use` says which one plays. The Pioneer app shows them as two
+        more entries in its own picker, "Custom A" and "Custom B". The app has
+        nowhere else to keep a curve. This app has such a place: a profile is a
+        named curve, and a person can keep any number of them. So this app does
+        not offer the banks as a choice. A bank is only where a profile lands
+        on the unit, and this method writes to the bank that the unit already
+        plays.
         """
         wire_value = EQ_STYLE.by_name(style_name).wire_value
         configuration = self.read_user_configuration()
@@ -566,8 +563,8 @@ class DeqSession:
     def select_live_simulation(self, mode_name: str) -> None:
         """Picks one of the unit's built-in live-simulation modes.
 
-        Same story as the EQ style: it is `sound_field` in the blob, not a
-        command of its own.
+        The EQ style works the same way. The mode is `sound_field` in the blob,
+        and no command of its own carries it.
         """
         wire_value = LIVE_SIMULATION.by_name(mode_name).wire_value
         configuration = self.read_user_configuration()
@@ -577,18 +574,18 @@ class DeqSession:
     def set_audio_source(self, source_name: str) -> None:
         """Picks which input the unit plays.
 
-        This decides what comes out of the car's speakers while a session
-        runs, and both answers were heard in a car on 2026-10-08:
+        The mode decides what comes out of the car's speakers while a session
+        runs. A person heard both answers in a car on 2026-10-08:
 
             THROUGH (4)           the car's own audio
             SP_OTHER_SOURCE (5)   whatever this device writes over USB
 
-        Both were measured with the Pi's audio function attached and a
-        tone feeding, so an attached audio function does not take the
-        car's audio -- an earlier version of this docstring said it did.
-        THROUGH is the right default, and the connect sequence ends with
-        it. The real app sets the mode explicitly too; `service/g` in the
-        APK logs "ringing: setSourceMode(SourceMode.THROUGH)".
+        Both measurements had the Pi's audio function attached and a tone
+        playing. So an attached audio function does not take the car's audio.
+        An earlier version of this docstring said that it did. THROUGH is the
+        right default, and the connect sequence ends with it. The real app also
+        sets the mode explicitly. `service/g` in the APK logs "ringing:
+        setSourceMode(SourceMode.THROUGH)".
 
         One catch: the unit refuses a volume write with STATUS -6 while it
         holds THROUGH, and takes one on an OTHER mode. Set the mode first.
@@ -613,10 +610,10 @@ class DeqSession:
     def read_mode(self) -> int:
         """Returns the source mode the unit holds, as a wire value.
 
-        0x0c is a read: it carries no body and the unit answers with one
-        field. The writing command, 0x0b, echoes the mode back too, which
-        is how this was read before -- but that needs a write first, and
-        a read does not.
+        0x0c is a read. It carries no body, and the unit answers with one
+        field. The writing command, 0x0b, also echoes the mode back. An earlier
+        version read the mode that way, but that needs a write first, and a
+        read does not.
         """
         return self._read_one_signed_field(COMMAND_GET_MODE)
 
@@ -647,16 +644,16 @@ class DeqSession:
     def notify_play_ready(self) -> None:
         """Tells the unit this device is ready to play audio.
 
-        0x1a, PLAY_READY_NOTIFICATION. The request carries no body at all,
-        so there is nothing to guess: `deq_commands.json` gives it a
-        16-byte payload, which is the header and the transaction id and
-        nothing else. The reply is STATUS only.
+        0x1a, PLAY_READY_NOTIFICATION. The request carries no body at all, so
+        nothing needs a guess. `deq_commands.json` gives it a 16-byte payload,
+        which is the header and the transaction id and nothing else. The reply
+        is STATUS only.
 
-        The real app sends it at the end of every cold start, right after
-        the mode write, and `start` sends it for the same reason. It is
-        what gives the car its audio: without it the car stayed silent for
-        as long as the Pi was attached, and sent alone in a car on
-        2026-10-11 it brought the audio back at once.
+        The real app sends it at the end of every cold start, right after the
+        mode write. `start` sends it for the same reason: it gives the car its
+        audio. Without it the car stayed silent for as long as the Pi stayed
+        attached. Sent alone in a car on 2026-10-11, it brought the audio back
+        at once.
         """
         self.exchange(COMMAND_PLAY_READY_NOTIFICATION)
 
@@ -667,9 +664,9 @@ class DeqSession:
 def selected_band_gains_db(tuning: TuningData) -> list[float]:
     """Returns the 13 band gains the profile has active.
 
-    `foundationEq.eqs` holds one slot per channel group, and each slot
-    stores several banks with `selectedBank` naming the live one. A profile
-    in LR mode keeps one combined slot; the unit still wants one curve.
+    `foundationEq.eqs` holds one slot per channel group. Each slot stores
+    several banks, and `selectedBank` names the live one. A profile in LR mode
+    keeps one combined slot. The unit still wants one curve.
     """
     slots = tuning.foundationEq.eqs
     if slots == {}:
@@ -688,8 +685,8 @@ def cancelled_band_gains_db(
 ) -> list[float]:
     """Returns the curve with the factory cancelling equalizer added in.
 
-    The unit wants two curves: one with the cancelling equalizer applied
-    and one without. A profile that has no cancelling data, or has it
+    The unit wants two curves: one with the cancelling equalizer applied and
+    one without. A profile with no cancelling data, or with the cancelling
     switched off, sends the same curve twice.
     """
     cancel = tuning.factoryCancel
@@ -725,13 +722,13 @@ def crossover_slot_inputs(tuning: TuningData) -> tuple[list[int], list[FilterSlo
     """Returns one cutoff position and one slope per filter slot.
 
     The unit addresses five slots. The profile carries a front and a rear
-    high-pass filter, which are slots 0 and 1; it has no value for the
-    other three, so they stay at Pass and the unit leaves them alone.
+    high-pass filter, which are slots 0 and 1. It has no value for the other
+    three, so they stay at Pass and the unit leaves them alone.
 
-    Both profile fields are positions, not physical units: `cutoff_hpf` is
-    an index into the 11-entry cutoff table and `slope_hpf` is the filter
-    order. A factory preset stores 9 and 2 for its rear filter, which is
-    200 Hz at 12 dB per octave.
+    Both profile fields are positions and not physical units. `cutoff_hpf` is
+    an index into the 11-entry cutoff table, and `slope_hpf` is the filter
+    order. A factory preset stores 9 and 2 for its rear filter, which is 200 Hz
+    at 12 dB per octave.
     """
     cutoff_positions = [0] * CROSSOVER_SLOT_COUNT
     slopes = [FilterSlope.PASS] * CROSSOVER_SLOT_COUNT
@@ -753,8 +750,8 @@ def read_field(reply: Message, offset: int, width: int) -> int:
 def read_text_field(reply: Message, offset: int, width: int) -> str:
     """Reads one fixed-width string out of a reply body.
 
-    The unit pads a short string with zero bytes, and its serial numbers
-    are plain ASCII.
+    The unit pads a short string with zero bytes. Its serial numbers are plain
+    ASCII.
     """
     raw = reply.body[offset:offset + width]
     return raw.split(b"\x00", 1)[0].decode("ascii", errors="replace")

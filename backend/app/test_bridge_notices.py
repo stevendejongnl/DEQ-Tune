@@ -1,7 +1,7 @@
 """Checks that a fault which fixes itself is still visible afterwards.
 
-That is the whole purpose of the notice log, so most of these tests raise
-a condition, let it pass, and then assert the notice is still there.
+The notice log exists for that purpose. So most of these tests raise a
+condition, let it pass, and then assert that the notice is still there.
 """
 
 from __future__ import annotations
@@ -19,9 +19,9 @@ from app.bridge_notices import (
 class StoppedClock:
     """A clock a test moves by hand.
 
-    It answers the time; `BridgeNoticeLog` reads it; it depends on
-    nothing. Real time would make "first seen" and "last seen" untestable
-    without sleeping.
+    It answers the time, and `BridgeNoticeLog` reads it. It depends on nothing.
+    Real time would make "first seen" and "last seen" untestable without a
+    sleep.
     """
 
     def __init__(self, seconds: float = 0.0) -> None:
@@ -149,8 +149,8 @@ def test_two_conditions_are_two_notices():
 
 
 def test_clearing_forgets_everything():
-    """What a restart does. Only a person asks for this; a request does
-    not, or the sticky notice would not be sticky."""
+    """What a restart does. Only a person asks for this. A request does not, or
+    the sticky notice would not be sticky."""
     log = BridgeNoticeLog()
     log.raise_notice("a-key", SEVERITY_WARNING, "message")
 

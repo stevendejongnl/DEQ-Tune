@@ -46,9 +46,9 @@ export interface LocaleStorage {
 }
 
 /** Resolves the locale to start the app in: a previously saved choice if
- * there is one, otherwise the detected browser locale — persisting that
- * detection so a later visit doesn't silently switch if the browser's
- * language list changes. */
+ * there is one, otherwise the detected browser locale. It saves that
+ * detection, so a later visit does not switch without notice if the
+ * browser's language list changes. */
 export function resolveInitialLocale(
   storage: LocaleStorage,
   browserLanguages: readonly string[],

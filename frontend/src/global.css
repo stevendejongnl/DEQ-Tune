@@ -54,8 +54,8 @@ body {
   line-height: 1.5;
 }
 
-/* Shown instead of the app when the browser can't run it at all — see
-   index.html's <script nomodule> and main.ts's feature check. */
+/* The page shows this instead of the app when the browser can't run it at
+   all. See index.html's <script nomodule> and main.ts's feature check. */
 .unsupported-browser {
   max-width: 28rem;
   margin: 4rem auto;

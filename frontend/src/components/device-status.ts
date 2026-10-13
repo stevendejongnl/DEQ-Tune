@@ -9,15 +9,15 @@ import { readLinkState, type LinkState } from "./link-state.ts";
 
 /** How often to ask again, in milliseconds.
  *
- * Faster while something is still expected to change, slower once the
- * link is up and there is nothing to wait for. The backend connects by
- * itself, so this only watches; it never asks for a connection.
+ * Faster while the app still expects a change, slower once the link is
+ * up and there is nothing to wait for. The backend connects by itself, so
+ * this component only watches. It never asks for a connection.
  */
 export const POLL_WHILE_DOWN_MS = 3000;
 export const POLL_WHILE_UP_MS = 10000;
 
 /** Runs an action after a delay, and returns a handle to cancel it with.
- * `setTimeout` is one; a test supplies another. */
+ * `setTimeout` is one such function. A test supplies another. */
 export type ScheduleFunction = (action: () => void, delayMs: number) => unknown;
 
 export type CancelFunction = (handle: unknown) => void;
@@ -25,14 +25,14 @@ export type CancelFunction = (handle: unknown) => void;
 /**
  * Watches the link and hands what it finds to `device-pill`.
  *
- * It reads `/api/device` and asks again on a timer; `app-root` places it
- * in the header; it depends on a `DeviceApi` and on a way to schedule the
+ * It reads `/api/device` and asks again on a timer. `app-root` places it
+ * in the header. It depends on a `DeviceApi` and on a way to schedule the
  * next read.
  *
  * There is no connect button. The backend connects by itself and keeps
- * trying, the unit is wired to the car, and both come up with the
- * ignition, so there is nothing a person could usefully press. This
- * component reports; it does not ask.
+ * trying. The unit sits wired into the car, and both come up with the
+ * ignition, so a person has nothing useful to press. This component
+ * reports and never asks.
  *
  * `api` and `scheduleFunction` are settable properties, so a test passes
  * hand-written fakes instead of stubbing anything.

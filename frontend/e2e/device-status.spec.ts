@@ -10,8 +10,8 @@ import { expect, test, type Page } from "@playwright/test";
  */
 
 /** The app is one web component tree, so every locator reaches into shadow
- * DOM. Playwright pierces shadow roots for CSS selectors, so this is the
- * plain way to find the pill. */
+ * DOM. Playwright pierces shadow roots for CSS selectors, so a plain CSS
+ * selector finds the pill. */
 const DEVICE_PILL = "device-status .pill";
 const CONNECT_BUTTON = "device-status button.connect";
 
@@ -82,8 +82,8 @@ test("the pill's dot turns to the accent colour once connected", async ({ page }
   await page.locator(CONNECT_BUTTON).click();
   await expect(page.locator(DEVICE_PILL)).toContainText("DEQ connected");
 
-  // This is the nested CSS rule `.pill.connected & { }`, which jsdom cannot
-  // parse. A real browser is the only place it can be checked.
+  // The nested CSS rule `.pill.connected & { }` sets this colour, and jsdom
+  // cannot parse that rule. Only a real browser can check it.
   const connectedColour = await dot.evaluate(
     (element) => getComputedStyle(element).backgroundColor,
   );

@@ -1,28 +1,25 @@
 """Holds the one link to the DEQ unit.
 
-The backend owns the link, not the browser. The process that holds the
-handle is this one, so the frontend reads device state over HTTP like any
-other data.
+The backend owns the link, and the browser does not. This process holds the
+handle, so the frontend reads device state over HTTP like any other data.
 
-Which transport that link uses is configuration. `DEQ_TRANSPORT=simulator`
-serves a simulated unit a developer can change while it runs, through
-`tools/deq_console.py` -- see `deq_simulator_transport.py`.
-`DEQ_TRANSPORT=fake` is
-the default, which talks to `testing/fake_deq.py` so the whole app runs end
-to end with no hardware. `DEQ_TRANSPORT=accessory` talks to a real unit
-through the Pi's accessory gadget -- see `accessory_transport.py`. That is
-the one that reaches a DEQ in the car, and it is how the Pi runs.
+The configuration picks the transport for that link. `DEQ_TRANSPORT=simulator`
+serves a simulated unit that a developer can change while it runs, through
+`scripts/deq_console.py`. See `deq_simulator_transport.py`.
+`DEQ_TRANSPORT=fake` is the default. It talks to `testing/fake_deq.py`, so the
+whole app runs end to end with no hardware. `DEQ_TRANSPORT=accessory` talks to
+a real unit through the Pi's accessory gadget. See `accessory_transport.py`.
+That transport reaches a DEQ in the car, and the Pi runs it.
 `DEQ_TRANSPORT=usb` talks to a unit plugged into this machine's own port
-through `usb_transport.py`, which needs the `usb` extra
-(`uv sync --extra usb`).
+through `usb_transport.py`, which needs the `usb` extra (`uv sync --extra
+usb`).
 
-The direct USB transport has never answered a real unit, because a
-laptop's USB-C port is usually host-only hardware and the DEQ is itself a
-USB host when connected this way -- see `USB_CAPTURE_NOTES.md` in the
-outer repo. The Pi answers it because the gadget presents the device side,
-which is why `accessory` is the real path and `usb` is kept only for a
-machine that can do the same. `scripts/check_real_deq.py` runs the
-conformance check over either one.
+The direct USB transport never answered a real unit. A laptop's USB-C port is
+usually host-only hardware, and the DEQ is itself a USB host when connected
+this way. See `USB_CAPTURE_NOTES.md` in the outer repo. The Pi answers the
+unit, because the gadget presents the device side. So `accessory` is the real
+path. `usb` stays only for a machine that can do the same.
+`scripts/check_real_deq.py` runs the conformance check over either one.
 """
 
 from __future__ import annotations
@@ -42,9 +39,9 @@ SIMULATOR_TRANSPORT_NAME = "simulator"
 USB_TRANSPORT_NAME = "usb"
 ACCESSORY_TRANSPORT_NAME = "accessory"
 
-# How long the link keeper waits between tries. The unit is wired to the
-# car, so a wait of a few seconds is short against the time it takes a
-# person to switch the ignition on and open the app.
+# How long the link keeper waits between tries. The unit has a fixed connection
+# to the car. So a wait of a few seconds is short against the time a person
+# takes to switch the ignition on and open the app.
 DEFAULT_RETRY_SECONDS = 3.0
 
 # How long `stop` waits for the loop's thread to finish.
@@ -67,11 +64,11 @@ class DeviceState:
 
 
 def build_transport(name: str | None = None) -> Transport:
-    """Returns the transport named by the environment.
+    """Returns the transport that the environment names.
 
-    An unknown name is an error rather than a silent fall back to the fake:
-    a deployment that asks for real hardware and quietly gets a simulation
-    is worse than one that refuses to start.
+    An unknown name raises an error, and the app does not fall back to the
+    fake. A deployment that asks for real hardware and gets a simulation is
+    worse than one that refuses to start.
     """
     if name is None:
         name = os.environ.get(TRANSPORT_ENVIRONMENT_VARIABLE, FAKE_TRANSPORT_NAME)
@@ -103,16 +100,15 @@ def build_transport(name: str | None = None) -> Transport:
 class DeqDevice:
     """Keeps one DEQ session, and starts it when it is first needed.
 
-    It answers what the unit is and pushes settings to it; you call its
-    methods from a route handler; it depends on a transport factory and on
+    It answers what the unit is and pushes settings to it. You call its methods
+    from a route handler. It depends on a transport factory and on
     `DeqSession`.
 
-    One lock guards the link, because two threads reach it: the HTTP
-    handlers, and `LinkKeeper`'s thread reconnecting. The protocol is one
-    request and then its reply over a single transport, so two threads
-    writing at once would interleave frames and leave the conversation out
-    of step. The lock makes one whole exchange the unit of work, not one
-    write.
+    One lock guards the link, because two threads reach it: the HTTP handlers,
+    and the reconnect thread of `LinkKeeper`. The protocol is one request and
+    then its reply, over a single transport. Two threads that write at once
+    would interleave frames and put the conversation out of step. The lock
+    makes one whole exchange the unit of work, and not one write.
     """
 
     def __init__(self, build_transport_function=build_transport) -> None:
@@ -128,14 +124,13 @@ class DeqDevice:
     def connect(self) -> DeviceState:
         """Opens the link and runs the unit's startup sequence.
 
-        It releases the link it already holds first. A transport can be one
-        the far end allows only once -- the Pi's gadget relays for a single
-        backend, because two writers on one DEQ link interleave frames --
-        so building the new transport before closing the old one is asking
-        to be refused. That is what a real unit did on 2026-10-08: a second
-        `connect()` was refused, and the working link went down with it
-        until `LinkKeeper` built it again. The fake transport cannot show
-        this, since nothing refuses a second one.
+        It first releases the link it already holds. The far end can allow a
+        transport only once. The Pi's gadget relays for a single backend,
+        because two writers on one DEQ link interleave frames. So a new
+        transport built before the old one closes gets a refusal. A real unit
+        did that on 2026-10-08. It refused a second `connect()`, and the
+        working link went down with it until `LinkKeeper` built it again. The
+        fake transport cannot show this, because it refuses nothing.
         """
         with self._link_lock:
             self.disconnect()
@@ -201,14 +196,14 @@ class DeqDevice:
         return self.run(lambda session: session.read_user_configuration())
 
     def run(self, action):
-        """Runs one action against the unit, turning a failure into words.
+        """Runs one action against the unit, and turns a failure into words.
 
-        A session error means the link is no longer trustworthy, so the
-        link is dropped and `LinkKeeper` opens a new one.
+        A session error means the link is no longer trustworthy. So this method
+        drops the link, and `LinkKeeper` opens a new one.
 
         The lock covers the whole action. One action is one or more
-        request-and-reply exchanges, and another thread sending a frame
-        between them would answer the wrong request.
+        request-and-reply exchanges. If another thread sent a frame between
+        them, that frame would answer the wrong request.
         """
         with self._link_lock:
             session = self.require_session()
@@ -220,20 +215,20 @@ class DeqDevice:
 
 
 class LinkKeeper:
-    """Keeps one device connected, retrying for as long as it runs.
+    """Keeps one device connected, and retries for as long as it runs.
 
-    It calls `connect` until the link is up and again whenever it drops;
-    you `start` it once and `stop` it at shutdown; it depends on a device
-    and on a clock it can wait against.
+    It calls `connect` until the link is up, and again whenever it drops. You
+    `start` it once and `stop` it at shutdown. It depends on a device and on a
+    clock it can wait against.
 
-    The link is a fact the app reports, never a thing a user starts. The
-    unit is wired to the car, the bridge holding the USB link retries by
-    itself, and both come up with the ignition, so there is nothing a
-    person could usefully press. This is the same loop one layer up.
+    The app reports the link as a fact, and a user never starts it. The unit
+    has a fixed connection to the car. The bridge that holds the USB link
+    retries by itself. Both come up with the ignition. So a person has nothing
+    useful to press. This class runs the same loop one layer up.
 
-    The waiting is injected so a test does not sleep. `wait_function`
-    takes a number of seconds and returns True to keep running, which is
-    how `stop` interrupts a wait instead of outliving it.
+    The caller injects the wait, so a test does not sleep. `wait_function` takes
+    a number of seconds and returns True to keep running. That lets `stop`
+    interrupt a wait instead of outliving it.
     """
 
     def __init__(
@@ -249,15 +244,15 @@ class LinkKeeper:
         self._thread: threading.Thread | None = None
 
     def _wait_on_event(self, seconds: float) -> bool:
-        """Waits, and returns False as soon as `stop` is called."""
+        """Waits, and returns False as soon as a caller calls `stop`."""
         return not self._stop_requested.wait(seconds)
 
     def start(self) -> None:
         """Starts the loop in its own thread.
 
-        A thread and not an asyncio task: a transport read blocks for its
-        whole timeout, and blocking the event loop would stall every HTTP
-        request the app is serving at the time.
+        The loop runs in a thread and not in an asyncio task. A transport read
+        blocks for its whole timeout. A blocked event loop would stall every
+        HTTP request in progress.
         """
         if self._thread is not None:
             return
@@ -284,15 +279,14 @@ class LinkKeeper:
         """Connects, keeps the link warm, and reconnects, until asked to stop.
 
         A live link still needs a frame now and then. The real app sends
-        COMMAND_KEEPALIVE about every nine seconds for a whole session, and
-        nothing here sent one until 2026-10-08: the backend connected and
-        then went silent, which also meant a link that had died was
-        reported as up until something else happened to ask the unit for
-        something.
+        COMMAND_KEEPALIVE about every nine seconds for a whole session. Nothing
+        here sent one until 2026-10-08. The backend connected and then went
+        silent. So the app reported a dead link as up, until some other request
+        asked the unit for something.
 
-        The keepalive doubles as the check. A unit that stops answering one
-        drops the link here, so `state()` tells the truth rather than
-        repeating what was true at connect time.
+        The keepalive is also the check. If the unit stops answering one, this
+        loop drops the link. So `state()` tells the truth, and does not repeat
+        what was true at connect time.
         """
         while True:
             if self.unit.state().connected:
@@ -305,10 +299,9 @@ class LinkKeeper:
     def connect_once(self) -> DeviceState:
         """Tries one connection and never raises.
 
-        A failure here is a normal state -- the car is off, or the bridge
-        has no link yet -- and the reason reaches the app through
-        `DeviceState.problem`. A raise would only kill the thread that has
-        to try again.
+        A failure here is a normal state. The car is off, or the bridge has no
+        link yet. The reason reaches the app through `DeviceState.problem`. A
+        raise would only kill the thread that has to try again.
         """
         try:
             return self.unit.connect()
@@ -322,8 +315,8 @@ def format_firmware_version(raw_version: int) -> str:
     """Returns the version the way the app shows it, for example `2.02`.
 
     The unit sends two bytes. The app's own connect screen reads them as a
-    major and a minor part, which is where the `2.02` in the captured
-    accessory string comes from.
+    major and a minor part. The `2.02` in the captured accessory string comes
+    from there.
     """
     return f"{raw_version >> 8}.{raw_version & 0xFF:02d}"
 

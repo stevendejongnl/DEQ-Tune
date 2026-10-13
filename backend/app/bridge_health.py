@@ -1,19 +1,18 @@
-"""How the machine running this backend is doing.
+"""How the machine that runs this backend is doing.
 
-The backend runs on the bridge: a Pi wired to the DEQ in the car. That
-machine can be unwell in ways that look exactly like a broken app -- a Pi
-browning out drops its USB link, its Wi-Fi, or both, and the person
-holding the phone sees an app that stopped working for no reason.
+The backend runs on the bridge: a Pi wired to the DEQ in the car. That machine
+can fail in ways that look like a broken app. A Pi that browns out drops its
+USB link, its Wi-Fi, or both. The person with the phone then sees an app that
+stopped working for no reason.
 
-So this reports the bridge's own health, separately from
-`deq_device.py`'s report of the DEQ. The two fail independently and mean
-different things: a DEQ that is switched off is normal, and a bridge that
-is browning out is a fault in the wiring.
+So this module reports the bridge's own health, apart from the report of the
+DEQ in `deq_device.py`. The two fail independently and mean different things. A
+DEQ that is off is normal. A bridge that browns out has a fault in the wiring.
 
 Undervoltage is the one worth reading today. A Pi reports it through
-`vcgencmd`, which exists only on a Pi, so every other machine answers
-"unknown" rather than failing. Nothing here may raise: a health report
-that breaks the app it reports on is worse than no report.
+`vcgencmd`, which exists only on a Pi. So every other machine answers "unknown"
+and does not fail. Nothing here may raise. A health report that breaks the app
+it reports on is worse than no report.
 """
 
 from __future__ import annotations
@@ -21,9 +20,9 @@ from __future__ import annotations
 import subprocess
 from dataclasses import dataclass
 
-# What `vcgencmd get_throttled` returns. The low bits say what is true
-# now; the high bits say it happened at some point since this boot and
-# are cleared by a reboot.
+# What `vcgencmd get_throttled` returns. The low bits say what is true now. The
+# high bits say it happened at some point since this boot, and a reboot clears
+# them.
 UNDERVOLTAGE_NOW_FLAG = 0x1
 UNDERVOLTAGE_SINCE_BOOT_FLAG = 0x10000
 
@@ -36,7 +35,7 @@ UPTIME_PATH = "/proc/uptime"
 class BridgeHealth:
     """What the app shows about the machine holding the link."""
 
-    # None where the machine cannot say -- a laptop has no `vcgencmd`.
+    # None where the machine cannot say. A laptop has no `vcgencmd`.
     undervoltage_now: bool | None = None
     undervoltage_since_boot: bool | None = None
     uptime_seconds: float | None = None

@@ -391,8 +391,8 @@ export class EqEditor extends LitElement {
     return `${fullFrequencyLabel(band)}, ${formatGain(this.gainOf(band))} dB`;
   }
 
-  /** The left and right keys move the selection. The up and down keys
-   * change the gain of the selected band. */
+  /** The left and right keys move the selection, and the up and down
+   * keys change the gain of the selected band. */
   private onBandKeydown(event: KeyboardEvent, band: number): void {
     if (event.key === "ArrowLeft" && band > 0) {
       event.preventDefault();
@@ -419,8 +419,8 @@ export class EqEditor extends LitElement {
     this.selectedBand = band;
   }
 
-  /** Dragging a dot up and down sets the gain of its band. The pointer
-   * is captured, so the drag continues outside the dot. */
+  /** Dragging a dot up and down sets the gain of its band. The editor
+   * captures the pointer, so the drag continues outside the dot. */
   private startDrag(event: PointerEvent, band: number): void {
     this.selectedBand = band;
     this.draggingBand = band;

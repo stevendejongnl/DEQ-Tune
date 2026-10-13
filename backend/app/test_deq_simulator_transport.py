@@ -28,7 +28,7 @@ def request_frame(command_id: int, body: bytes = b"") -> bytes:
 
 
 def simulator_reading(state: DeqSimulatorState) -> DeqSimulator:
-    """A simulator whose state file is replaced by the state given.
+    """A simulator that takes the given state in place of its state file.
 
     The seam is the loader, so no test writes a file or stubs a global.
     """

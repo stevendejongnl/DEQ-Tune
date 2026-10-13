@@ -1,9 +1,9 @@
 """Checks the fake DEQ against bytes a real DEQ sent.
 
-The fake is only worth having if it answers the way the unit does, so the
-load-bearing test here replays a captured request through it and compares
-its reply with the unit's own, byte for byte. `conformance/flows.json`
-holds those bytes.
+The fake is worth having only if it answers the way the unit does. So the
+load-bearing test here replays a captured request through it. It compares the
+fake's reply with the unit's own, byte for byte. `conformance/flows.json` holds
+those bytes.
 """
 
 from __future__ import annotations
@@ -119,8 +119,8 @@ def test_the_unit_can_be_told_to_go_silent_after_one_command():
 
 
 def test_an_unmeasured_large_command_raises_rather_than_answering_zeros():
-    """A zero-filled reply would let a test pass against behaviour no real
-    unit has shown. The protocol work lost days to exactly that."""
+    """A zero-filled reply would let a test pass against behaviour that no real
+    unit showed. The protocol work lost days to that."""
     fake = FakeDeq()
     with pytest.raises(UnknownCommandError, match="no reply rule"):
         fake.send_frame(build_request_frame(command_id=0x7E, body=bytes(64)))
@@ -167,12 +167,12 @@ def read_capture(name: str) -> str:
 
 
 def test_the_fake_reproduces_the_real_units_mode_reply():
-    """0x0b answers with four fields, and this is the real unit's answer.
+    """0x0b answers with four fields, and this test holds the real unit's
+    answer.
 
-    Captured in the car on 2026-10-08 at transaction id 11, when the
-    backend set THROUGH: MODE 4, volume -37 dB, mute SOUND_ON, not
-    driving. The generic echo rule answered with MODE alone, which no unit
-    has ever done.
+    Captured in the car on 2026-10-08 at transaction id 11, when the backend
+    set THROUGH: MODE 4, volume -37 dB, mute SOUND_ON, not driving. The generic
+    echo rule answered with MODE alone, and no unit ever did that.
     """
     fake = FakeDeq(volume_db=REAL_UNIT_VOLUME_DB)
     request = encode_frame(

@@ -262,8 +262,8 @@ export const eqEditorStyles = css`
     line-height: 1.45;
     color: var(--color-muted-foreground);
   }
-  /* global.css cannot reach into this shadow tree, so the accent
-     colour is set again here. */
+  /* global.css cannot reach into this shadow tree, so this stylesheet
+     sets the accent colour again. */
   input[type="range"] {
     width: 100%;
     margin-top: 8px;

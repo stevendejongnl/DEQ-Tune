@@ -24,7 +24,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // The backend API is live data (profiles get edited); never serve it from cache.
+        // The backend API is live data (users edit profiles). Never serve it from cache.
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
@@ -39,7 +39,7 @@ export default defineConfig({
   // first scan cannot see them: it discovers them mid-run, re-optimizes,
   // and reloads the page. Naming them here means one cold start instead of
   // a start plus a re-optimize. `npm run warm` fills the cache without a
-  // browser; after that a start reuses it.
+  // browser. After that, a start reuses it.
   optimizeDeps: {
     include: [
       "typia",

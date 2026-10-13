@@ -1,12 +1,12 @@
 """A DEQ unit that answers the way the real one does.
 
-This is a `Transport`, so `DeqSession` talks to it exactly as it talks to a
-real unit. No mocking library: a test passes one of these through the
+This class is a `Transport`, so `DeqSession` talks to it the same way it talks
+to a real unit. No mocking library: a test passes one of these through the
 session's constructor and reads `exchanges` afterwards.
 
-Every rule below was measured from `captures/20260929_session_full.log`,
-real traffic between the Pioneer app and a physical DEQ-S1000A2 — 217
-matched request and reply pairs:
+Every rule below comes from `captures/20260929_session_full.log`. That log
+holds real traffic between the Pioneer app and a physical DEQ-S1000A2: 217
+matched request and reply pairs.
 
 - the reply's command id equals the request's
 - the reply's transaction id equals the request's, byte for byte
@@ -14,15 +14,14 @@ matched request and reply pairs:
 - STATUS, the first four body bytes, is zero
 - the reply then echoes the request's own key field, where it has one
 
-The last rule has one exception that matters. **The unit never echoes a
-payload array back on a write.** A 2100-byte coefficient write gets a
-24-byte acknowledgement, not a 2104-byte echo. Echoing a payload back is
-what made the real app refuse a reply with `[Code:601]`, so this fake
-refuses to do it too.
+The last rule has one exception that matters. **The unit never echoes a payload
+array back on a write.** A 2100-byte coefficient write gets a 24-byte
+acknowledgement, not a 2104-byte echo. An echoed payload made the real app
+refuse a reply with `[Code:601]`, so this fake refuses to echo too.
 
-The fake raises on a command it does not know, rather than answering with
-zeros. A silent zero-filled reply is what hid a real bug for days during
-the protocol work: the app kept talking and only failed much later.
+The fake raises on a command it does not know, and does not answer with zeros.
+A silent zero-filled reply hid a real bug for days during the protocol work:
+the app kept talking and only failed much later.
 """
 
 from __future__ import annotations
@@ -62,9 +61,9 @@ from app.deq_transport import TransportTimeout
 
 STATUS_OK_BYTES = (0).to_bytes(STATUS_BYTES, "little")
 
-# Above this request payload size the unit acknowledges rather than echoes.
-# A 20-byte request still gets its field back; a 36-byte coefficient write
-# does not.
+# Above this request payload size the unit acknowledges and does not echo. A
+# 20-byte request still gets its field back. A 36-byte coefficient write does
+# not.
 ECHO_LIMIT_PAYLOAD_BYTES = 28
 
 # What this fake unit reports about itself. Measured from the real
@@ -72,8 +71,8 @@ ECHO_LIMIT_PAYLOAD_BYTES = 28
 FAKE_FIRMWARE_VERSION = 0x0202
 FAKE_SERIAL = "ABIV002781EW"
 
-# The 16-byte word the unit returns in its sync reply. Hardcoded in the app
-# as `b/a/e$b.a`, and the real unit sent exactly this.
+# The 16-byte word the unit returns in its sync reply. The app holds it as a
+# constant, `b/a/e$b.a`, and the real unit sent these same bytes.
 REPLY_SYNC_WORD = bytes.fromhex("3dd378e1054592964b2ede1fb9283b2b")
 
 # The sync reply the real unit sends is 32 bytes: STATUS, the word above,
@@ -95,11 +94,11 @@ MUTE_STATE_SOUND_OFF = 2
 
 # Which commands still report their own field when they refuse.
 #
-# A refusal carries STATUS and nothing else -- except here. The real unit
-# refused a volume write with STATUS -6 on 2026-10-08 and still reported
-# the volume it kept, which is `20261008_volume_refusal_reply.hex`. Only
-# 0x0d has been measured refusing, so only 0x0d is in this set. Add an id
-# when a capture shows it, not when it seems likely.
+# A refusal carries STATUS and nothing else, except for the commands here. The
+# real unit refused a volume write with STATUS -6 on 2026-10-08. It still
+# reported the volume it kept, in `20261008_volume_refusal_reply.hex`. Only
+# 0x0d has a measured refusal, so only 0x0d is in this set. Add an id when a
+# capture shows it, and not when it seems likely.
 COMMANDS_THAT_REPORT_STATE_WHEN_REFUSING = {0x0D}
 
 
@@ -115,9 +114,9 @@ class Exchange:
 class FakeDeq:
     """A DEQ that answers by the rules captured from a real one.
 
-    It replies to the commands a session sends; you hand it to
-    `DeqSession` as its transport; it depends on `deq_protocol` to read and
-    write frames and on `deq_blob` for the settings blob it serves.
+    It replies to the commands a session sends. You hand it to `DeqSession` as
+    its transport. It depends on `deq_protocol` to read and write frames, and
+    on `deq_blob` for the settings blob it serves.
     """
 
     configuration: UserConfiguration = field(default_factory=UserConfiguration)
@@ -159,14 +158,14 @@ class FakeDeq:
 
     @property
     def command_order(self) -> list[int]:
-        """The command ids this fake was sent, in order."""
+        """The command ids that this fake received, in order."""
         return [one.request.command_id for one in self.exchanges]
 
     def send_frame(self, frame: bytes) -> None:
         self.sent_frames.append(frame)
         request = decode_frame(frame)
         if not self.answers:
-            # Already quiet: the request is recorded, nothing is answered.
+            # Already quiet: the fake records the request and answers nothing.
             return
         reply = self.build_reply(request)
         self.exchanges.append(Exchange(request=request, reply=reply))
@@ -283,21 +282,21 @@ class FakeDeq:
             # STATUS only, so there is no field to echo.
             return b""
         if request.command_id == COMMAND_SELF_SAVE_CONFIGURATION_ENABLE:
-            # Unlike the small commands the echo rule covers, this reply's
+            # Unlike the small commands that the echo rule covers, this reply's
             # own fields (deq_commands.json) are TRANSACTION_ID and STATUS
-            # only -- ENABLE_FLAG is not echoed back.
+            # only. The reply does not echo ENABLE_FLAG back.
             return b""
         return self.echo_request_field(request)
 
     def build_identity_tail(self) -> bytes:
         """DEVICE_ID and the eight zero bytes that follow it.
 
-        Measured from a real DEQ-S1000A2 on 2026-10-08, which answered
-        `0x04` with a 24-byte body: four of STATUS, twelve of ASCII serial,
-        eight zero. The APK's field table declares 40 payload bytes with
-        SPEAKER_MODE at offset 36, and this fake used to send that -- so a
-        field the unit never sends read as a real value in every test. The
-        unit is the authority, so this matches the unit.
+        Measured from a real DEQ-S1000A2 on 2026-10-08, which answered `0x04`
+        with a 24-byte body: four of STATUS, twelve of ASCII serial, eight
+        zero. The APK's field table declares 40 payload bytes with SPEAKER_MODE
+        at offset 36. This fake sent that at one time. So a field that the unit
+        never sends read as a real value in every test. The unit is the
+        authority, so this method matches the unit.
         """
         serial_bytes = self.serial.encode("ascii")
         if len(serial_bytes) > 12:
@@ -307,11 +306,11 @@ class FakeDeq:
     def build_configuration_payload(self) -> bytes:
         """Returns the 2028 bytes `0x09` answers with, blob first.
 
-        A real DEQ-S1000A2 answered with exactly this many on 2026-10-08,
-        of which the first 572 are the blob this app decodes. The rest were
-        all zero on that unit. Answering a bare 572 here is what hid two
-        real bugs: the reader handed the whole body to `decode_blob`, and
-        the writer sent a blob the unit refuses.
+        A real DEQ-S1000A2 answered with this same count on 2026-10-08. The
+        first 572 are the blob this app decodes. The rest were all zero on that
+        unit. A bare 572 here hid two real bugs. The reader handed the whole
+        body to `decode_blob`, and the writer sent a blob that the unit
+        refuses.
         """
         blob = encode_blob(self.configuration)
         return blob.ljust(CONFIGURATION_PAYLOAD_BYTES, b"\x00")
@@ -329,8 +328,8 @@ class FakeDeq:
     def acknowledge_coefficients(self, request: Message) -> bytes:
         """Answers a coefficient write with its CONFIG_ID and nothing else.
 
-        This is the rule that matters most. The real unit sends 24 payload
-        bytes back for a 2100-byte write.
+        This rule matters most. The real unit sends 24 payload bytes back for a
+        2100-byte write.
         """
         return request.body[:4]
 
@@ -338,12 +337,12 @@ class FakeDeq:
         """Takes a source mode and reports the unit's whole audio state.
 
         0x0b answers with four fields, not one: MODE, ASP_STATE_VOLUME,
-        ASP_STATE_MUTE_STATE and ASP_STATE_DRIVING_STATE. The generic echo
-        rule used to answer it with MODE alone, which no real unit has
-        ever done -- `20261008_set_mode_reply.hex` is the real reply.
+        ASP_STATE_MUTE_STATE and ASP_STATE_DRIVING_STATE. The generic echo rule
+        answered it with MODE alone at one time, and no real unit ever did
+        that. `20261008_set_mode_reply.hex` is the real reply.
 
-        The real unit took every mode it was sent with STATUS 0 and echoed
-        it back, so this does the same. Set `status_by_command` to make it
+        The real unit took every mode it received with STATUS 0 and echoed it
+        back, so this method does the same. Set `status_by_command` to make it
         refuse instead.
         """
         self.mode = int.from_bytes(request.body, "little", signed=True)
@@ -370,9 +369,9 @@ class FakeDeq:
         """Takes a MUTE_STATE and reports what the unit now holds.
 
         The real unit answered SOUND_OFF with STATUS 0 and then reported
-        SOUND_ON anyway: `20261008_mute_state_reply.hex`. So this takes
-        the value, keeps its own state unchanged, and reports SOUND_ON --
-        the one behaviour a unit has actually shown.
+        SOUND_ON anyway: `20261008_mute_state_reply.hex`. So this method takes
+        the value, keeps its own state unchanged, and reports SOUND_ON. A unit
+        showed only that behaviour.
         """
         return self.mute_state_wire_value().to_bytes(4, "little", signed=True)
 
@@ -382,8 +381,8 @@ class FakeDeq:
     def echo_request_field(self, request: Message) -> bytes:
         """Echoes a small request's own field back, as the unit does.
 
-        A request big enough to carry a payload array gets an
-        acknowledgement instead; see this module's docstring.
+        A request big enough to carry a payload array gets an acknowledgement
+        instead. See this module's docstring.
         """
         if request.payload_length > ECHO_LIMIT_PAYLOAD_BYTES:
             raise UnknownCommandError(request.command_id, request.payload_length)
@@ -391,10 +390,10 @@ class FakeDeq:
 
 
 class UnknownCommandError(Exception):
-    """This fake was sent a command it has no measured reply for.
+    """This fake received a command that it has no measured reply for.
 
-    Answering with zeros instead would let a test pass against behaviour
-    no real unit has ever shown.
+    An answer of zeros would let a test pass against behaviour that no real
+    unit ever showed.
     """
 
     def __init__(self, command_id: int, payload_length: int) -> None:

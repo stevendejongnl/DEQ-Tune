@@ -52,9 +52,9 @@ const CONNECTED: DeviceDto = {
 /**
  * An in-memory `DeviceApi` fixture: real behaviour, no network, no mocking.
  *
- * It answers as a unit the backend can reach; you set `refuses` to make the
+ * It answers as a unit the backend can reach. You set `refuses` to make the
  * link fail, or `unreachable` to make the request fail the way an
- * out-of-reach bridge does; it records what the app asked it to send.
+ * out-of-reach bridge does. It records what the app asked it to send.
  */
 export class FakeDeviceApi implements DeviceApi {
   /** Set before connecting to see how the UI reports a failure. */

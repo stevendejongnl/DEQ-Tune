@@ -19,11 +19,11 @@ router = APIRouter(prefix="/bridge", tags=["bridge"])
 
 @router.get("", response_model=BridgeRead)
 def read_bridge() -> BridgeRead:
-    """Returns the bridge's health, and everything it has gone wrong with.
+    """Returns the bridge's health, and everything that went wrong with it.
 
-    Reading raises a notice when the health says so, which is what makes
-    a power dip outlive itself: the live reading recovers, and the notice
-    stays until the bridge restarts.
+    A read raises a notice when the health says so. That lets a power dip
+    outlive itself: the live reading recovers, and the notice stays until the
+    bridge restarts.
     """
     health = read_bridge_health()
     note_undervoltage(notice_log, health)
