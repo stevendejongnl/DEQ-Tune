@@ -29,6 +29,8 @@ from app.schemas import (
 )
 from app.deq_enums import AUDIO_SOURCE, MUTE_STATE
 from app.unit_tuning import tuning_from_configuration
+from app.active_profile import ActiveProfile, switch_source
+from app.active_profile_routes import get_active_profile
 
 router = APIRouter(prefix="/device", tags=["device"])
 
@@ -168,26 +170,28 @@ def send_play_ready(unit: DeqDevice = Depends(get_device)) -> AudioStateRead:
 
 @router.post("/audio-source", response_model=AudioStateRead)
 def set_audio_source(
-    body: AudioSourceWrite, unit: DeqDevice = Depends(get_device)
+    body: AudioSourceWrite,
+    unit: DeqDevice = Depends(get_device),
+    keeper: ActiveProfile = Depends(get_active_profile),
 ) -> AudioStateRead:
-    """Picks which input the unit plays. THROUGH is the car's own audio."""
+    """Picks which input the unit plays, and keeps it for the next links.
+
+    CAR_SOURCE plays the car's own audio through the DSP. THROUGH most likely
+    skips the DSP. The backend sets the stored mode on every new link.
+    """
     if body.name not in AUDIO_SOURCE.names:
         raise HTTPException(status_code=422, detail=f"unknown audio source {body.name}")
-    return run_on_unit(
+    state = run_on_unit(
         lambda: unit.run(
             lambda session: _switch_source(session, body.name)
         )
     )
+    keeper.remember_source(body.name)
+    return state
 
 
 def _switch_source(session, name: str) -> AudioStateRead:
-    """Writes the mode, then says the device is ready, as the app does.
-
-    A mode change on its own leaves the car silent until PLAY_READY follows it.
-    See `DeqSession.start`.
-    """
-    session.set_audio_source(name)
-    session.notify_play_ready()
+    switch_source(session, name)
     return _read_audio_state(session)
 
 

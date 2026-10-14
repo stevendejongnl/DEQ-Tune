@@ -13,23 +13,26 @@ engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread"
 # Columns added after a database already existed. `create_all` makes a
 # missing table but never changes one that exists. So the Pi's database
 # needs each later column added by hand, once.
-ADDED_PROFILE_COLUMNS = {
-    "favorite": "BOOLEAN NOT NULL DEFAULT 0",
+ADDED_COLUMNS = {
+    "profile": {"favorite": "BOOLEAN NOT NULL DEFAULT 0"},
+    "activeprofilesetting": {"equalizer_id": "INTEGER", "source_mode": "VARCHAR"},
 }
 
 
 def create_db_and_tables(target: Engine = engine) -> None:
     SQLModel.metadata.create_all(target)
-    add_missing_profile_columns(target)
+    add_missing_columns(target)
 
 
-def add_missing_profile_columns(target: Engine) -> None:
-    """Adds each column in `ADDED_PROFILE_COLUMNS` that the table lacks."""
-    present = {column["name"] for column in inspect(target).get_columns("profile")}
+def add_missing_columns(target: Engine) -> None:
+    """Adds each column in `ADDED_COLUMNS` that its table lacks."""
+    inspector = inspect(target)
     with target.begin() as connection:
-        for name, definition in ADDED_PROFILE_COLUMNS.items():
-            if name not in present:
-                connection.execute(text(f"ALTER TABLE profile ADD COLUMN {name} {definition}"))
+        for table, columns in ADDED_COLUMNS.items():
+            present = {column["name"] for column in inspector.get_columns(table)}
+            for name, definition in columns.items():
+                if name not in present:
+                    connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {definition}"))
 
 
 def get_session() -> Iterator[Session]:

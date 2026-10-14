@@ -31,6 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.deq_blob import (
+    BANK_A,
     BANK_B,
     STANDARD_BLOB_BYTES,
     UserConfiguration,
@@ -604,6 +605,25 @@ class DeqSession:
         """
         wire_value = AUDIO_SOURCE.by_name(source_name).wire_value
         self.exchange(COMMAND_SET_MODE, wire_value.to_bytes(4, "little", signed=True))
+
+    def use_custom_bank_a(self) -> None:
+        """Puts the unit's own EQ style on Custom, in bank A.
+
+        This app designs the whole curve itself and sends it as coefficients:
+        the car profile's curve plus the chosen EQ. The Pioneer app does the
+        same for its own styles. It asks its player library for a style's
+        curve (`PMGPlayer.getMultiBandEqualizerPreset`) and adds it before the
+        design. So the unit's stored style only names what plays. Custom in
+        bank A says "the app's own curve". The blob is written only when it
+        says something else.
+        """
+        configuration = self.read_user_configuration()
+        custom = EQ_STYLE.by_name("CUSTOM").wire_value
+        if configuration.bank_in_use == BANK_A and configuration.preset_index_a == custom:
+            return
+        configuration.bank_in_use = BANK_A
+        configuration.preset_index_a = custom
+        self.write_user_configuration(configuration)
 
     def set_volume(self, volume_db: int) -> None:
         """Sets the master volume, in dB. The unit takes a signed value."""

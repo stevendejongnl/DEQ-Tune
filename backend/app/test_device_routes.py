@@ -9,6 +9,9 @@ from app.deq_blob import BANK_B, SpeakerRecord, UserConfiguration
 from app.deq_device import DeqDevice, format_firmware_version
 from app.device_routes import _read_audio_state, get_device
 from app.main import app
+from app.active_profile import ActiveProfile
+from app.active_profile_routes import get_active_profile
+from sqlmodel import Session
 from app.testing.fake_deq import FAKE_SERIAL, FakeDeq
 
 
@@ -19,11 +22,15 @@ def unit() -> DeqDevice:
 
 
 @pytest.fixture(name="device_client")
-def device_client_fixture(seeded_client: TestClient, unit: DeqDevice) -> TestClient:
-    """The seeded client from `conftest`, with the fake unit injected too."""
+def device_client_fixture(seeded_client: TestClient, unit: DeqDevice, engine) -> TestClient:
+    """The seeded client from `conftest`, with the fake unit injected too, and
+    an active-profile keeper on the test database."""
     app.dependency_overrides[get_device] = lambda: unit
+    keeper = ActiveProfile(unit, lambda: Session(engine))
+    app.dependency_overrides[get_active_profile] = lambda: keeper
     yield seeded_client
     app.dependency_overrides.pop(get_device, None)
+    app.dependency_overrides.pop(get_active_profile, None)
 
 
 def test_the_unit_starts_disconnected(device_client: TestClient) -> None:
@@ -355,3 +362,11 @@ def connected_device(configuration: UserConfiguration) -> DeqDevice:
     device = DeqDevice(build_transport_function=lambda: FakeDeq(configuration=configuration))
     device.connect()
     return device
+
+
+def test_a_chosen_audio_source_is_kept_for_the_next_link(device_client: TestClient) -> None:
+    device_client.post("/api/device/connect")
+
+    device_client.post("/api/device/audio-source", json={"name": "THROUGH"})
+
+    assert device_client.get("/api/active-profile").json()["source_mode"] == "THROUGH"

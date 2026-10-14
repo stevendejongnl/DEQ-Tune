@@ -232,7 +232,10 @@ export interface paths {
         put?: never;
         /**
          * Set Audio Source
-         * @description Picks which input the unit plays. THROUGH is the car's own audio.
+         * @description Picks which input the unit plays, and keeps it for the next links.
+         *
+         *     CAR_SOURCE plays the car's own audio through the DSP. THROUGH most likely
+         *     skips the DSP. The backend sets the stored mode on every new link.
          */
         post: operations["set_audio_source_api_device_audio_source_post"];
         delete?: never;
@@ -394,6 +397,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/active-profile/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Choose Source
+         * @description Picks the source mode for now and for every new link.
+         *
+         *     Unlike `POST /device/audio-source`, it answers 200 while the unit is not
+         *     connected. The choice then waits for the next link. The car app uses it
+         *     for that reason.
+         */
+        put: operations["choose_source_api_active_profile_source_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/active-profile/equalizer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Activate Equalizer
+         * @description Picks the EQ that plays on top of the car profile, and pushes both.
+         *
+         *     `null` plays the car profile alone. A second call with the same EQ
+         *     pushes again, as with the profile.
+         */
+        put: operations["activate_equalizer_api_active_profile_equalizer_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/equalizers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Equalizers */
+        get: operations["list_equalizers_api_equalizers_get"];
+        put?: never;
+        /** Create Equalizer */
+        post: operations["create_equalizer_api_equalizers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/equalizers/{equalizer_id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Duplicate Equalizer
+         * @description Copies any EQ, a factory one too, as a custom EQ to edit.
+         */
+        post: operations["duplicate_equalizer_api_equalizers__equalizer_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/equalizers/{equalizer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Equalizer */
+        put: operations["update_equalizer_api_equalizers__equalizer_id__put"];
+        post?: never;
+        /** Delete Equalizer */
+        delete: operations["delete_equalizer_api_equalizers__equalizer_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -416,11 +522,21 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * ActiveEqualizerWrite
+         * @description `None` plays the car profile with no EQ on top.
+         */
+        ActiveEqualizerWrite: {
+            /** Equalizer Id */
+            equalizer_id: number | null;
+        };
+        /**
          * ActiveProfileRead
-         * @description Which profile the unit should play, and whether it plays it now.
+         * @description What the unit should play, and whether it plays it now.
          *
-         *     `status` is one of none, waiting, applied, outdated and failed.
-         *     `problem` says why the last push failed.
+         *     `profile_id` is the car profile and `equalizer_id` the EQ on top of it.
+         *     `status` is one of none, waiting, applied, outdated and failed, for the
+         *     two together. `problem` says why the last push failed. `source_mode` is
+         *     the mode that each new link gets.
          */
         ActiveProfileRead: {
             /** Profile Id */
@@ -429,11 +545,23 @@ export interface components {
             status: string;
             /** Problem */
             problem?: string | null;
+            /** Equalizer Id */
+            equalizer_id?: number | null;
+            /** Source Mode */
+            source_mode: string;
         };
         /** ActiveProfileWrite */
         ActiveProfileWrite: {
             /** Profile Id */
             profile_id: number;
+        };
+        /**
+         * ActiveSourceWrite
+         * @description A name from the AUDIO_SOURCE enum.
+         */
+        ActiveSourceWrite: {
+            /** Name */
+            name: string;
         };
         /** AudioSourceWrite */
         AudioSourceWrite: {
@@ -589,6 +717,31 @@ export interface components {
         EqStyleWrite: {
             /** Name */
             name: string;
+        };
+        /** EqualizerCreate */
+        EqualizerCreate: {
+            /** Gains */
+            gains: number[];
+            /** Name */
+            name: string;
+        };
+        /** EqualizerRead */
+        EqualizerRead: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Source */
+            source: string;
+            /** Gains */
+            gains: number[];
+        };
+        /** EqualizerUpdate */
+        EqualizerUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Gains */
+            gains?: number[] | null;
         };
         /** FactoryCancel */
         FactoryCancel: {
@@ -1375,6 +1528,220 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ActiveProfileRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    choose_source_api_active_profile_source_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActiveSourceWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    activate_equalizer_api_active_profile_equalizer_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActiveEqualizerWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_equalizers_api_equalizers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EqualizerRead"][];
+                };
+            };
+        };
+    };
+    create_equalizer_api_equalizers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EqualizerCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EqualizerRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    duplicate_equalizer_api_equalizers__equalizer_id__duplicate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                equalizer_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EqualizerRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_equalizer_api_equalizers__equalizer_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                equalizer_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EqualizerUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EqualizerRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_equalizer_api_equalizers__equalizer_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                equalizer_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

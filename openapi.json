@@ -446,7 +446,7 @@
           "device"
         ],
         "summary": "Set Audio Source",
-        "description": "Picks which input the unit plays. THROUGH is the car's own audio.",
+        "description": "Picks which input the unit plays, and keeps it for the next links.\n\nCAR_SOURCE plays the car's own audio through the DSP. THROUGH most likely\nskips the DSP. The backend sets the stored mode on every new link.",
         "operationId": "set_audio_source_api_device_audio_source_post",
         "requestBody": {
           "content": {
@@ -756,6 +756,282 @@
         }
       }
     },
+    "/api/active-profile/source": {
+      "put": {
+        "tags": [
+          "active-profile"
+        ],
+        "summary": "Choose Source",
+        "description": "Picks the source mode for now and for every new link.\n\nUnlike `POST /device/audio-source`, it answers 200 while the unit is not\nconnected. The choice then waits for the next link. The car app uses it\nfor that reason.",
+        "operationId": "choose_source_api_active_profile_source_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActiveSourceWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveProfileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/active-profile/equalizer": {
+      "put": {
+        "tags": [
+          "active-profile"
+        ],
+        "summary": "Activate Equalizer",
+        "description": "Picks the EQ that plays on top of the car profile, and pushes both.\n\n`null` plays the car profile alone. A second call with the same EQ\npushes again, as with the profile.",
+        "operationId": "activate_equalizer_api_active_profile_equalizer_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActiveEqualizerWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveProfileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/equalizers": {
+      "get": {
+        "tags": [
+          "equalizers"
+        ],
+        "summary": "List Equalizers",
+        "operationId": "list_equalizers_api_equalizers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EqualizerRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Equalizers Api Equalizers Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "equalizers"
+        ],
+        "summary": "Create Equalizer",
+        "operationId": "create_equalizer_api_equalizers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EqualizerCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EqualizerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/equalizers/{equalizer_id}/duplicate": {
+      "post": {
+        "tags": [
+          "equalizers"
+        ],
+        "summary": "Duplicate Equalizer",
+        "description": "Copies any EQ, a factory one too, as a custom EQ to edit.",
+        "operationId": "duplicate_equalizer_api_equalizers__equalizer_id__duplicate_post",
+        "parameters": [
+          {
+            "name": "equalizer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Equalizer Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EqualizerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/equalizers/{equalizer_id}": {
+      "put": {
+        "tags": [
+          "equalizers"
+        ],
+        "summary": "Update Equalizer",
+        "operationId": "update_equalizer_api_equalizers__equalizer_id__put",
+        "parameters": [
+          {
+            "name": "equalizer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Equalizer Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EqualizerUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EqualizerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "equalizers"
+        ],
+        "summary": "Delete Equalizer",
+        "operationId": "delete_equalizer_api_equalizers__equalizer_id__delete",
+        "parameters": [
+          {
+            "name": "equalizer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Equalizer Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -781,6 +1057,27 @@
   },
   "components": {
     "schemas": {
+      "ActiveEqualizerWrite": {
+        "properties": {
+          "equalizer_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equalizer Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "equalizer_id"
+        ],
+        "title": "ActiveEqualizerWrite",
+        "description": "`None` plays the car profile with no EQ on top."
+      },
       "ActiveProfileRead": {
         "properties": {
           "profile_id": {
@@ -808,15 +1105,31 @@
               }
             ],
             "title": "Problem"
+          },
+          "equalizer_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equalizer Id"
+          },
+          "source_mode": {
+            "type": "string",
+            "title": "Source Mode"
           }
         },
         "type": "object",
         "required": [
           "profile_id",
-          "status"
+          "status",
+          "source_mode"
         ],
         "title": "ActiveProfileRead",
-        "description": "Which profile the unit should play, and whether it plays it now.\n\n`status` is one of none, waiting, applied, outdated and failed.\n`problem` says why the last push failed."
+        "description": "What the unit should play, and whether it plays it now.\n\n`profile_id` is the car profile and `equalizer_id` the EQ on top of it.\n`status` is one of none, waiting, applied, outdated and failed, for the\ntwo together. `problem` says why the last push failed. `source_mode` is\nthe mode that each new link gets."
       },
       "ActiveProfileWrite": {
         "properties": {
@@ -830,6 +1143,20 @@
           "profile_id"
         ],
         "title": "ActiveProfileWrite"
+      },
+      "ActiveSourceWrite": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ActiveSourceWrite",
+        "description": "A name from the AUDIO_SOURCE enum."
       },
       "AudioSourceWrite": {
         "properties": {
@@ -1183,6 +1510,93 @@
         ],
         "title": "EqStyleWrite",
         "description": "Which built-in EQ style to select on the unit."
+      },
+      "EqualizerCreate": {
+        "properties": {
+          "gains": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "maxItems": 13,
+            "minItems": 13,
+            "title": "Gains"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gains",
+          "name"
+        ],
+        "title": "EqualizerCreate"
+      },
+      "EqualizerRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "gains": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Gains"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "source",
+          "gains"
+        ],
+        "title": "EqualizerRead"
+      },
+      "EqualizerUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "gains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array",
+                "maxItems": 13,
+                "minItems": 13
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gains"
+          }
+        },
+        "type": "object",
+        "title": "EqualizerUpdate"
       },
       "FactoryCancel": {
         "properties": {

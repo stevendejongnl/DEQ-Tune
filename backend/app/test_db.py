@@ -39,3 +39,21 @@ def test_a_second_start_changes_nothing():
 
     columns = [column["name"] for column in inspect(engine).get_columns("profile")]
     assert columns.count("favorite") == 1
+
+
+def test_an_older_setting_table_gets_the_eq_and_source_columns():
+    """The Pi's database got activeprofilesetting with one column on
+    2026-10-14. The EQ and the source mode came a day later."""
+    engine = create_engine("sqlite://", poolclass=StaticPool)
+    with engine.begin() as connection:
+        connection.execute(text(
+            "CREATE TABLE activeprofilesetting (id INTEGER PRIMARY KEY, profile_id INTEGER)"
+        ))
+        connection.execute(text("INSERT INTO activeprofilesetting VALUES (1, 15)"))
+
+    create_db_and_tables(engine)
+
+    columns = {column["name"] for column in inspect(engine).get_columns("activeprofilesetting")}
+    assert {"equalizer_id", "source_mode"} <= columns
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT profile_id FROM activeprofilesetting")).scalar_one() == 15

@@ -12,6 +12,8 @@ from sqlmodel import Session
 
 from app.active_profile import active_profile
 from app.active_profile_routes import router as active_profile_router
+from app.equalizer_routes import router as equalizer_router
+from app.equalizers import seed_factory_equalizers
 from app.bridge_routes import router as bridge_router
 from app.db import create_db_and_tables, engine
 from app.deq_device import device, link_keeper
@@ -27,9 +29,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     create_db_and_tables()
     with Session(engine) as session:
         seed_factory_profiles(session)
+        seed_factory_equalizers(session)
     # Each new link gets the active profile before anything sees the unit
     # as connected.
     device.after_connect = active_profile.apply_after_connect
+    device.source_for_connect = active_profile.source_for_connect
     # The app connects to the unit by itself and keeps trying. Nothing in
     # the frontend asks for a connection: the link is a fact to report.
     link_keeper.start()
@@ -52,6 +56,7 @@ app.include_router(router, prefix="/api")
 app.include_router(device_router, prefix="/api")
 app.include_router(bridge_router, prefix="/api")
 app.include_router(active_profile_router, prefix="/api")
+app.include_router(equalizer_router, prefix="/api")
 
 
 @app.get("/health")

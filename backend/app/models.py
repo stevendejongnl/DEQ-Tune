@@ -22,10 +22,28 @@ class Profile(SQLModel, table=True):
 
 
 class ActiveProfileSetting(SQLModel, table=True):
-    """Which profile the unit should play. The table holds one row at most.
+    """What the unit should play: the car profile, the EQ on top of it, and
+    the source mode. The table holds one row at most.
 
     It lives in the database, so the choice outlives a restart of the backend.
-    The unit gets the profile each time its link comes up."""
+    The unit gets all three each time its link comes up."""
 
     id: int = Field(default=1, primary_key=True)
     profile_id: int | None = None
+    equalizer_id: int | None = None
+    # A name from the AUDIO_SOURCE enum. None means the default.
+    source_mode: str | None = None
+
+
+class Equalizer(SQLModel, table=True):
+    """A music-style EQ curve. The unit plays it on top of the car profile's
+    own curve.
+
+    A factory EQ comes with the app and stays read-only. A custom EQ is the
+    person's own, often a copy of a factory one."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+    source: str = Field(default="custom")  # "factory" | "custom"
+    gains: list[float] = Field(sa_column=Column(JSON))
+    """13 gains in dB, 50 Hz to 12.5 kHz."""

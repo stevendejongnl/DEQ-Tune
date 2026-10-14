@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from app.deq_enums import AUDIO_SOURCE, EQ_STYLE, LIVE_SIMULATION
 from app.eq_data import TuningData
@@ -34,19 +34,78 @@ class UnitProfileCreate(BaseModel):
 
 
 class ActiveProfileRead(BaseModel):
-    """Which profile the unit should play, and whether it plays it now.
+    """What the unit should play, and whether it plays it now.
 
-    `status` is one of none, waiting, applied, outdated and failed.
-    `problem` says why the last push failed.
+    `profile_id` is the car profile and `equalizer_id` the EQ on top of it.
+    `status` is one of none, waiting, applied, outdated and failed, for the
+    two together. `problem` says why the last push failed. `source_mode` is
+    the mode that each new link gets.
     """
 
     profile_id: int | None
     status: str
     problem: str | None = None
+    equalizer_id: int | None = None
+    source_mode: str
 
 
 class ActiveProfileWrite(BaseModel):
     profile_id: int
+
+
+class ActiveSourceWrite(BaseModel):
+    """A name from the AUDIO_SOURCE enum."""
+
+    name: str
+
+
+class ActiveEqualizerWrite(BaseModel):
+    """`None` plays the car profile with no EQ on top."""
+
+    equalizer_id: int | None
+
+
+EQUALIZER_GAIN_COUNT = 13
+EQUALIZER_GAIN_LIMIT_DB = 12.0
+
+
+class EqualizerRead(BaseModel):
+    id: int
+    name: str
+    source: str
+    gains: list[float]
+
+
+class EqualizerGains(BaseModel):
+    """Checks a curve: 13 gains, each within ±12 dB."""
+
+    gains: list[float] = Field(
+        min_length=EQUALIZER_GAIN_COUNT, max_length=EQUALIZER_GAIN_COUNT
+    )
+
+    @field_validator("gains")
+    @classmethod
+    def gains_in_range(cls, gains: list[float]) -> list[float]:
+        for gain in gains:
+            if abs(gain) > EQUALIZER_GAIN_LIMIT_DB:
+                raise ValueError(f"a gain of {gain} dB is outside ±12 dB")
+        return gains
+
+
+class EqualizerCreate(EqualizerGains):
+    name: str
+
+
+class EqualizerUpdate(BaseModel):
+    name: str | None = None
+    gains: list[float] | None = Field(
+        default=None, min_length=EQUALIZER_GAIN_COUNT, max_length=EQUALIZER_GAIN_COUNT
+    )
+
+    @field_validator("gains")
+    @classmethod
+    def gains_in_range(cls, gains: list[float] | None) -> list[float] | None:
+        return gains if gains is None else EqualizerGains.gains_in_range(gains)
 
 
 class FavoriteWrite(BaseModel):
