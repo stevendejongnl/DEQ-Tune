@@ -149,19 +149,19 @@ def test_every_field_survives_a_round_trip() -> None:
             SpeakerRecord(slot % 2 == 0, float(slot), float(slot) * 2, float(slot) * 3)
             for slot in range(SPEAKER_RECORD_COUNT)
         ],
-        cancelling_flag_a=1,
-        cancelling_flag_b=1,
+        cancelling_enabled=1,
+        cancelling_available=1,
         cancelling_left_db=[0.5] * CANCELLING_BAND_COUNT,
         cancelling_right_db=[-0.5] * CANCELLING_BAND_COUNT,
-        manual_left=1.25,
-        manual_right=-1.25,
+        cancelling_time_alignment_left_cm=1.25,
+        cancelling_time_alignment_right_cm=-1.25,
         unique_id_bytes=bytes(range(NAME_BYTES)),
         source_type=2,
         bank_type=7,
         model_value=9,
         car_model_name_key_digest=bytes(range(16)),
-        trailing_flag=1,
-        trailing_bytes=bytes(range(32)),
+        data_protection_enabled=1,
+        scrambled_password_bytes=bytes(range(32)),
     )
     assert decode_blob(encode_blob(configuration)) == configuration
 

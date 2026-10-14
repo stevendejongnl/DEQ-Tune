@@ -103,14 +103,18 @@ SPEAKER_RECORD_OFFSET = 279
 SPEAKER_RECORD_COUNT = 7
 SPEAKER_RECORD_STRIDE = 13
 
-CANCELLING_FLAG_A_OFFSET = 370
-CANCELLING_FLAG_B_OFFSET = 371
+# The app's JSON writer names the two flags of the cancelling-EQ model:
+# `t.a()` is `enabled` and `t.b()` is `available`. Its blob writer emits
+# `t.a()` first.
+CANCELLING_ENABLED_OFFSET = 370
+CANCELLING_AVAILABLE_OFFSET = 371
 CANCELLING_LEFT_OFFSET = 372
 CANCELLING_RIGHT_OFFSET = 424
 CANCELLING_BAND_COUNT = 13
 
-MANUAL_LEFT_OFFSET = 476
-MANUAL_RIGHT_OFFSET = 480
+# The same model's `cancellingTACm`, left then right.
+CANCELLING_TIME_ALIGNMENT_LEFT_OFFSET = 476
+CANCELLING_TIME_ALIGNMENT_RIGHT_OFFSET = 480
 
 NAME_OFFSET = 484
 NAME_BYTES = 32
@@ -120,9 +124,11 @@ BANK_TYPE_OFFSET = 517
 MODEL_VALUE_OFFSET = 519
 CAR_MODEL_NAME_KEY_DIGEST_OFFSET = 523
 CAR_MODEL_NAME_KEY_DIGEST_BYTES = 16
-TRAILING_FLAG_OFFSET = 539
-TRAILING_BYTES_OFFSET = 540
-TRAILING_BYTES = 32
+# The app's data protection. A password locks the profile in the app, and the
+# unit does not check it. `USB_CAPTURE_NOTES.md` has the scramble.
+DATA_PROTECTION_OFFSET = 539
+SCRAMBLED_PASSWORD_OFFSET = 540
+SCRAMBLED_PASSWORD_BYTES = 32
 
 # The order the blob reserves a record for, in a STANDARD speaker mode. A
 # mode that does not drive a position still reserves its record, so the slot
@@ -199,16 +205,16 @@ class UserConfiguration:
         ]
     )
     speakers: list[SpeakerRecord] = field(default_factory=lambda: _default_speakers())
-    cancelling_flag_a: int = 0
-    cancelling_flag_b: int = 0
+    cancelling_enabled: int = 0
+    cancelling_available: int = 0
     cancelling_left_db: list[float] = field(
         default_factory=lambda: [0.0] * CANCELLING_BAND_COUNT
     )
     cancelling_right_db: list[float] = field(
         default_factory=lambda: [0.0] * CANCELLING_BAND_COUNT
     )
-    manual_left: float = 0.0
-    manual_right: float = 0.0
+    cancelling_time_alignment_left_cm: float = 0.0
+    cancelling_time_alignment_right_cm: float = 0.0
     # 484..515. The preset JSON header's own `uniqueId` string, encoded by the
     # writer's string-to-bytes call. Zero when the profile carries none.
     #
@@ -223,8 +229,8 @@ class UserConfiguration:
     # 523..538. MD5(carModelNameKey), or 16 zero bytes when no car model is
     # selected. See this module's docstring for the trace.
     car_model_name_key_digest: bytes = bytes(CAR_MODEL_NAME_KEY_DIGEST_BYTES)
-    trailing_flag: int = 0
-    trailing_bytes: bytes = bytes(TRAILING_BYTES)
+    data_protection_enabled: int = 0
+    scrambled_password_bytes: bytes = bytes(SCRAMBLED_PASSWORD_BYTES)
 
 
 def trim_gains_to_band_count(configuration: UserConfiguration) -> UserConfiguration:
@@ -289,16 +295,20 @@ def decode_blob(blob: bytes) -> UserConfiguration:
             for index in range(CROSSOVER_SPEAKER_COUNT)
         ],
         speakers=[_read_speaker_record(blob, slot) for slot in range(SPEAKER_RECORD_COUNT)],
-        cancelling_flag_a=blob[CANCELLING_FLAG_A_OFFSET],
-        cancelling_flag_b=blob[CANCELLING_FLAG_B_OFFSET],
+        cancelling_enabled=blob[CANCELLING_ENABLED_OFFSET],
+        cancelling_available=blob[CANCELLING_AVAILABLE_OFFSET],
         cancelling_left_db=_read_floats(
             blob, CANCELLING_LEFT_OFFSET, CANCELLING_BAND_COUNT
         ),
         cancelling_right_db=_read_floats(
             blob, CANCELLING_RIGHT_OFFSET, CANCELLING_BAND_COUNT
         ),
-        manual_left=struct.unpack_from("<f", blob, MANUAL_LEFT_OFFSET)[0],
-        manual_right=struct.unpack_from("<f", blob, MANUAL_RIGHT_OFFSET)[0],
+        cancelling_time_alignment_left_cm=_read_floats(
+            blob, CANCELLING_TIME_ALIGNMENT_LEFT_OFFSET, 1
+        )[0],
+        cancelling_time_alignment_right_cm=_read_floats(
+            blob, CANCELLING_TIME_ALIGNMENT_RIGHT_OFFSET, 1
+        )[0],
         unique_id_bytes=blob[NAME_OFFSET:NAME_OFFSET + NAME_BYTES],
         source_type=blob[SOURCE_TYPE_OFFSET],
         bank_type=int.from_bytes(blob[BANK_TYPE_OFFSET:BANK_TYPE_OFFSET + 2], "little"),
@@ -309,8 +319,11 @@ def decode_blob(blob: bytes) -> UserConfiguration:
             CAR_MODEL_NAME_KEY_DIGEST_OFFSET
             :CAR_MODEL_NAME_KEY_DIGEST_OFFSET + CAR_MODEL_NAME_KEY_DIGEST_BYTES
         ],
-        trailing_flag=blob[TRAILING_FLAG_OFFSET],
-        trailing_bytes=blob[TRAILING_BYTES_OFFSET:TRAILING_BYTES_OFFSET + TRAILING_BYTES],
+        data_protection_enabled=blob[DATA_PROTECTION_OFFSET],
+        scrambled_password_bytes=blob[
+            SCRAMBLED_PASSWORD_OFFSET
+            :SCRAMBLED_PASSWORD_OFFSET + SCRAMBLED_PASSWORD_BYTES
+        ],
     )
 
 
@@ -353,8 +366,8 @@ def encode_blob(configuration: UserConfiguration) -> bytes:
     _write_crossovers(blob, configuration.crossovers)
     _write_speaker_records(blob, configuration.speakers)
 
-    blob[CANCELLING_FLAG_A_OFFSET] = configuration.cancelling_flag_a
-    blob[CANCELLING_FLAG_B_OFFSET] = configuration.cancelling_flag_b
+    blob[CANCELLING_ENABLED_OFFSET] = configuration.cancelling_enabled
+    blob[CANCELLING_AVAILABLE_OFFSET] = configuration.cancelling_available
     _write_floats(
         blob, CANCELLING_LEFT_OFFSET, configuration.cancelling_left_db,
         CANCELLING_BAND_COUNT,
@@ -363,8 +376,14 @@ def encode_blob(configuration: UserConfiguration) -> bytes:
         blob, CANCELLING_RIGHT_OFFSET, configuration.cancelling_right_db,
         CANCELLING_BAND_COUNT,
     )
-    struct.pack_into("<f", blob, MANUAL_LEFT_OFFSET, configuration.manual_left)
-    struct.pack_into("<f", blob, MANUAL_RIGHT_OFFSET, configuration.manual_right)
+    _write_floats(
+        blob, CANCELLING_TIME_ALIGNMENT_LEFT_OFFSET,
+        [configuration.cancelling_time_alignment_left_cm], 1,
+    )
+    _write_floats(
+        blob, CANCELLING_TIME_ALIGNMENT_RIGHT_OFFSET,
+        [configuration.cancelling_time_alignment_right_cm], 1,
+    )
 
     _write_fixed_bytes(blob, NAME_OFFSET, configuration.unique_id_bytes, NAME_BYTES, "unique id")
     blob[SOURCE_TYPE_OFFSET] = configuration.source_type
@@ -378,10 +397,10 @@ def encode_blob(configuration: UserConfiguration) -> bytes:
         blob, CAR_MODEL_NAME_KEY_DIGEST_OFFSET, configuration.car_model_name_key_digest,
         CAR_MODEL_NAME_KEY_DIGEST_BYTES, "car model name key digest",
     )
-    blob[TRAILING_FLAG_OFFSET] = configuration.trailing_flag
+    blob[DATA_PROTECTION_OFFSET] = configuration.data_protection_enabled
     _write_fixed_bytes(
-        blob, TRAILING_BYTES_OFFSET, configuration.trailing_bytes,
-        TRAILING_BYTES, "trailing bytes",
+        blob, SCRAMBLED_PASSWORD_OFFSET, configuration.scrambled_password_bytes,
+        SCRAMBLED_PASSWORD_BYTES, "scrambled password",
     )
     return bytes(blob)
 
