@@ -1,9 +1,15 @@
 import { html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { DeqApiClient, type DeviceApi, type ProfileApi } from "../api/client.ts";
+import {
+  DeqApiClient,
+  type DeviceApi,
+  type EqualizerApi,
+  type ProfileApi,
+} from "../api/client.ts";
 import type {
   ActiveProfileDto,
   AudioStateDto,
+  EqualizerDto,
   ProfileDto,
   Speaker,
   TuningDataDto,
@@ -14,7 +20,7 @@ import { browserLocaleStorage } from "../i18n/browser-locale-storage.ts";
 import { type Locale, type LocaleStorage, resolveInitialLocale, saveLocale } from "../i18n/locale.ts";
 import { localizedModelName, localizedSpeakerTypeLabel } from "../i18n/preset-names.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
-import type { EqStyleId, LiveSimulationId } from "../i18n/dsp-presets.ts";
+import type { LiveSimulationId } from "../i18n/dsp-presets.ts";
 import { browserLayoutQuery, type AppLayout, type LayoutQuery } from "../layout-query.ts";
 import { countEdits } from "../tuning-edit-count.ts";
 import "./profile-list.ts";
@@ -26,6 +32,7 @@ import "./locale-switcher.ts";
 import "./dsp-panel.ts";
 import "./audio-controls.ts";
 import "./profile-activation.ts";
+import "./equalizer-editor.ts";
 import type { LinkState } from "./link-state.ts";
 import { appRootStyles } from "./app-root.styles.ts";
 
@@ -107,7 +114,7 @@ function editBadgeText(strings: UiStrings, editCount: number): string {
 export class AppRoot extends LitElement {
   static override styles = appRootStyles;
 
-  @property({ attribute: false }) api: ProfileApi & DeviceApi = new DeqApiClient();
+  @property({ attribute: false }) api: ProfileApi & DeviceApi & EqualizerApi = new DeqApiClient();
   @property({ attribute: false }) localeStorage: LocaleStorage = browserLocaleStorage;
   @property({ attribute: false }) browserLanguages: readonly string[] = resolveGlobalLanguages();
   @property({ attribute: false }) layoutQuery: LayoutQuery = browserLayoutQuery;
@@ -120,9 +127,13 @@ export class AppRoot extends LitElement {
   @state() private profiles: ProfileDto[] = [];
   @state() private selectedId: number | null = null;
   @state() private locale: Locale = "en";
-  @state() private eqStyleIds: readonly EqStyleId[] = [];
   @state() private liveSimulationIds: readonly LiveSimulationId[] = [];
-  @state() private eqStyle: EqStyleId | null = null;
+  @state() private equalizers: EqualizerDto[] = [];
+  /** The custom EQ open in the editor, if any. */
+  @state() private editingEqualizerId: number | null = null;
+  /** A custom EQ's newest edit that the backend does not hold yet. */
+  private unsavedEqualizerEdit: { id: number; gains?: number[]; name?: string } | null = null;
+  private savingEqualizerEdits = false;
   @state() private liveSimulation: LiveSimulationId | null = null;
   @state() private profilesDrawerOpen = false;
   @state() private layout: AppLayout = "desktop";
@@ -172,6 +183,7 @@ export class AppRoot extends LitElement {
     this.loadProfiles();
     this.loadDeviceOptions();
     void this.loadActiveProfile();
+    void this.loadEqualizers();
     window.addEventListener("keydown", this.onKeydown);
   }
 
@@ -568,7 +580,6 @@ export class AppRoot extends LitElement {
   private async loadDeviceOptions(): Promise<void> {
     try {
       const options = await this.api.readDeviceOptions();
-      this.eqStyleIds = options.eq_styles.map((value) => value.name) as EqStyleId[];
       this.liveSimulationIds = options.live_simulations.map(
         (value) => value.name,
       ) as LiveSimulationId[];
@@ -694,15 +705,6 @@ export class AppRoot extends LitElement {
     }
   }
 
-  /** The unit's DSP runs these, so the choice goes to the device as well as
-   * to local state. A unit that is not connected answers 503, which is not
-   * worth a message: the panel still shows the choice. The id already is
-   * the device's own wire name, so the component sends it as-is. */
-  private async changeEqStyle(id: EqStyleId): Promise<void> {
-    this.eqStyle = id;
-    await this.sendToUnit(() => this.api.selectEqStyle(id));
-  }
-
   private async changeLiveSimulation(id: LiveSimulationId): Promise<void> {
     this.liveSimulation = id;
     await this.sendToUnit(() => this.api.selectLiveSimulation(id));
@@ -718,21 +720,123 @@ export class AppRoot extends LitElement {
   }
 
   private renderStylePanel(): TemplateResult {
+    const editing = this.equalizers.find((equalizer) => equalizer.id === this.editingEqualizerId);
     return html`
-      <dsp-panel
-        class="area-style"
-        .locale=${this.locale}
-        .eqStyleIds=${this.eqStyleIds}
-        .liveSimulationIds=${this.liveSimulationIds}
-        .eqStyle=${this.eqStyle}
-        .liveSimulation=${this.liveSimulation}
-        @eq-style-change=${(eqStyleChangeEvent: CustomEvent<{ id: EqStyleId }>) =>
-          this.changeEqStyle(eqStyleChangeEvent.detail.id)}
-        @live-simulation-change=${(
-          liveSimulationChangeEvent: CustomEvent<{ id: LiveSimulationId }>,
-        ) => this.changeLiveSimulation(liveSimulationChangeEvent.detail.id)}
-      ></dsp-panel>
+      <div class="area-style">
+        ${editing === undefined
+          ? nothing
+          : html`<equalizer-editor
+              .equalizer=${editing}
+              .locale=${this.locale}
+              .layout=${this.layout}
+              @equalizer-change=${(
+                changeEvent: CustomEvent<{ id: number; gains?: number[]; name?: string }>,
+              ) => this.changeEqualizer(changeEvent.detail)}
+              @delete-equalizer=${(deleteEvent: CustomEvent<{ id: number }>) =>
+                this.deleteEqualizer(deleteEvent.detail.id)}
+              @close-editor=${() => (this.editingEqualizerId = null)}
+            ></equalizer-editor>`}
+        <dsp-panel
+          .locale=${this.locale}
+          .equalizers=${this.equalizers}
+          .activeEqualizerId=${this.activeProfile === null
+            ? undefined
+            : this.activeProfile.equalizer_id}
+          .liveSimulationIds=${this.liveSimulationIds}
+          .liveSimulation=${this.liveSimulation}
+          @activate-equalizer=${(activateEvent: CustomEvent<{ id: number | null }>) =>
+            this.activateEqualizer(activateEvent.detail.id)}
+          @copy-equalizer=${(copyEvent: CustomEvent<{ id: number }>) =>
+            this.copyEqualizer(copyEvent.detail.id)}
+          @edit-equalizer=${(editEvent: CustomEvent<{ id: number }>) =>
+            (this.editingEqualizerId = editEvent.detail.id)}
+          @live-simulation-change=${(
+            liveSimulationChangeEvent: CustomEvent<{ id: LiveSimulationId }>,
+          ) => this.changeLiveSimulation(liveSimulationChangeEvent.detail.id)}
+        ></dsp-panel>
+      </div>
     `;
+  }
+
+  private async loadEqualizers(): Promise<void> {
+    try {
+      this.equalizers = await this.api.listEqualizers();
+    } catch {
+      // The backend is out of reach. The library stays empty until the
+      // next page load, and the header says why.
+    }
+  }
+
+  /** Picks the EQ on top of the car profile. The backend pushes both, now
+   * or when the DEQ connects. */
+  private async activateEqualizer(id: number | null): Promise<void> {
+    try {
+      this.activeProfile = await this.api.activateEqualizer(id);
+    } catch {
+      // The backend is out of reach. The status stays as it was.
+    }
+  }
+
+  /** A factory EQ is read-only. Its copy becomes the EQ that plays, and
+   * opens in the editor. */
+  private async copyEqualizer(id: number): Promise<void> {
+    const copy = await this.api.duplicateEqualizer(id);
+    this.equalizers = [...this.equalizers, copy];
+    this.editingEqualizerId = copy.id;
+    await this.activateEqualizer(copy.id);
+  }
+
+  /** Shows an edit at once, and saves it through one queue, as a profile
+   * edit does. A drag fires an edit on every step. */
+  private async changeEqualizer(change: { id: number; gains?: number[]; name?: string }): Promise<void> {
+    this.equalizers = this.equalizers.map((equalizer) =>
+      equalizer.id === change.id ? { ...equalizer, ...change } : equalizer,
+    );
+    const pending = this.unsavedEqualizerEdit;
+    this.unsavedEqualizerEdit =
+      pending !== null && pending.id === change.id ? { ...pending, ...change } : change;
+    await this.saveEqualizerEdits();
+  }
+
+  private async saveEqualizerEdits(): Promise<void> {
+    if (this.savingEqualizerEdits) {
+      return;
+    }
+    this.savingEqualizerEdits = true;
+    let edit: { id: number; gains?: number[]; name?: string } | null = null;
+    try {
+      while (this.unsavedEqualizerEdit !== null) {
+        edit = this.unsavedEqualizerEdit;
+        this.unsavedEqualizerEdit = null;
+        const { id, ...body } = edit;
+        await this.api.updateEqualizer(id, body);
+        edit = null;
+        // An edit of the playing EQ leaves the unit on the older version.
+        if (id === this.activeProfile?.equalizer_id) {
+          await this.loadActiveProfile();
+        }
+      }
+    } catch {
+      // The backend did not take the edit. The screen keeps it, and so does
+      // the queue, under any newer edit. The next edit sends it again.
+      if (edit !== null) {
+        const newer = this.unsavedEqualizerEdit;
+        this.unsavedEqualizerEdit = newer !== null && newer.id === edit.id ? { ...edit, ...newer } : edit;
+      }
+    } finally {
+      this.savingEqualizerEdits = false;
+    }
+  }
+
+  private async deleteEqualizer(id: number): Promise<void> {
+    if (this.unsavedEqualizerEdit?.id === id) {
+      this.unsavedEqualizerEdit = null;
+    }
+    await this.api.deleteEqualizer(id);
+    this.equalizers = this.equalizers.filter((equalizer) => equalizer.id !== id);
+    this.editingEqualizerId = null;
+    // The backend forgets a deleted EQ that was playing.
+    await this.loadActiveProfile();
   }
 
   private changeLocale(locale: Locale): void {

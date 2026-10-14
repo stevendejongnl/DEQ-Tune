@@ -16,8 +16,19 @@ async function mount(
   return element;
 }
 
+function activeState(overrides: Partial<ActiveProfileDto>): ActiveProfileDto {
+  return {
+    profile_id: null,
+    status: "none",
+    problem: null,
+    equalizer_id: null,
+    source_mode: "CAR_SOURCE",
+    ...overrides,
+  };
+}
+
 function activeAs(status: ActiveStatus, problem: string | null = null): ActiveProfileDto {
-  return { profile_id: 1, status, problem };
+  return activeState({ profile_id: 1, status, problem });
 }
 
 function text(element: ProfileActivation): string {
@@ -39,7 +50,7 @@ describe("profile-activation", () => {
   });
 
   it("offers Activate for a profile that is not the active one", async () => {
-    const element = await mount({ profile_id: 7, status: "applied", problem: null });
+    const element = await mount(activeState({ profile_id: 7, status: "applied" }));
     const requests = collectRequests(element);
 
     (element.shadowRoot!.querySelector(".activate") as HTMLButtonElement).click();
@@ -48,12 +59,12 @@ describe("profile-activation", () => {
   });
 
   it("offers Activate when no profile is active", async () => {
-    const element = await mount({ profile_id: null, status: "none", problem: null });
+    const element = await mount(activeState({ profile_id: null, status: "none" }));
     expect(element.shadowRoot!.querySelector(".activate")).not.toBeNull();
   });
 
   it("waits for a draft to be saved, because the backend pushes the stored profile", async () => {
-    const element = await mount({ profile_id: null, status: "none", problem: null }, { hasDraft: true });
+    const element = await mount(activeState({ profile_id: null, status: "none" }), { hasDraft: true });
 
     const button = element.shadowRoot!.querySelector(".activate") as HTMLButtonElement;
     expect(button.disabled).toBe(true);

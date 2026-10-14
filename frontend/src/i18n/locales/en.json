@@ -51,8 +51,8 @@
   "saveShort": "Save as mine",
   "selectProfilePrompt": "Select a profile to see and edit its EQ.",
   "shorterDelayLabel": "Shorter delay",
-  "soundStyleSuffix": "· on top of your EQ",
-  "soundStyleTitle": "Sound style",
+  "soundStyleSuffix": "· on top of the car profile",
+  "soundStyleTitle": "EQ",
   "speakerColumn": "Speaker",
   "speakerFrontLeft": "Front Left",
   "speakerFrontRight": "Front Right",
@@ -112,5 +112,11 @@
   "applyChanges": "Apply changes",
   "tryAgain": "Try again",
   "saveBeforeActivate": "Save your edits first",
-  "activeTag": "Active"
+  "activeTag": "Active",
+  "noEqualizer": "No EQ",
+  "copyEqualizer": "Copy to edit",
+  "editEqualizer": "Edit",
+  "equalizerNameLabel": "Name",
+  "deleteEqualizer": "Delete EQ",
+  "doneEditing": "Done"
 }

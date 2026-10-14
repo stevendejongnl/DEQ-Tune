@@ -1,31 +1,102 @@
 import { describe, expect, it } from "vitest";
 import "./dsp-panel.ts";
 import type { DspPanel } from "./dsp-panel.ts";
-import {
-  EQ_STYLE_IDS,
-  LIVE_SIMULATION_IDS,
-  eqStyleHasNoPioneerTranslation,
-  liveSimulationHasNoPioneerTranslation,
-} from "../i18n/dsp-presets.ts";
+import type { EqualizerDto } from "../dto/profile.dto.ts";
+import { LIVE_SIMULATION_IDS, liveSimulationHasNoPioneerTranslation } from "../i18n/dsp-presets.ts";
 
-const SHOWN_EQ_STYLE_IDS = EQ_STYLE_IDS.filter((id) => !eqStyleHasNoPioneerTranslation(id));
 const SHOWN_LIVE_SIMULATION_IDS = LIVE_SIMULATION_IDS.filter(
   (id) => !liveSimulationHasNoPioneerTranslation(id),
 );
 
-async function mount(): Promise<DspPanel> {
+const LIBRARY: EqualizerDto[] = [
+  { id: 1, name: "Flat", source: "factory", gains: new Array(13).fill(0) },
+  { id: 2, name: "Powerful", source: "factory", gains: new Array(13).fill(4) },
+  { id: 3, name: "Dutch hardcore", source: "custom", gains: new Array(13).fill(2) },
+];
+
+async function mount(...active: [number | null | undefined] | []): Promise<DspPanel> {
+  const activeEqualizerId = active.length === 0 ? null : active[0];
   const element = document.createElement("dsp-panel") as DspPanel;
-  element.eqStyleIds = EQ_STYLE_IDS;
+  element.equalizers = LIBRARY;
+  element.activeEqualizerId = activeEqualizerId;
   element.liveSimulationIds = LIVE_SIMULATION_IDS;
   document.body.append(element);
   await element.updateComplete;
   return element;
 }
 
+function tiles(element: DspPanel): HTMLButtonElement[] {
+  return [...element.shadowRoot!.querySelectorAll(".tile")] as HTMLButtonElement[];
+}
+
+function collect<T>(element: DspPanel, type: string): T[] {
+  const details: T[] = [];
+  element.addEventListener(type, (rawEvent) => details.push((rawEvent as CustomEvent<T>).detail));
+  return details;
+}
+
 describe("dsp-panel", () => {
-  it("renders one tile per EQ style the real app shows", async () => {
+  it("offers No EQ and one tile per EQ in the library", async () => {
     const element = await mount();
-    expect(element.shadowRoot!.querySelectorAll(".tile")).toHaveLength(SHOWN_EQ_STYLE_IDS.length);
+
+    expect(tiles(element).map((tile) => tile.textContent?.trim())).toEqual([
+      "No EQ",
+      "FLAT",
+      "Powerful",
+      "Dutch hardcore",
+    ]);
+  });
+
+  it("marks the EQ that plays", async () => {
+    const element = await mount(2);
+
+    expect(tiles(element).map((tile) => tile.getAttribute("aria-pressed"))).toEqual([
+      "false",
+      "false",
+      "true",
+      "false",
+    ]);
+  });
+
+  it("marks No EQ when none plays, and nothing before the backend answered", async () => {
+    expect(tiles(await mount(null))[0].getAttribute("aria-pressed")).toBe("true");
+    const unknown = await mount(undefined);
+    expect(tiles(unknown).some((tile) => tile.getAttribute("aria-pressed") === "true")).toBe(false);
+  });
+
+  it("emits activate-equalizer with the tapped EQ, and null for No EQ", async () => {
+    const element = await mount();
+    const picks = collect<{ id: number | null }>(element, "activate-equalizer");
+
+    tiles(element)[3].click();
+    tiles(element)[0].click();
+
+    expect(picks).toEqual([{ id: 3 }, { id: null }]);
+  });
+
+  it("offers a copy of a factory EQ, because a factory EQ is read-only", async () => {
+    const element = await mount(2);
+    const copies = collect<{ id: number }>(element, "copy-equalizer");
+
+    const action = element.shadowRoot!.querySelector(".equalizer-action") as HTMLButtonElement;
+    action.click();
+
+    expect(action.textContent).toContain("Copy to edit");
+    expect(copies).toEqual([{ id: 2 }]);
+  });
+
+  it("offers the editor for an EQ of the person's own", async () => {
+    const element = await mount(3);
+    const edits = collect<{ id: number }>(element, "edit-equalizer");
+
+    (element.shadowRoot!.querySelector(".equalizer-action") as HTMLButtonElement).click();
+
+    expect(edits).toEqual([{ id: 3 }]);
+  });
+
+  it("offers no action while No EQ plays", async () => {
+    const element = await mount(null);
+    expect(element.shadowRoot!.querySelector(".equalizer-action")).toBeNull();
   });
 
   it("renders one option per Live Simulation mode the real app shows", async () => {
@@ -35,105 +106,31 @@ describe("dsp-panel", () => {
     );
   });
 
-  it("leaves out the styles Pioneer never shipped a label for", async () => {
-    // The DEQ's enum carries members with no label in the app's own
-    // resources, and the real app drops them. Showing one here meant a
-    // tile named by this project, for a style no Pioneer app selects.
-    const element = await mount();
-    const labels = [...element.shadowRoot!.querySelectorAll(".tile")].map(
-      (tile) => tile.textContent?.trim() ?? "",
-    );
-
-    expect(labels).not.toContain("Ultra Bass");
-    expect(labels).not.toContain("True Acoustic");
-    expect(labels).not.toContain("EDM Beast");
-    expect(labels).toContain("Super Bass");
-  });
-
   it("leaves out the live simulation modes Pioneer never shipped a label for", async () => {
     const element = await mount();
-    const labels = [...element.shadowRoot!.querySelectorAll(".option")].map(
-      (option) => option.textContent?.trim() ?? "",
+    const options = [...element.shadowRoot!.querySelectorAll(".option")].map((option) =>
+      option.textContent?.trim(),
     );
-
-    expect(labels).not.toContain("Opera Hall");
-    expect(labels).not.toContain("DJ Dance Party");
-    expect(labels).toContain("Concert hall");
-  });
-
-  it("renders no control with an empty label", async () => {
-    // A tile with no text is what an unlabelled enum member looked like
-    // on screen, and clicking it would have written its wire value.
-    const element = await mount();
-    const controls = [...element.shadowRoot!.querySelectorAll(".tile, .option")];
-
-    expect(controls).not.toHaveLength(0);
-    for (const control of controls) {
-      expect(control.textContent?.trim()).not.toBe("");
-    }
-  });
-
-  it("renders nothing until the unit's own value sets arrive", async () => {
-    const element = document.createElement("dsp-panel") as DspPanel;
-    document.body.append(element);
-    await element.updateComplete;
-
-    expect(element.shadowRoot!.querySelectorAll(".tile")).toHaveLength(0);
-    expect(element.shadowRoot!.querySelectorAll(".option")).toHaveLength(0);
-  });
-
-  it("marks the current eqStyle tile as pressed", async () => {
-    const element = await mount();
-    element.eqStyle = "POWERFUL";
-    await element.updateComplete;
-
-    const pressedTile = element.shadowRoot!.querySelector('.tile[aria-pressed="true"]');
-    expect(pressedTile?.textContent?.trim()).toBe("Powerful");
-  });
-
-  it("emits eq-style-change with the clicked tile's id", async () => {
-    const element = await mount();
-    let detail: { id: string } | undefined;
-    element.addEventListener("eq-style-change", (rawEvent) => {
-      detail = (rawEvent as CustomEvent).detail;
-    });
-
-    const superBassTile = [...element.shadowRoot!.querySelectorAll(".tile")].find(
-      (tile) => tile.textContent?.trim() === "Super Bass",
-    ) as HTMLButtonElement;
-    superBassTile.click();
-
-    expect(detail).toEqual({ id: "SUPER_BASS" });
+    expect(options).not.toContain("Movie");
+    expect(options).not.toContain("DJ Dance Party");
   });
 
   it("emits live-simulation-change with the clicked option's id", async () => {
     const element = await mount();
-    let detail: { id: string } | undefined;
-    element.addEventListener("live-simulation-change", (rawEvent) => {
-      detail = (rawEvent as CustomEvent).detail;
-    });
+    const changes = collect<{ id: string }>(element, "live-simulation-change");
 
-    const clubOption = [...element.shadowRoot!.querySelectorAll(".option")].find(
-      (option) => option.textContent?.trim() === "Club",
-    ) as HTMLButtonElement;
-    clubOption.click();
+    (element.shadowRoot!.querySelectorAll(".option")[1] as HTMLButtonElement).click();
 
-    expect(detail).toEqual({ id: "CLUB" });
+    expect(changes).toEqual([{ id: SHOWN_LIVE_SIMULATION_IDS[1] }]);
   });
 
-  it("shows the lock note instead of a footer hint", async () => {
-    const element = await mount();
-    expect(element.shadowRoot!.querySelector(".lock-note")!.textContent).toContain(
-      "Applies once the DEQ is connected",
-    );
-  });
-
-  it("translates tile and option names for the given locale", async () => {
+  it("translates the factory EQ names and the options for the given locale", async () => {
     const element = await mount();
     element.locale = "de";
     await element.updateComplete;
 
-    expect(element.shadowRoot!.textContent).toContain("KRAFTVOLL");
+    expect(tiles(element)[2].textContent).toContain("KRAFTVOLL");
+    expect(tiles(element)[3].textContent).toContain("Dutch hardcore");
     expect(element.shadowRoot!.textContent).toContain("Konzerthalle");
   });
 });

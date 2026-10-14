@@ -113,6 +113,28 @@ export interface ActiveProfileDto {
   profile_id: number | null;
   status: ActiveStatus;
   problem: string | null;
+  /** The EQ that plays on top of the car profile, or null for none. */
+  equalizer_id: number | null;
+  /** The source mode each new link gets, as an AUDIO_SOURCE name. */
+  source_mode: string;
+}
+
+export interface ActiveEqualizerWriteDto {
+  equalizer_id: number | null;
+}
+
+/** A music-style EQ: 13 gains in dB that play on top of the car profile.
+ * A factory EQ is read-only. Copy it to make your own. */
+export interface EqualizerDto {
+  id: number;
+  name: string;
+  source: ProfileSource;
+  gains: number[];
+}
+
+export interface EqualizerUpdateDto {
+  name?: string;
+  gains?: number[];
 }
 
 export interface ActiveProfileWriteDto {

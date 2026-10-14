@@ -55,7 +55,7 @@ describe("DeqApiClient", () => {
   });
 
   it("activates a profile with one PUT", async () => {
-    const api = createFakeFetch(() => jsonResponse({ profile_id: 4, status: "waiting", problem: null }));
+    const api = createFakeFetch(() => jsonResponse({ profile_id: 4, status: "waiting", problem: null, equalizer_id: null, source_mode: "CAR_SOURCE" }));
     const client = new DeqApiClient("/api", api.fetch);
 
     const state = await client.activateProfile(4);
@@ -67,7 +67,7 @@ describe("DeqApiClient", () => {
   });
 
   it("rejects an active-profile status the app does not know", async () => {
-    const api = createFakeFetch(() => jsonResponse({ profile_id: 4, status: "maybe", problem: null }));
+    const api = createFakeFetch(() => jsonResponse({ profile_id: 4, status: "maybe", problem: null, equalizer_id: null, source_mode: "CAR_SOURCE" }));
     const client = new DeqApiClient("/api", api.fetch);
 
     await expect(client.readActiveProfile()).rejects.toThrow();

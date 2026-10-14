@@ -17,6 +17,15 @@ function starredPreset(overrides: Partial<ProfileDto> = {}): ProfileDto {
   return sampleProfile({ favorite: true, ...overrides });
 }
 
+/** A small EQ library: one factory EQ and one of the person's own. */
+function withLibrary(api: FakeProfileApi): FakeProfileApi {
+  api.equalizers = [
+    { id: 1, name: "Super Bass", source: "factory", gains: new Array(13).fill(4) },
+    { id: 2, name: "Mine", source: "custom", gains: new Array(13).fill(0) },
+  ];
+  return api;
+}
+
 async function mount(api: FakeProfileApi, layout: AppLayout = "desktop"): Promise<AppRoot> {
   const element = document.createElement("app-root") as AppRoot;
   element.api = api;
@@ -345,27 +354,71 @@ describe("app-root", () => {
     expect(element.shadowRoot!.querySelector("dsp-panel")).not.toBeNull();
   });
 
-  it("passes the unit's own EQ style and live simulation ids to the panel", async () => {
-    const api = new FakeProfileApi([starredPreset({ id: 1 })]);
+  it("passes the EQ library and the live simulation ids to the panel", async () => {
+    const api = withLibrary(new FakeProfileApi([starredPreset({ id: 1 })]));
     const element = await mount(api);
     await click(queryFirstChip(element), element);
 
     const panel = element.shadowRoot!.querySelector("dsp-panel")!;
+    // No EQ, then the two EQs of the library.
     expect(panel.shadowRoot!.querySelectorAll(".tile")).toHaveLength(3);
     expect(panel.shadowRoot!.querySelectorAll(".option")).toHaveLength(3);
   });
 
-  it("sends an EQ style choice to the unit, under the name the unit knows", async () => {
-    const api = new FakeProfileApi([starredPreset({ id: 1 })]);
+  it("picks an EQ, and the panel marks it as the one that plays", async () => {
+    const api = withLibrary(new FakeProfileApi([starredPreset({ id: 1 })]));
+    const element = await mount(api);
+    await click(queryFirstChip(element), element);
+    const panel = element.shadowRoot!.querySelector("dsp-panel")!;
+
+    panel.dispatchEvent(new CustomEvent("activate-equalizer", { detail: { id: 2 } }));
+    await flushMicrotasks();
+    await element.updateComplete;
+
+    expect(api.device.activatedEqualizerIds).toEqual([2]);
+    expect(panel.activeEqualizerId).toBe(2);
+  });
+
+  it("copies a factory EQ, plays the copy, and opens it in the editor", async () => {
+    const api = withLibrary(new FakeProfileApi([starredPreset({ id: 1 })]));
     const element = await mount(api);
     await click(queryFirstChip(element), element);
 
     element.shadowRoot!.querySelector("dsp-panel")!.dispatchEvent(
-      new CustomEvent("eq-style-change", { detail: { id: "SUPER_BASS" } }),
+      new CustomEvent("copy-equalizer", { detail: { id: 1 } }),
     );
+    await flushMicrotasks();
     await element.updateComplete;
 
-    expect(api.device.selectedEqStyles).toEqual(["SUPER_BASS"]);
+    const copy = (await api.listEqualizers()).find((equalizer) => equalizer.name === "Super Bass (copy)")!;
+    expect(api.device.activatedEqualizerIds).toEqual([copy.id]);
+    expect(element.shadowRoot!.querySelector("equalizer-editor")!.equalizer?.id).toBe(copy.id);
+  });
+
+  it("saves a curve edit of an EQ, and deleting it closes the editor", async () => {
+    const api = withLibrary(new FakeProfileApi([starredPreset({ id: 1 })]));
+    const element = await mount(api);
+    await click(queryFirstChip(element), element);
+    element.shadowRoot!.querySelector("dsp-panel")!.dispatchEvent(
+      new CustomEvent("edit-equalizer", { detail: { id: 2 } }),
+    );
+    await element.updateComplete;
+    const editor = element.shadowRoot!.querySelector("equalizer-editor")!;
+
+    editor.dispatchEvent(
+      new CustomEvent("equalizer-change", { detail: { id: 2, gains: new Array(13).fill(3) } }),
+    );
+    await flushMicrotasks();
+    await element.updateComplete;
+    expect((await api.listEqualizers()).find((equalizer) => equalizer.id === 2)?.gains).toEqual(
+      new Array(13).fill(3),
+    );
+
+    editor.dispatchEvent(new CustomEvent("delete-equalizer", { detail: { id: 2 } }));
+    await flushMicrotasks();
+    await element.updateComplete;
+    expect(element.shadowRoot!.querySelector("equalizer-editor")).toBeNull();
+    expect(await api.listEqualizers()).toHaveLength(1);
   });
 
   it("sends a live simulation choice to the unit", async () => {
@@ -379,20 +432,6 @@ describe("app-root", () => {
     await element.updateComplete;
 
     expect(api.device.selectedLiveSimulations).toEqual(["CONCERT_HALL"]);
-  });
-
-  it("keeps the choice when the unit is not reachable", async () => {
-    const api = new FakeProfileApi([starredPreset({ id: 1 })]);
-    api.device.selectEqStyle = () => Promise.reject(new Error("the unit is not connected"));
-    const element = await mount(api);
-    await click(queryFirstChip(element), element);
-
-    element.shadowRoot!.querySelector("dsp-panel")!.dispatchEvent(
-      new CustomEvent("eq-style-change", { detail: { id: "POWERFUL" } }),
-    );
-    await element.updateComplete;
-
-    expect(element.shadowRoot!.querySelector("dsp-panel")).not.toBeNull();
   });
 
   it("renders only the active tab in the phone layout", async () => {

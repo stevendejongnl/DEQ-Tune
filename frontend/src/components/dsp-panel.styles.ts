@@ -155,4 +155,21 @@ export const dspPanelStyles = css`
       }
     }
   }
+  .equalizer-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .equalizer-action {
+    height: 36px;
+    padding: 0 16px;
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-accent);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
 `;

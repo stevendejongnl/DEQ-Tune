@@ -124,19 +124,26 @@ test("the connected state survives a reload, because the backend holds it", asyn
   await expect(page.locator(DEVICE_PILL)).toContainText("DEQ connected");
 });
 
-test("an EQ style choice reaches the unit", async ({ page }) => {
+test("an EQ from the library becomes the one that plays", async ({ page, request }) => {
   await openApp(page);
   await expect(page.locator(DEVICE_PILL)).toContainText(FAKE_UNIT_FIRMWARE);
   await openFirstPreset(page);
 
-  const styleTile = page.locator("dsp-panel .tile").first();
-  await expect(styleTile).toBeVisible();
-  const pushed = page.waitForResponse(
-    (response) => response.url().includes("/api/device/eq-style") && response.ok(),
+  // The first tile is No EQ. The second is the first EQ of the library.
+  const equalizerTile = page.locator("dsp-panel .tile").nth(1);
+  await expect(equalizerTile).toBeVisible();
+  const picked = page.waitForResponse(
+    (response) => response.url().endsWith("/api/active-profile/equalizer") && response.ok(),
   );
-  await styleTile.click();
+  await equalizerTile.click();
+  await picked;
 
-  expect((await pushed).status()).toBe(200);
+  await expect(equalizerTile).toHaveAttribute("aria-pressed", "true");
+  const state = await (await request.get("/api/active-profile")).json();
+  expect(state.equalizer_id).not.toBeNull();
+
+  // The backend's database outlives this test, so play no EQ again.
+  await request.put("/api/active-profile/equalizer", { data: { equalizer_id: null } });
 });
 
 test("pushing a profile sends the three coefficient blocks", async ({ request }) => {
@@ -182,6 +189,10 @@ test("a star from the library keeps a preset in the sidebar after a reload", asy
 });
 
 test("activating a profile puts it on the connected unit", async ({ page, request }) => {
+  // The backend's database outlives each run. Make another profile the
+  // active one first, so the first preset offers Activate.
+  const profiles = await (await request.get("/api/profiles")).json();
+  await request.put("/api/active-profile", { data: { profile_id: profiles[profiles.length - 1].id } });
   await openApp(page);
   await expect(page.locator(DEVICE_PILL)).toContainText(FAKE_UNIT_FIRMWARE);
   await openFirstPreset(page);

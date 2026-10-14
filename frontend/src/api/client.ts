@@ -1,5 +1,6 @@
 import typia from "typia";
 import type {
+  ActiveEqualizerWriteDto,
   ActiveProfileDto,
   ActiveProfileWriteDto,
   AudioSourceWriteDto,
@@ -7,6 +8,8 @@ import type {
   BridgeDto,
   DeviceDto,
   DeviceOptionsDto,
+  EqualizerDto,
+  EqualizerUpdateDto,
   EqStyleWriteDto,
   FavoriteWriteDto,
   LiveSimulationWriteDto,
@@ -89,6 +92,16 @@ export interface DeviceApi {
   /** Makes a profile the one the unit plays. The backend pushes it now when
    * the unit is connected, and on the next connect otherwise. */
   activateProfile(profileId: number): Promise<ActiveProfileDto>;
+  /** Picks the EQ on top of the car profile, or none with `null`. */
+  activateEqualizer(equalizerId: number | null): Promise<ActiveProfileDto>;
+}
+
+/** The EQ library. A factory EQ is read-only, so a person copies it first. */
+export interface EqualizerApi {
+  listEqualizers(): Promise<EqualizerDto[]>;
+  duplicateEqualizer(id: number): Promise<EqualizerDto>;
+  updateEqualizer(id: number, body: EqualizerUpdateDto): Promise<EqualizerDto>;
+  deleteEqualizer(id: number): Promise<void>;
 }
 
 /** What the app can ask about the machine holding the link.
@@ -100,7 +113,7 @@ export interface BridgeApi {
   readBridge(): Promise<BridgeDto>;
 }
 
-export class DeqApiClient implements ProfileApi, DeviceApi, BridgeApi {
+export class DeqApiClient implements ProfileApi, DeviceApi, EqualizerApi, BridgeApi {
   private baseUrl: string;
   private fetchImpl: FetchLike;
 
@@ -198,6 +211,30 @@ export class DeqApiClient implements ProfileApi, DeviceApi, BridgeApi {
   async activateProfile(profileId: number): Promise<ActiveProfileDto> {
     const validBody = typia.assert<ActiveProfileWriteDto>({ profile_id: profileId });
     return typia.assert<ActiveProfileDto>(await this.call("PUT", "/active-profile", validBody));
+  }
+
+  async activateEqualizer(equalizerId: number | null): Promise<ActiveProfileDto> {
+    const validBody = typia.assert<ActiveEqualizerWriteDto>({ equalizer_id: equalizerId });
+    return typia.assert<ActiveProfileDto>(
+      await this.call("PUT", "/active-profile/equalizer", validBody),
+    );
+  }
+
+  async listEqualizers(): Promise<EqualizerDto[]> {
+    return typia.assert<EqualizerDto[]>(await this.call("GET", "/equalizers"));
+  }
+
+  async duplicateEqualizer(id: number): Promise<EqualizerDto> {
+    return typia.assert<EqualizerDto>(await this.call("POST", `/equalizers/${id}/duplicate`));
+  }
+
+  async updateEqualizer(id: number, body: EqualizerUpdateDto): Promise<EqualizerDto> {
+    const validBody = typia.assert<EqualizerUpdateDto>(body);
+    return typia.assert<EqualizerDto>(await this.call("PUT", `/equalizers/${id}`, validBody));
+  }
+
+  async deleteEqualizer(id: number): Promise<void> {
+    await this.call("DELETE", `/equalizers/${id}`);
   }
 
   async selectEqStyle(name: string): Promise<DeviceDto> {

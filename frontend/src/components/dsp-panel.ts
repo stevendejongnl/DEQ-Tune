@@ -1,16 +1,15 @@
-import { html, LitElement, type TemplateResult } from "lit";
+import { html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Locale } from "../i18n/locale.ts";
 import { dspPanelStyles } from "./dsp-panel.styles.ts";
+import type { EqualizerDto } from "../dto/profile.dto.ts";
 import {
-  type EqStyleId,
   type LiveSimulationId,
-  eqStyleHasNoPioneerTranslation,
-  eqStyleName,
   liveSimulationHasNoPioneerTranslation,
   liveSimulationName,
 } from "../i18n/dsp-presets.ts";
-import { uiStrings } from "../i18n/ui-strings.ts";
+import { equalizerName } from "../i18n/equalizer-names.ts";
+import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 
 function renderLockIcon(): TemplateResult {
   return html`
@@ -22,27 +21,32 @@ function renderLockIcon(): TemplateResult {
 }
 
 /**
- * The DEQ device's built-in EQ-style and Live-Simulation DSP presets
- * (Super Bass, Powerful, Concert hall, ...). These run on the device's
- * own firmware. This panel only tracks which one the user selects
- * locally. A selection has no effect until a unit connects (see
- * device-status.ts).
+ * The EQ that plays on top of the car profile, and the unit's
+ * Live-Simulation modes.
  *
- * `eqStyleIds`/`liveSimulationIds` come from the unit's own value sets
- * (`/api/device/options`), which app-root.ts reads. This panel does not
- * invent or hardcode the list of choices itself.
+ * The EQ tiles list "No EQ" and the EQ library: Pioneer's own styles and
+ * the person's own EQs. A tap picks the EQ. The backend adds its curve to
+ * the car profile's and pushes both, now or when the DEQ connects. Under
+ * the tiles, the picked EQ offers Copy to edit (a factory EQ) or Edit
+ * (an EQ of the person's own).
  *
- * It emits `eq-style-change` ({ id }), `live-simulation-change`
- * ({ id }).
+ * `liveSimulationIds` come from the unit's own value sets
+ * (`/api/device/options`), which app-root.ts reads.
+ *
+ * It emits `activate-equalizer` ({ id }, `null` for none),
+ * `copy-equalizer` ({ id }), `edit-equalizer` ({ id }) and
+ * `live-simulation-change` ({ id }).
  */
 @customElement("dsp-panel")
 export class DspPanel extends LitElement {
   static override styles = dspPanelStyles;
 
   @property({ type: String }) locale: Locale = "en";
-  @property({ type: Array }) eqStyleIds: readonly EqStyleId[] = [];
+  @property({ type: Array }) equalizers: readonly EqualizerDto[] = [];
+  /** The EQ that plays, `null` for none, or `undefined` before the
+   * backend answered. */
+  @property({ attribute: false }) activeEqualizerId: number | null | undefined = undefined;
   @property({ type: Array }) liveSimulationIds: readonly LiveSimulationId[] = [];
-  @property({ type: String }) eqStyle: EqStyleId | null = null;
   @property({ type: String }) liveSimulation: LiveSimulationId | null = null;
 
   override render() {
@@ -58,8 +62,12 @@ export class DspPanel extends LitElement {
             <span class="lock-note">${renderLockIcon()}${strings.dspDeviceHint}</span>
           </div>
           <div class="tiles">
-            ${this.shownEqStyleIds.map((id) => this.renderEqStyleTile(id))}
+            ${this.renderEqualizerTile(null, strings.noEqualizer)}
+            ${this.equalizers.map((equalizer) =>
+              this.renderEqualizerTile(equalizer.id, equalizerName(equalizer, this.locale)),
+            )}
           </div>
+          ${this.renderEqualizerActions(strings)}
         </div>
         <div class="simulation-column">
           <h2>${strings.liveSimulationTitle}</h2>
@@ -71,32 +79,48 @@ export class DspPanel extends LitElement {
     `;
   }
 
-  /** The styles to offer. The DEQ's enum carries members that Pioneer
-   * never shipped a label for, and the real app drops them: its picker
-   * reads a label out of the app's own resources, and an entry with no
-   * resource never reaches the list. Offering one here would show a
-   * tile with a name this project invented, for a style no Pioneer app
-   * has ever selected. */
-  private get shownEqStyleIds(): EqStyleId[] {
-    return this.eqStyleIds.filter((id) => !eqStyleHasNoPioneerTranslation(id));
-  }
-
   /** The live-simulation modes to offer, dropped for the same reason. */
   private get shownLiveSimulationIds(): LiveSimulationId[] {
     return this.liveSimulationIds.filter((id) => !liveSimulationHasNoPioneerTranslation(id));
   }
 
-  private renderEqStyleTile(id: EqStyleId): TemplateResult {
-    const selected = id === this.eqStyle;
+  private renderEqualizerTile(id: number | null, name: string): TemplateResult {
+    const selected = id === this.activeEqualizerId;
     return html`
       <button
         type="button"
         class="tile ${selected ? "selected" : ""}"
         aria-pressed=${selected}
-        @click=${() => this.dispatchEvent(new CustomEvent("eq-style-change", { detail: { id } }))}
+        @click=${() => this.dispatchEvent(new CustomEvent("activate-equalizer", { detail: { id } }))}
       >
-        <span class="radio"></span>${eqStyleName(this.locale, id)}
+        <span class="radio"></span>${name}
       </button>
+    `;
+  }
+
+  /** A factory EQ stays read-only, so it offers a copy. An EQ of the
+   * person's own offers its editor. */
+  private renderEqualizerActions(strings: UiStrings): TemplateResult | typeof nothing {
+    const active = this.equalizers.find((equalizer) => equalizer.id === this.activeEqualizerId);
+    if (active === undefined) {
+      return nothing;
+    }
+    const factory = active.source === "factory";
+    return html`
+      <div class="equalizer-actions">
+        <button
+          type="button"
+          class="equalizer-action"
+          @click=${() =>
+            this.dispatchEvent(
+              new CustomEvent(factory ? "copy-equalizer" : "edit-equalizer", {
+                detail: { id: active.id },
+              }),
+            )}
+        >
+          ${factory ? strings.copyEqualizer : strings.editEqualizer}
+        </button>
+      </div>
     `;
   }
 

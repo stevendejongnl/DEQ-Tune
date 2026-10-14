@@ -125,7 +125,15 @@ export class FakeDeviceApi implements DeviceApi {
   /** The profile the app activated, in the order it asked. */
   activatedProfileIds: number[] = [];
   /** What the backend reports. A test sets it to show another status. */
-  activeProfile: ActiveProfileDto = { profile_id: null, status: "none", problem: null };
+  activeProfile: ActiveProfileDto = {
+    profile_id: null,
+    status: "none",
+    problem: null,
+    equalizer_id: null,
+    source_mode: "CAR_SOURCE",
+  };
+  /** The EQs the app picked, in order. `null` means "No EQ". */
+  activatedEqualizerIds: (number | null)[] = [];
 
   async readActiveProfile(): Promise<ActiveProfileDto> {
     this.failIfUnreachable();
@@ -138,10 +146,18 @@ export class FakeDeviceApi implements DeviceApi {
     this.failIfUnreachable();
     this.activatedProfileIds = [...this.activatedProfileIds, profileId];
     this.activeProfile = {
+      ...this.activeProfile,
       profile_id: profileId,
       status: this.device.connected ? "applied" : "waiting",
       problem: null,
     };
+    return this.activeProfile;
+  }
+
+  async activateEqualizer(equalizerId: number | null): Promise<ActiveProfileDto> {
+    this.failIfUnreachable();
+    this.activatedEqualizerIds = [...this.activatedEqualizerIds, equalizerId];
+    this.activeProfile = { ...this.activeProfile, equalizer_id: equalizerId };
     return this.activeProfile;
   }
 

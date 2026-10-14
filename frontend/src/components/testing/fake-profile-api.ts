@@ -1,9 +1,11 @@
-import type { DeviceApi, ProfileApi } from "../../api/client.ts";
+import type { DeviceApi, EqualizerApi, ProfileApi } from "../../api/client.ts";
 import type {
   ActiveProfileDto,
   AudioStateDto,
   DeviceDto,
   DeviceOptionsDto,
+  EqualizerDto,
+  EqualizerUpdateDto,
   ProfileCreateDto,
   ProfileDto,
   ProfileUpdateDto,
@@ -19,7 +21,7 @@ import { FakeDeviceApi } from "./fake-device-api.ts";
  * holds a `FakeDeviceApi` and forwards the device calls to it. Read
  * `device` in a test to see what the app sent to the unit.
  */
-export class FakeProfileApi implements ProfileApi, DeviceApi {
+export class FakeProfileApi implements ProfileApi, DeviceApi, EqualizerApi {
   readonly device = new FakeDeviceApi();
 
   /** The tune the fake unit holds. `null` means no unit answers, so
@@ -68,6 +70,48 @@ export class FakeProfileApi implements ProfileApi, DeviceApi {
 
   activateProfile(profileId: number): Promise<ActiveProfileDto> {
     return this.device.activateProfile(profileId);
+  }
+
+  activateEqualizer(equalizerId: number | null): Promise<ActiveProfileDto> {
+    return this.device.activateEqualizer(equalizerId);
+  }
+
+  /** The EQ library, as the backend keeps it. A test sets it directly. */
+  equalizers: EqualizerDto[] = [];
+
+  async listEqualizers(): Promise<EqualizerDto[]> {
+    return this.equalizers;
+  }
+
+  async duplicateEqualizer(id: number): Promise<EqualizerDto> {
+    const source = this.requireEqualizer(id);
+    const copy: EqualizerDto = {
+      id: Math.max(0, ...this.equalizers.map((equalizer) => equalizer.id)) + 1,
+      name: `${source.name} (copy)`,
+      source: "custom",
+      gains: [...source.gains],
+    };
+    this.equalizers = [...this.equalizers, copy];
+    return copy;
+  }
+
+  async updateEqualizer(id: number, body: EqualizerUpdateDto): Promise<EqualizerDto> {
+    const updated: EqualizerDto = { ...this.requireEqualizer(id), ...body };
+    this.equalizers = this.equalizers.map((equalizer) => (equalizer.id === id ? updated : equalizer));
+    return updated;
+  }
+
+  async deleteEqualizer(id: number): Promise<void> {
+    this.requireEqualizer(id);
+    this.equalizers = this.equalizers.filter((equalizer) => equalizer.id !== id);
+  }
+
+  private requireEqualizer(id: number): EqualizerDto {
+    const equalizer = this.equalizers.find((candidate) => candidate.id === id);
+    if (equalizer === undefined) {
+      throw new Error(`No fake EQ with id ${id}`);
+    }
+    return equalizer;
   }
 
   readAudioState(): Promise<AudioStateDto> {

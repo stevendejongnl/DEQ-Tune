@@ -51,8 +51,8 @@
   "saveShort": "Opslaan",
   "selectProfilePrompt": "Kies een profiel om de EQ ervan te bewerken.",
   "shorterDelayLabel": "Kortere vertraging",
-  "soundStyleSuffix": "· boven op je EQ",
-  "soundStyleTitle": "Geluidsstijl",
+  "soundStyleSuffix": "· boven op het autoprofiel",
+  "soundStyleTitle": "EQ",
   "speakerColumn": "Luidspreker",
   "speakerFrontLeft": "Voor links",
   "speakerFrontRight": "Voor rechts",
@@ -97,5 +97,11 @@
   "applyChanges": "Wijzigingen toepassen",
   "tryAgain": "Opnieuw proberen",
   "saveBeforeActivate": "Bewaar eerst je wijzigingen",
-  "activeTag": "Actief"
+  "activeTag": "Actief",
+  "noEqualizer": "Geen EQ",
+  "copyEqualizer": "Kopiëren om te bewerken",
+  "editEqualizer": "Bewerken",
+  "equalizerNameLabel": "Naam",
+  "deleteEqualizer": "EQ verwijderen",
+  "doneEditing": "Klaar"
 }

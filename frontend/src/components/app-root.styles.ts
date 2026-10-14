@@ -244,6 +244,10 @@ export const appRootStyles = css`
   }
   .area-style {
     grid-area: style;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
   }
   .area-audio {
     grid-area: audio;
