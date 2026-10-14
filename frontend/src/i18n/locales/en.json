@@ -1,6 +1,6 @@
 {
-  "cabinHintPick": "Distances are delays to your seat. Pick a speaker to adjust it.",
-  "cabinHintTap": "Distances are delays to your seat. Tap a speaker to adjust it.",
+  "cabinHintPick": "Each distance runs from your seat to the speaker. Pick a speaker to adjust it.",
+  "cabinHintTap": "Each distance runs from your seat to the speaker. Tap a speaker to adjust it.",
   "closeLabel": "Close",
   "customProfileCaption": "Your own profile",
   "delayLabel": "Delay",

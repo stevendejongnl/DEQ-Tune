@@ -7,19 +7,25 @@ function speaker(timeAlignmentCm: number): Speaker {
 }
 
 describe("listenerSide", () => {
-  it("seats the listener on the side with the longer delays", () => {
+  it("seats the listener on the side whose speakers are nearer", () => {
+    // The Dacia's estimates: the left speakers are the near ones.
+    const duster = { FL: speaker(85), FR: speaker(133), RL: speaker(96), RR: speaker(141) };
+    expect(listenerSide(duster)).toBe("left");
+  });
+
+  it("seats the listener on the right in a Japanese Mazda preset", () => {
     const mazdaFactory = {
       FL: speaker(130),
       FR: speaker(95),
       RL: speaker(117.5),
       RR: speaker(67.5),
     };
-    expect(listenerSide(mazdaFactory)).toBe("left");
+    expect(listenerSide(mazdaFactory)).toBe("right");
   });
 
-  it("seats the listener on the right when the right delays are longer", () => {
-    const mirrored = { FL: speaker(95), FR: speaker(130), RL: speaker(67.5), RR: speaker(117.5) };
-    expect(listenerSide(mirrored)).toBe("right");
+  it("seats the listener on the left when every distance is the same", () => {
+    const flat = { FL: speaker(0), FR: speaker(0), RL: speaker(0), RR: speaker(0) };
+    expect(listenerSide(flat)).toBe("left");
   });
 
   it("falls back to the left when there are no speakers", () => {

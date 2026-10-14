@@ -32,10 +32,14 @@ export const LISTENER_LEFT = { x: 104, y: 156 };
 export const LISTENER_RIGHT = { x: 196, y: 156 };
 
 /**
- * Which side the listener sits on. The DEQ delays the speakers that
- * are closest, so the side with the longer average delay is the side
- * the listener sits on. The Mazda factory data delays the left
- * speakers most, which puts the listener at the front left.
+ * Which side the listener sits on. `timeAlignmentCm` is the distance from
+ * the listener to the speaker: the backend delays every speaker by its
+ * distance from the farthest one. So the side with the shorter average
+ * distance is the side the listener sits on. A tie seats the listener on the
+ * left, as in a left-hand-drive car.
+ *
+ * The Mazda factory presets are Pioneer's Japanese tunings. Their right
+ * speakers are the near ones, so they seat the listener on the right.
  */
 export function listenerSide(speakers: Record<string, Speaker>): "left" | "right" {
   const average = (channels: SpeakerChannel[]): number => {
@@ -44,7 +48,7 @@ export function listenerSide(speakers: Record<string, Speaker>): "left" | "right
       .filter((value): value is number => value !== undefined);
     return values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
   };
-  return average(["FL", "RL"]) >= average(["FR", "RR"]) ? "left" : "right";
+  return average(["FL", "RL"]) <= average(["FR", "RR"]) ? "left" : "right";
 }
 
 /** A louder speaker draws a bigger button. Touch layouts keep every
