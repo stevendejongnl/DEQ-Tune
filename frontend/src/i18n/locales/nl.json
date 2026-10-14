@@ -107,5 +107,20 @@
   "factoryEqualizerHint": "Pioneers eigen stijl. Sleep een band om je eigen kopie te maken, die dan speelt.",
   "backLabel": "Terug",
   "pageSound": "Geluid",
-  "pageCar": "Auto"
+  "pageCar": "Auto",
+  "audioTitle": "Audio",
+  "audioNotConnected": "De unit is niet verbonden, dus er valt niets te lezen.",
+  "audioNotRead": "De unit wordt gelezen…",
+  "audioSourceLabel": "Bron",
+  "audioVolumeLabel": "Volume",
+  "audioMutedLabel": "Gedempt",
+  "audioMutedYes": "Ja",
+  "audioMutedNo": "Nee",
+  "audioMutedUnknown": "Onbekend ({wire})",
+  "audioDrivingLabel": "Rijdt",
+  "audioDrivingYes": "Ja",
+  "audioDrivingNo": "Nee",
+  "audioSourceStandAlone": "Zelfstandig",
+  "audioSourceCarSource": "Auto-audio, met de EQ van de DEQ",
+  "audioSourceThrough": "Auto-audio, onbewerkt"
 }
