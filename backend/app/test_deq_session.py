@@ -673,3 +673,57 @@ def test_a_reply_carrying_an_id_this_session_never_sent_is_still_an_error():
 
     with pytest.raises(ReplyMismatchError, match="transaction id"):
         session.exchange(COMMAND_KEEPALIVE)
+
+
+class OneFieldTransport:
+    """Answers every request with STATUS 0 and one 4-byte value.
+
+    The APK gives this reply layout for 0x14 and 0x1c. No real unit
+    answered either read so far, so `FakeDeq` has no rule for them. This
+    transport tests the decoding only, and makes no claim about the value.
+    """
+
+    def __init__(self, value: int) -> None:
+        self.value = value
+        self.requests: list[Message] = []
+        self.replies: list[bytes] = []
+
+    def send_frame(self, frame: bytes) -> None:
+        request = decode_frame(frame)
+        self.requests.append(request)
+        body = bytes(4) + self.value.to_bytes(4, "little", signed=True)
+        self.replies.append(
+            encode_frame(
+                Message(
+                    direction=Direction.FROM_DEVICE,
+                    command_id=request.command_id,
+                    transaction_id=request.transaction_id,
+                    body=body,
+                )
+            )
+        )
+
+    def receive_frame(self, timeout_seconds: float) -> bytes:
+        return self.replies.pop(0)
+
+    def close(self) -> None:
+        pass
+
+
+def test_the_speaker_mute_read_sends_0x14_and_returns_its_field():
+    transport = OneFieldTransport(5)
+
+    value = DeqSession(transport).read_speaker_mute_states()
+
+    assert transport.requests[0].command_id == 0x14
+    assert transport.requests[0].body == b""
+    assert value == 5
+
+
+def test_the_system_mute_read_sends_0x1c_and_keeps_the_sign():
+    transport = OneFieldTransport(-1)
+
+    value = DeqSession(transport).read_system_mute_state()
+
+    assert transport.requests[0].command_id == 0x1C
+    assert value == -1

@@ -227,6 +227,26 @@ def check_keepalive(report: Report, session: DeqSession) -> None:
     report.ok("five keepalives", "the session stayed up")
 
 
+def check_mute_reads(report: Report, session: DeqSession) -> None:
+    """Reads the two mute states that no real unit answered so far.
+
+    Both are reads with no body. The APK gives their reply layout, but not
+    what the values mean. This run records what the car's unit says.
+    """
+    print("\nReading the speaker and system mute states")
+    reads = (
+        ("speaker mute states (0x14)", session.read_speaker_mute_states),
+        ("system mute state (0x1c)", session.read_system_mute_state),
+    )
+    for what, read in reads:
+        try:
+            value = read()
+        except Exception as caught_error:
+            report.failed(what, str(caught_error))
+            continue
+        report.ok(what, f"the unit answered {value} (0x{value & 0xFFFFFFFF:08x})")
+
+
 def check_write_back(report: Report, session: DeqSession) -> None:
     """Writes the unit's own settings back to it, unchanged.
 
@@ -275,6 +295,7 @@ def main() -> int:
         check_identity(report, session)
         check_configuration(report, session)
         check_keepalive(report, session)
+        check_mute_reads(report, session)
         if arguments.write:
             check_write_back(report, session)
         else:

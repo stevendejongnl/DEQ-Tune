@@ -104,10 +104,12 @@ COMMAND_GET_VOLUME = 0x0E
 COMMAND_SET_MUTE_STATE = 0x0F
 COMMAND_GET_MUTE_STATE = 0x10
 COMMAND_GET_DRIVING_STATE = 0x11
+COMMAND_GET_SPEAKER_MUTE_STATE = 0x14
 COMMAND_CRASH_REPORT = 0x15
 COMMAND_SYSTEM_ERROR_FLAGS = 0x17
 COMMAND_SELF_SAVE_CONFIGURATION_ENABLE = 0x19
 COMMAND_PLAY_READY_NOTIFICATION = 0x1A
+COMMAND_GET_SYSTEM_MUTE_STATE = 0x1C
 COMMAND_SET_USB_CONDITIONER_TABLE = 0x1F
 COMMAND_GET_USB_CONDITIONER_TABLE = 0x20
 COMMAND_SET_TIMEOUT_INTERVAL = 0x21
@@ -634,10 +636,29 @@ class DeqSession:
         """Returns whether the unit thinks the car is moving."""
         return self._read_one_signed_field(COMMAND_GET_DRIVING_STATE)
 
+    def read_speaker_mute_states(self) -> int:
+        """Returns the SPEAKER_MUTE_STATES field of 0x14, as the unit sends it.
+
+        The APK names the field and gives its width, 4 bytes. No real unit
+        answered this read so far, so this method does not interpret the value.
+        `check_real_deq.py` reads it, so the next session with the car shows
+        what it holds.
+        """
+        return self._read_one_signed_field(COMMAND_GET_SPEAKER_MUTE_STATE)
+
+    def read_system_mute_state(self) -> int:
+        """Returns the MUTE_STATE field of 0x1c, as the unit sends it.
+
+        The unit keeps a second mute, apart from 0x10. It ignores a write of
+        0x0f, so this one may be the mute it obeys. No real unit answered this
+        read so far.
+        """
+        return self._read_one_signed_field(COMMAND_GET_SYSTEM_MUTE_STATE)
+
     def _read_one_signed_field(self, command_id: int) -> int:
         """Sends a read with no body and returns its one 4-byte field.
 
-        0x0c, 0x0e, 0x10 and 0x11 share a shape: an empty request, and a
+        0x0c, 0x0e, 0x10, 0x11, 0x14 and 0x1c share a shape: an empty request, and a
         reply of STATUS and then one signed 32-bit value.
         """
         reply = self.exchange(command_id)
