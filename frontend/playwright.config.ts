@@ -21,9 +21,11 @@ export default defineConfig({
   // A failing assertion here is a real bug, not a flake to retry away.
   retries: 0,
   // The frontend's `typia` transform compiles the module graph on the first
-  // request, which takes about twenty seconds on a cold cache. That compile
-  // is the one slow step. Every test after it is fast.
-  timeout: 120_000,
+  // request. That compile is the one slow step, and every test after it is
+  // fast. It took about twenty seconds once. On 2026-10-14 the main module
+  // alone took 72 s, and a first page load in each of two workers took about
+  // two minutes, past the old limit of 120 s.
+  timeout: 240_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
   reporter: process.env.CI ? "list" : [["list"], ["html", { open: "never" }]],

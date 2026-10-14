@@ -129,6 +129,14 @@ export interface EqualizerDto {
   id: number;
   name: string;
   source: ProfileSource;
+  /** A starred EQ shows in the EQ panel and the car app. An EQ of the
+   * person's own shows either way. */
+  favorite: boolean;
+  gains: number[];
+}
+
+export interface EqualizerCreateDto {
+  name: string;
   gains: number[];
 }
 

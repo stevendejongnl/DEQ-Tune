@@ -1,5 +1,5 @@
-import { html, LitElement, nothing, type TemplateResult } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { html, LitElement, type TemplateResult } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import type { Locale } from "../i18n/locale.ts";
 import { dspPanelStyles } from "./dsp-panel.styles.ts";
 import type { EqualizerDto } from "../dto/profile.dto.ts";
@@ -24,18 +24,18 @@ function renderLockIcon(): TemplateResult {
  * The EQ that plays on top of the car profile, and the unit's
  * Live-Simulation modes.
  *
- * The EQ tiles list "No EQ" and the EQ library: Pioneer's own styles and
- * the person's own EQs. A tap picks the EQ. The backend adds its curve to
- * the car profile's and pushes both, now or when the DEQ connects. Under
- * the tiles, the picked EQ offers Copy to edit (a factory EQ) or Edit
- * (an EQ of the person's own).
+ * The EQ tiles list No EQ, the starred EQs, and the person's own EQs. A tap
+ * picks the EQ. The backend adds its curve to the car profile's and pushes
+ * both, now or when the DEQ connects. The Library button lists every EQ with
+ * a star, the way the profile library does. The EQ area above edits the EQ
+ * that plays.
  *
  * `liveSimulationIds` come from the unit's own value sets
  * (`/api/device/options`), which app-root.ts reads.
  *
  * It emits `activate-equalizer` ({ id }, `null` for none),
- * `copy-equalizer` ({ id }), `edit-equalizer` ({ id }) and
- * `live-simulation-change` ({ id }).
+ * `favorite-equalizer` ({ id, favorite }) and `live-simulation-change`
+ * ({ id }).
  */
 @customElement("dsp-panel")
 export class DspPanel extends LitElement {
@@ -49,6 +49,8 @@ export class DspPanel extends LitElement {
   @property({ type: Array }) liveSimulationIds: readonly LiveSimulationId[] = [];
   @property({ type: String }) liveSimulation: LiveSimulationId | null = null;
 
+  @state() private libraryOpen = false;
+
   override render() {
     const strings = uiStrings(this.locale);
     return html`
@@ -61,13 +63,7 @@ export class DspPanel extends LitElement {
             </h2>
             <span class="lock-note">${renderLockIcon()}${strings.dspDeviceHint}</span>
           </div>
-          <div class="tiles">
-            ${this.renderEqualizerTile(null, strings.noEqualizer)}
-            ${this.equalizers.map((equalizer) =>
-              this.renderEqualizerTile(equalizer.id, equalizerName(equalizer, this.locale)),
-            )}
-          </div>
-          ${this.renderEqualizerActions(strings)}
+          ${this.libraryOpen ? this.renderLibrary(strings) : this.renderTiles(strings)}
         </div>
         <div class="simulation-column">
           <h2>${strings.liveSimulationTitle}</h2>
@@ -98,29 +94,69 @@ export class DspPanel extends LitElement {
     `;
   }
 
-  /** A factory EQ stays read-only, so it offers a copy. An EQ of the
-   * person's own offers its editor. */
-  private renderEqualizerActions(strings: UiStrings): TemplateResult | typeof nothing {
-    const active = this.equalizers.find((equalizer) => equalizer.id === this.activeEqualizerId);
-    if (active === undefined) {
-      return nothing;
-    }
-    const factory = active.source === "factory";
+  /** No EQ, the starred EQs, and the person's own, which show either way. */
+  private renderTiles(strings: UiStrings): TemplateResult {
+    const shown = this.equalizers.filter(
+      (equalizer) => equalizer.favorite || equalizer.source === "custom",
+    );
     return html`
-      <div class="equalizer-actions">
-        <button
-          type="button"
-          class="equalizer-action"
-          @click=${() =>
-            this.dispatchEvent(
-              new CustomEvent(factory ? "copy-equalizer" : "edit-equalizer", {
-                detail: { id: active.id },
-              }),
-            )}
-        >
-          ${factory ? strings.copyEqualizer : strings.editEqualizer}
-        </button>
+      <div class="tiles">
+        ${this.renderEqualizerTile(null, strings.noEqualizer)}
+        ${shown.map((equalizer) =>
+          this.renderEqualizerTile(equalizer.id, equalizerName(equalizer, this.locale)),
+        )}
       </div>
+      <button type="button" class="library-toggle" @click=${() => (this.libraryOpen = true)}>
+        ${strings.library}
+      </button>
+    `;
+  }
+
+  /** Every EQ, each with a star. A tap on a name plays that EQ. */
+  private renderLibrary(strings: UiStrings): TemplateResult {
+    return html`
+      <ul class="library">
+        ${this.equalizers.map(
+          (equalizer) => html`
+            <li class="library-row ${equalizer.id === this.activeEqualizerId ? "selected" : ""}">
+              <button
+                type="button"
+                class="library-name"
+                @click=${() =>
+                  this.dispatchEvent(
+                    new CustomEvent("activate-equalizer", { detail: { id: equalizer.id } }),
+                  )}
+              >
+                ${equalizerName(equalizer, this.locale)}
+              </button>
+              ${this.renderStar(strings, equalizer)}
+            </li>
+          `,
+        )}
+      </ul>
+      <button type="button" class="library-toggle" @click=${() => (this.libraryOpen = false)}>
+        ‹ ${strings.backLabel}
+      </button>
+    `;
+  }
+
+  private renderStar(strings: UiStrings, equalizer: EqualizerDto): TemplateResult {
+    const starred = equalizer.favorite;
+    return html`
+      <button
+        type="button"
+        class="star ${starred ? "starred" : ""}"
+        aria-pressed=${starred}
+        aria-label=${starred ? strings.removeFavoriteLabel : strings.addFavoriteLabel}
+        @click=${() =>
+          this.dispatchEvent(
+            new CustomEvent("favorite-equalizer", {
+              detail: { id: equalizer.id, favorite: !starred },
+            }),
+          )}
+      >
+        ${starred ? "★" : "☆"}
+      </button>
     `;
   }
 

@@ -7,7 +7,9 @@ async function openFirstProfile(page: Page): Promise<void> {
   // The presets live in the library until a person stars one.
   await page.locator("profile-list .open-library").click();
   await page.locator("profile-list .model-row .chip").first().click();
-  await expect(page.locator("eq-editor")).toBeVisible();
+  // The main EQ chart. The car profile's correction chart sits with the
+  // speakers, so a bare "eq-editor" matches two.
+  await expect(page.locator("equalizer-editor eq-editor")).toBeVisible();
 }
 
 async function openInLocale(page: Page, locale: string): Promise<void> {

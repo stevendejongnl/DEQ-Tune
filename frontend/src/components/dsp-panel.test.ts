@@ -9,9 +9,10 @@ const SHOWN_LIVE_SIMULATION_IDS = LIVE_SIMULATION_IDS.filter(
 );
 
 const LIBRARY: EqualizerDto[] = [
-  { id: 1, name: "Flat", source: "factory", gains: new Array(13).fill(0) },
-  { id: 2, name: "Powerful", source: "factory", gains: new Array(13).fill(4) },
-  { id: 3, name: "Dutch hardcore", source: "custom", gains: new Array(13).fill(2) },
+  { id: 1, name: "Flat", source: "factory", favorite: true, gains: new Array(13).fill(0) },
+  { id: 2, name: "Powerful", source: "factory", favorite: true, gains: new Array(13).fill(4) },
+  { id: 3, name: "Dutch hardcore", source: "custom", favorite: false, gains: new Array(13).fill(2) },
+  { id: 4, name: "Samba", source: "factory", favorite: false, gains: new Array(13).fill(1) },
 ];
 
 async function mount(...active: [number | null | undefined] | []): Promise<DspPanel> {
@@ -36,7 +37,7 @@ function collect<T>(element: DspPanel, type: string): T[] {
 }
 
 describe("dsp-panel", () => {
-  it("offers No EQ and one tile per EQ in the library", async () => {
+  it("offers No EQ, the starred EQs and the person's own, and not the rest", async () => {
     const element = await mount();
 
     expect(tiles(element).map((tile) => tile.textContent?.trim())).toEqual([
@@ -74,29 +75,52 @@ describe("dsp-panel", () => {
     expect(picks).toEqual([{ id: 3 }, { id: null }]);
   });
 
-  it("offers a copy of a factory EQ, because a factory EQ is read-only", async () => {
-    const element = await mount(2);
-    const copies = collect<{ id: number }>(element, "copy-equalizer");
+  it("lists every EQ in the library, each with a star", async () => {
+    const element = await mount();
 
-    const action = element.shadowRoot!.querySelector(".equalizer-action") as HTMLButtonElement;
-    action.click();
+    (element.shadowRoot!.querySelector(".library-toggle") as HTMLButtonElement).click();
+    await element.updateComplete;
 
-    expect(action.textContent).toContain("Copy to edit");
-    expect(copies).toEqual([{ id: 2 }]);
+    const rows = [...element.shadowRoot!.querySelectorAll(".library-row")];
+    expect(rows.map((row) => row.querySelector(".library-name")!.textContent?.trim())).toEqual([
+      "FLAT",
+      "Powerful",
+      "Dutch hardcore",
+      "Samba",
+    ]);
+    expect(rows.map((row) => row.querySelector(".star")!.getAttribute("aria-pressed"))).toEqual([
+      "true",
+      "true",
+      "false",
+      "false",
+    ]);
   });
 
-  it("offers the editor for an EQ of the person's own", async () => {
-    const element = await mount(3);
-    const edits = collect<{ id: number }>(element, "edit-equalizer");
+  it("stars an EQ from the library, and plays one on a tap of its name", async () => {
+    const element = await mount();
+    const stars = collect<{ id: number; favorite: boolean }>(element, "favorite-equalizer");
+    const picks = collect<{ id: number | null }>(element, "activate-equalizer");
+    (element.shadowRoot!.querySelector(".library-toggle") as HTMLButtonElement).click();
+    await element.updateComplete;
+    const samba = element.shadowRoot!.querySelectorAll(".library-row")[3];
 
-    (element.shadowRoot!.querySelector(".equalizer-action") as HTMLButtonElement).click();
+    (samba.querySelector(".star") as HTMLButtonElement).click();
+    (samba.querySelector(".library-name") as HTMLButtonElement).click();
 
-    expect(edits).toEqual([{ id: 3 }]);
+    expect(stars).toEqual([{ id: 4, favorite: true }]);
+    expect(picks).toEqual([{ id: 4 }]);
   });
 
-  it("offers no action while No EQ plays", async () => {
-    const element = await mount(null);
-    expect(element.shadowRoot!.querySelector(".equalizer-action")).toBeNull();
+  it("goes back from the library to the tiles", async () => {
+    const element = await mount();
+    (element.shadowRoot!.querySelector(".library-toggle") as HTMLButtonElement).click();
+    await element.updateComplete;
+
+    (element.shadowRoot!.querySelector(".library-toggle") as HTMLButtonElement).click();
+    await element.updateComplete;
+
+    expect(element.shadowRoot!.querySelector(".library")).toBeNull();
+    expect(tiles(element)).toHaveLength(4);
   });
 
   it("renders one option per Live Simulation mode the real app shows", async () => {

@@ -236,6 +236,9 @@ export const appRootStyles = css`
     gap: 16px;
     min-width: 0;
   }
+  .area-correction {
+    grid-area: correction;
+  }
   .area-eq {
     grid-area: eq;
   }
@@ -381,6 +384,7 @@ export const appRootStyles = css`
       grid-template-areas:
         "audio audio"
         "eq eq"
+        "correction correction"
         "speakers style";
       gap: 20px;
       align-items: start;
@@ -436,6 +440,7 @@ export const appRootStyles = css`
       grid-template-areas:
         "audio audio"
         "eq speakers"
+        "correction speakers"
         "style style";
       gap: 24px;
     }

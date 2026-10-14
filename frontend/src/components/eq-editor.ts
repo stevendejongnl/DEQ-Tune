@@ -126,6 +126,8 @@ export class EqEditor extends LitElement {
   @property({ type: Array }) factoryGains: number[] = [];
   @property({ type: String }) locale: Locale = "en";
   @property({ type: String }) layout: AppLayout = "desktop";
+  /** The panel's title. Empty means "Frequency response". */
+  @property({ type: String }) heading = "";
 
   @state() private selectedBand = LAST_BAND;
   @state() private chartWidth = 0;
@@ -169,7 +171,7 @@ export class EqEditor extends LitElement {
     return html`
       <section class="panel">
         <div class="panel-head">
-          <h2>${strings.frequencyResponseTitle}</h2>
+          <h2>${this.heading === "" ? strings.frequencyResponseTitle : this.heading}</h2>
           <div class="legend">
             <span class="legend-entry"><span class="swatch yours"></span>${strings.legendYours}</span>
             ${this.factoryGains.length === 0

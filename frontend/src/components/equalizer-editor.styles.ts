@@ -59,9 +59,9 @@ export const equalizerEditorStyles = css`
       border-color: var(--color-warn-border);
     }
   }
-  .done {
-    border: 0;
-    background: var(--color-accent);
-    color: var(--color-on-accent);
+  .hint {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-muted-foreground);
   }
 `;

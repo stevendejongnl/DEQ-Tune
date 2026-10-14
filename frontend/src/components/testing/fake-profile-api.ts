@@ -4,6 +4,7 @@ import type {
   AudioStateDto,
   DeviceDto,
   DeviceOptionsDto,
+  EqualizerCreateDto,
   EqualizerDto,
   EqualizerUpdateDto,
   ProfileCreateDto,
@@ -83,16 +84,27 @@ export class FakeProfileApi implements ProfileApi, DeviceApi, EqualizerApi {
     return this.equalizers;
   }
 
-  async duplicateEqualizer(id: number): Promise<EqualizerDto> {
-    const source = this.requireEqualizer(id);
-    const copy: EqualizerDto = {
+  /** How many EQs the app created. A test reads it to see that quick
+   * edits made one copy, not several. */
+  createdEqualizers = 0;
+
+  async createEqualizer(body: EqualizerCreateDto): Promise<EqualizerDto> {
+    this.createdEqualizers += 1;
+    const created: EqualizerDto = {
       id: Math.max(0, ...this.equalizers.map((equalizer) => equalizer.id)) + 1,
-      name: `${source.name} (copy)`,
+      name: body.name,
       source: "custom",
-      gains: [...source.gains],
+      favorite: false,
+      gains: [...body.gains],
     };
-    this.equalizers = [...this.equalizers, copy];
-    return copy;
+    this.equalizers = [...this.equalizers, created];
+    return created;
+  }
+
+  async setEqualizerFavorite(id: number, favorite: boolean): Promise<EqualizerDto> {
+    const updated: EqualizerDto = { ...this.requireEqualizer(id), favorite };
+    this.equalizers = this.equalizers.map((equalizer) => (equalizer.id === id ? updated : equalizer));
+    return updated;
   }
 
   async updateEqualizer(id: number, body: EqualizerUpdateDto): Promise<EqualizerDto> {

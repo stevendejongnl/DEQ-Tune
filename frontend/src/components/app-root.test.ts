@@ -20,8 +20,8 @@ function starredPreset(overrides: Partial<ProfileDto> = {}): ProfileDto {
 /** A small EQ library: one factory EQ and one of the person's own. */
 function withLibrary(api: FakeProfileApi): FakeProfileApi {
   api.equalizers = [
-    { id: 1, name: "Super Bass", source: "factory", gains: new Array(13).fill(4) },
-    { id: 2, name: "Mine", source: "custom", gains: new Array(13).fill(0) },
+    { id: 1, name: "Super Bass", source: "factory", favorite: true, gains: new Array(13).fill(4) },
+    { id: 2, name: "Mine", source: "custom", favorite: false, gains: new Array(13).fill(0) },
   ];
   return api;
 }
@@ -379,37 +379,63 @@ describe("app-root", () => {
     expect(panel.activeEqualizerId).toBe(2);
   });
 
-  it("copies a factory EQ, plays the copy, and opens it in the editor", async () => {
+  it("makes one copy of a factory EQ on quick drags, and the copy plays", async () => {
     const api = withLibrary(new FakeProfileApi([starredPreset({ id: 1 })]));
+    await api.activateEqualizer(1);
     const element = await mount(api);
     await click(queryFirstChip(element), element);
+    const editor = element.shadowRoot!.querySelector("equalizer-editor")!;
+    expect(editor.equalizer?.name).toBe("Super Bass");
 
-    element.shadowRoot!.querySelector("dsp-panel")!.dispatchEvent(
-      new CustomEvent("copy-equalizer", { detail: { id: 1 } }),
-    );
+    const first = [...new Array(13).fill(4)];
+    first[0] = 6;
+    const second = [...first];
+    second[5] = -2;
+    editor.dispatchEvent(new CustomEvent("equalizer-gains", { detail: { gains: first } }));
+    editor.dispatchEvent(new CustomEvent("equalizer-gains", { detail: { gains: second } }));
+    await flushMicrotasks();
     await flushMicrotasks();
     await element.updateComplete;
 
+    expect(api.createdEqualizers).toBe(1);
     const copy = (await api.listEqualizers()).find((equalizer) => equalizer.name === "Super Bass (copy)")!;
-    expect(api.device.activatedEqualizerIds).toEqual([copy.id]);
-    expect(element.shadowRoot!.querySelector("equalizer-editor")!.equalizer?.id).toBe(copy.id);
+    expect(copy.gains).toEqual(second);
+    expect(api.device.activatedEqualizerIds.at(-1)).toBe(copy.id);
+    expect(editor.equalizer?.id).toBe(copy.id);
   });
 
-  it("saves a curve edit of an EQ, and deleting it closes the editor", async () => {
+  it("starts a new EQ of the person's own on a drag while No EQ plays", async () => {
     const api = withLibrary(new FakeProfileApi([starredPreset({ id: 1 })]));
+    await api.activateEqualizer(null);
     const element = await mount(api);
     await click(queryFirstChip(element), element);
-    element.shadowRoot!.querySelector("dsp-panel")!.dispatchEvent(
-      new CustomEvent("edit-equalizer", { detail: { id: 2 } }),
-    );
+    const editor = element.shadowRoot!.querySelector("equalizer-editor")!;
+    const gains = new Array(13).fill(0);
+    gains[1] = 3;
+
+    editor.dispatchEvent(new CustomEvent("equalizer-gains", { detail: { gains } }));
+    await flushMicrotasks();
+    await flushMicrotasks();
     await element.updateComplete;
+
+    const created = (await api.listEqualizers()).find((equalizer) => equalizer.name === "My EQ")!;
+    expect(created.gains).toEqual(gains);
+    expect(api.device.activatedEqualizerIds.at(-1)).toBe(created.id);
+  });
+
+  it("saves a curve edit of an EQ of the person's own, and deletes it", async () => {
+    const api = withLibrary(new FakeProfileApi([starredPreset({ id: 1 })]));
+    await api.activateEqualizer(2);
+    const element = await mount(api);
+    await click(queryFirstChip(element), element);
     const editor = element.shadowRoot!.querySelector("equalizer-editor")!;
 
     editor.dispatchEvent(
-      new CustomEvent("equalizer-change", { detail: { id: 2, gains: new Array(13).fill(3) } }),
+      new CustomEvent("equalizer-gains", { detail: { gains: new Array(13).fill(3) } }),
     );
     await flushMicrotasks();
     await element.updateComplete;
+    expect(api.createdEqualizers).toBe(0);
     expect((await api.listEqualizers()).find((equalizer) => equalizer.id === 2)?.gains).toEqual(
       new Array(13).fill(3),
     );
@@ -417,7 +443,6 @@ describe("app-root", () => {
     editor.dispatchEvent(new CustomEvent("delete-equalizer", { detail: { id: 2 } }));
     await flushMicrotasks();
     await element.updateComplete;
-    expect(element.shadowRoot!.querySelector("equalizer-editor")).toBeNull();
     expect(await api.listEqualizers()).toHaveLength(1);
   });
 
@@ -441,7 +466,7 @@ describe("app-root", () => {
     await click(eqTab, element);
 
     expect(element.shadowRoot!.querySelector(".tab-bar")).not.toBeNull();
-    expect(element.shadowRoot!.querySelector("eq-editor")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector("equalizer-editor")).not.toBeNull();
     expect(element.shadowRoot!.querySelector("speaker-panel")).toBeNull();
     expect(element.shadowRoot!.querySelector("dsp-panel")).toBeNull();
   });
@@ -457,7 +482,9 @@ describe("app-root", () => {
 
     expect(speakersTab.getAttribute("aria-pressed")).toBe("true");
     expect(element.shadowRoot!.querySelector("speaker-panel")).not.toBeNull();
-    expect(element.shadowRoot!.querySelector("eq-editor")).toBeNull();
+    expect(element.shadowRoot!.querySelector("equalizer-editor")).toBeNull();
+    // The car's own correction curve sits with the speakers.
+    expect(element.shadowRoot!.querySelector("eq-editor.car-correction")).not.toBeNull();
   });
 
   it("edits a factory preset without saving it", async () => {
@@ -560,8 +587,8 @@ describe("app-root", () => {
   it("puts the save actions in a bar on the phone", async () => {
     const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]), "phone");
     await click(queryFirstChip(element), element);
-    const eqTab = element.shadowRoot!.querySelectorAll(".tab")[1] as HTMLButtonElement;
-    await click(eqTab, element);
+    const speakersTab = element.shadowRoot!.querySelectorAll(".tab")[2] as HTMLButtonElement;
+    await click(speakersTab, element);
     expect(element.shadowRoot!.querySelector(".save-bar")).toBeNull();
 
     element.shadowRoot!.querySelector("eq-editor")!.dispatchEvent(

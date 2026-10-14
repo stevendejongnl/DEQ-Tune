@@ -8,6 +8,7 @@ import type {
   BridgeDto,
   DeviceDto,
   DeviceOptionsDto,
+  EqualizerCreateDto,
   EqualizerDto,
   EqualizerUpdateDto,
   EqStyleWriteDto,
@@ -99,7 +100,8 @@ export interface DeviceApi {
 /** The EQ library. A factory EQ is read-only, so a person copies it first. */
 export interface EqualizerApi {
   listEqualizers(): Promise<EqualizerDto[]>;
-  duplicateEqualizer(id: number): Promise<EqualizerDto>;
+  createEqualizer(body: EqualizerCreateDto): Promise<EqualizerDto>;
+  setEqualizerFavorite(id: number, favorite: boolean): Promise<EqualizerDto>;
   updateEqualizer(id: number, body: EqualizerUpdateDto): Promise<EqualizerDto>;
   deleteEqualizer(id: number): Promise<void>;
 }
@@ -224,8 +226,16 @@ export class DeqApiClient implements ProfileApi, DeviceApi, EqualizerApi, Bridge
     return typia.assert<EqualizerDto[]>(await this.call("GET", "/equalizers"));
   }
 
-  async duplicateEqualizer(id: number): Promise<EqualizerDto> {
-    return typia.assert<EqualizerDto>(await this.call("POST", `/equalizers/${id}/duplicate`));
+  async createEqualizer(body: EqualizerCreateDto): Promise<EqualizerDto> {
+    const validBody = typia.assert<EqualizerCreateDto>(body);
+    return typia.assert<EqualizerDto>(await this.call("POST", "/equalizers", validBody));
+  }
+
+  async setEqualizerFavorite(id: number, favorite: boolean): Promise<EqualizerDto> {
+    const validBody = typia.assert<FavoriteWriteDto>({ favorite });
+    return typia.assert<EqualizerDto>(
+      await this.call("PUT", `/equalizers/${id}/favorite`, validBody),
+    );
   }
 
   async updateEqualizer(id: number, body: EqualizerUpdateDto): Promise<EqualizerDto> {

@@ -99,9 +99,11 @@
   "saveBeforeActivate": "Bewaar eerst je wijzigingen",
   "activeTag": "Actief",
   "noEqualizer": "Geen EQ",
-  "copyEqualizer": "Kopiëren om te bewerken",
-  "editEqualizer": "Bewerken",
   "equalizerNameLabel": "Naam",
   "deleteEqualizer": "EQ verwijderen",
-  "doneEditing": "Klaar"
+  "newEqualizerName": "Mijn EQ",
+  "carCorrectionTitle": "Autocorrectie",
+  "noEqualizerHint": "Er speelt geen EQ boven op het autoprofiel. Sleep een band om je eigen EQ te beginnen.",
+  "factoryEqualizerHint": "Pioneers eigen stijl. Sleep een band om je eigen kopie te maken, die dan speelt.",
+  "backLabel": "Terug"
 }

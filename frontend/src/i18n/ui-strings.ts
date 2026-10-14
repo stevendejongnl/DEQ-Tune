@@ -105,11 +105,13 @@ export type UiStrings = {
   saveBeforeActivate: string;
   activeTag: string;
   noEqualizer: string;
-  copyEqualizer: string;
-  editEqualizer: string;
   equalizerNameLabel: string;
   deleteEqualizer: string;
-  doneEditing: string;
+  newEqualizerName: string;
+  carCorrectionTitle: string;
+  backLabel: string;
+  noEqualizerHint: string;
+  factoryEqualizerHint: string;
   rename: string;
   renameLabel: string;
   audioTitle: string;

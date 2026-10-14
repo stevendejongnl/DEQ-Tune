@@ -1,21 +1,25 @@
-import { html, LitElement, type TemplateResult } from "lit";
+import { html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { EqualizerDto } from "../dto/profile.dto.ts";
 import type { AppLayout } from "../layout-query.ts";
 import type { Locale } from "../i18n/locale.ts";
+import { equalizerName } from "../i18n/equalizer-names.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import "./eq-editor.ts";
 import { equalizerEditorStyles } from "./equalizer-editor.styles.ts";
 
+const FLAT = new Array(13).fill(0);
+
 /**
- * Edits one EQ of the person's own: its name and its curve.
+ * The EQ that plays, as one curve to edit. It is the main EQ of the app.
+ * The car profile's own correction curve sits with the car settings.
  *
- * Set `equalizer`, `locale` and `layout`. It emits `equalizer-change`
- * ({ id, name } or { id, gains }) on every edit, `delete-equalizer`
- * ({ id }) and `close-editor`. It reads no API. app-root saves each change.
+ * Set `equalizer` (`null` for No EQ), `locale` and `layout`. It emits
+ * `equalizer-gains` ({ gains }) on every curve edit, `rename-equalizer`
+ * ({ name }) and `delete-equalizer` ({ id }). It reads no API.
  *
- * The curve editor is the one the car profile uses. An EQ has no factory
- * curve to compare with, so the chart draws its curve alone.
+ * Any EQ can take a drag. An EQ of the person's own changes in place. A
+ * factory EQ and No EQ say that a drag makes a copy, and app-root makes it.
  */
 @customElement("equalizer-editor")
 export class EqualizerEditor extends LitElement {
@@ -26,27 +30,28 @@ export class EqualizerEditor extends LitElement {
   @property({ type: String }) layout: AppLayout = "desktop";
 
   override render() {
-    const equalizer = this.equalizer;
-    if (equalizer === null) {
-      return html``;
-    }
     const strings = uiStrings(this.locale);
+    const equalizer = this.equalizer;
+    const gains = equalizer?.gains ?? FLAT;
     return html`
       <section class="panel">
-        ${this.renderHead(strings, equalizer)}
+        ${equalizer?.source === "custom"
+          ? this.renderOwnHead(strings, equalizer)
+          : this.renderReadOnlyHead(strings, equalizer)}
         <eq-editor
-          .gains=${equalizer.gains}
+          .heading=${equalizer === null ? strings.noEqualizer : equalizerName(equalizer, this.locale)}
+          .gains=${gains}
           .factoryGains=${[]}
           .locale=${this.locale}
           .layout=${this.layout}
           @gain-change=${(gainChangeEvent: CustomEvent<{ band: number; value: number }>) =>
-            this.changeGain(equalizer, gainChangeEvent.detail.band, gainChangeEvent.detail.value)}
+            this.changeGain(gains, gainChangeEvent.detail.band, gainChangeEvent.detail.value)}
         ></eq-editor>
       </section>
     `;
   }
 
-  private renderHead(strings: UiStrings, equalizer: EqualizerDto): TemplateResult {
+  private renderOwnHead(strings: UiStrings, equalizer: EqualizerDto): TemplateResult {
     return html`
       <div class="head">
         <label class="name">
@@ -58,25 +63,33 @@ export class EqualizerEditor extends LitElement {
               this.changeName(equalizer, (event.target as HTMLInputElement).value)}
           />
         </label>
-        <div class="actions">
-          <button
-            type="button"
-            class="delete"
-            @click=${() => this.emit("delete-equalizer", { id: equalizer.id })}
-          >
-            ${strings.deleteEqualizer}
-          </button>
-          <button type="button" class="done" @click=${() => this.emit("close-editor", {})}>
-            ${strings.doneEditing}
-          </button>
-        </div>
+        ${equalizer.id < 0
+          ? nothing
+          : html`
+              <div class="actions">
+                <button
+                  type="button"
+                  class="delete"
+                  @click=${() => this.emit("delete-equalizer", { id: equalizer.id })}
+                >
+                  ${strings.deleteEqualizer}
+                </button>
+              </div>
+            `}
       </div>
     `;
   }
 
-  private changeGain(equalizer: EqualizerDto, band: number, value: number): void {
-    const gains = equalizer.gains.map((gain, index) => (index === band ? value : gain));
-    this.emit("equalizer-change", { id: equalizer.id, gains });
+  private renderReadOnlyHead(strings: UiStrings, equalizer: EqualizerDto | null): TemplateResult {
+    return html`
+      <p class="hint">${equalizer === null ? strings.noEqualizerHint : strings.factoryEqualizerHint}</p>
+    `;
+  }
+
+  private changeGain(gains: readonly number[], band: number, value: number): void {
+    this.emit("equalizer-gains", {
+      gains: gains.map((gain, index) => (index === band ? value : gain)),
+    });
   }
 
   /** An emptied name keeps the old one. */
@@ -85,7 +98,7 @@ export class EqualizerEditor extends LitElement {
     if (name === "" || name === equalizer.name) {
       return;
     }
-    this.emit("equalizer-change", { id: equalizer.id, name });
+    this.emit("rename-equalizer", { name });
   }
 
   private emit(type: string, detail: object): void {

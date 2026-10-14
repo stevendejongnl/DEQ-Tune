@@ -4,7 +4,7 @@ import type { EqualizerDto } from "../dto/profile.dto.ts";
 import { eqStyleName } from "./dsp-presets.ts";
 
 function equalizer(name: string, source: "factory" | "custom"): EqualizerDto {
-  return { id: 1, name, source, gains: new Array(13).fill(0) };
+  return { id: 1, name, source, favorite: false, gains: new Array(13).fill(0) };
 }
 
 describe("equalizerName", () => {

@@ -114,9 +114,11 @@
   "saveBeforeActivate": "Save your edits first",
   "activeTag": "Active",
   "noEqualizer": "No EQ",
-  "copyEqualizer": "Copy to edit",
-  "editEqualizer": "Edit",
   "equalizerNameLabel": "Name",
   "deleteEqualizer": "Delete EQ",
-  "doneEditing": "Done"
+  "newEqualizerName": "My EQ",
+  "carCorrectionTitle": "Car correction",
+  "noEqualizerHint": "No EQ plays on top of the car profile. Drag a band to start an EQ of your own.",
+  "factoryEqualizerHint": "Pioneer's own style. Drag a band to make your own copy, which then plays.",
+  "backLabel": "Back"
 }
