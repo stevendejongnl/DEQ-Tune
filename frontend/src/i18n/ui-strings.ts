@@ -131,6 +131,27 @@ export type UiStrings = {
   audioSourceStandAlone: string;
   audioSourceCarSource: string;
   audioSourceThrough: string;
+  wifiTitle: string;
+  wifiOpenLabel: string;
+  wifiIntro: string;
+  wifiSavedTitle: string;
+  wifiNoneSaved: string;
+  wifiConnected: string;
+  wifiForget: string;
+  wifiForgetConnectedConfirm: string;
+  wifiAddTitle: string;
+  wifiSsidLabel: string;
+  wifiPasswordLabel: string;
+  wifiPasswordHint: string;
+  wifiSave: string;
+  wifiSaved: string;
+  wifiJoinNow: string;
+  wifiJoinRequested: string;
+  wifiInRange: string;
+  wifiUnavailable: string;
+  wifiRefused: string;
+  wifiInvalid: string;
+  wifiFailed: string;
 };
 
 /** The source catalog. Every key the app reads must be here, so the compiler

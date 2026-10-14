@@ -1085,6 +1085,128 @@
         }
       }
     },
+    "/api/wifi": {
+      "get": {
+        "tags": [
+          "wifi"
+        ],
+        "summary": "Read Wifi",
+        "operationId": "read_wifi_api_wifi_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WifiRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wifi/networks": {
+      "post": {
+        "tags": [
+          "wifi"
+        ],
+        "summary": "Save Network",
+        "operationId": "save_network_api_wifi_networks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WifiNetworkWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WifiRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wifi/forget": {
+      "post": {
+        "tags": [
+          "wifi"
+        ],
+        "summary": "Forget Network",
+        "operationId": "forget_network_api_wifi_forget_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WifiForgetWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WifiRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wifi/join": {
+      "post": {
+        "tags": [
+          "wifi"
+        ],
+        "summary": "Join Network",
+        "operationId": "join_network_api_wifi_join_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -2011,6 +2133,24 @@
         "type": "object",
         "title": "ProfileUpdate"
       },
+      "SavedWifiNetworkRead": {
+        "properties": {
+          "ssid": {
+            "type": "string",
+            "title": "Ssid"
+          },
+          "connected": {
+            "type": "boolean",
+            "title": "Connected"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ssid",
+          "connected"
+        ],
+        "title": "SavedWifiNetworkRead"
+      },
       "Speaker": {
         "properties": {
           "isPositivePhase": {
@@ -2153,6 +2293,29 @@
         ],
         "title": "ValidationError"
       },
+      "VisibleWifiNetworkRead": {
+        "properties": {
+          "ssid": {
+            "type": "string",
+            "title": "Ssid"
+          },
+          "signal": {
+            "type": "integer",
+            "title": "Signal"
+          },
+          "secured": {
+            "type": "boolean",
+            "title": "Secured"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ssid",
+          "signal",
+          "secured"
+        ],
+        "title": "VisibleWifiNetworkRead"
+      },
       "VolumeWrite": {
         "properties": {
           "volume_db": {
@@ -2165,6 +2328,63 @@
           "volume_db"
         ],
         "title": "VolumeWrite"
+      },
+      "WifiForgetWrite": {
+        "properties": {
+          "ssid": {
+            "type": "string",
+            "title": "Ssid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ssid"
+        ],
+        "title": "WifiForgetWrite"
+      },
+      "WifiNetworkWrite": {
+        "properties": {
+          "ssid": {
+            "type": "string",
+            "title": "Ssid"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "ssid"
+        ],
+        "title": "WifiNetworkWrite",
+        "description": "A network to save. An empty password saves an open network.\n\nThe helper on the bridge checks the same rules again. This check gives\nthe app a 422 before anything runs as root."
+      },
+      "WifiRead": {
+        "properties": {
+          "saved": {
+            "items": {
+              "$ref": "#/components/schemas/SavedWifiNetworkRead"
+            },
+            "type": "array",
+            "title": "Saved"
+          },
+          "visible": {
+            "items": {
+              "$ref": "#/components/schemas/VisibleWifiNetworkRead"
+            },
+            "type": "array",
+            "title": "Visible"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saved",
+          "visible"
+        ],
+        "title": "WifiRead",
+        "description": "The networks that the bridge joins, and the networks in range.\n\n`visible` comes from the bridge's last scan. Nothing scans for this\nrequest, because a scan touches the radio."
       }
     }
   }

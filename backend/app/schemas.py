@@ -255,3 +255,66 @@ def device_options() -> DeviceOptionsRead:
             if value.name in AUDIO_SOURCE_CHOICES
         ],
     )
+
+
+WIFI_SSID_MAXIMUM_BYTES = 32
+
+
+class SavedWifiNetworkRead(BaseModel):
+    ssid: str
+    # True while the bridge uses this network.
+    connected: bool
+
+
+class VisibleWifiNetworkRead(BaseModel):
+    ssid: str
+    # 0 to 100, as NetworkManager reports it.
+    signal: int
+    secured: bool
+
+
+class WifiRead(BaseModel):
+    """The networks that the bridge joins, and the networks in range.
+
+    `visible` comes from the bridge's last scan. Nothing scans for this
+    request, because a scan touches the radio.
+    """
+
+    saved: list[SavedWifiNetworkRead]
+    visible: list[VisibleWifiNetworkRead]
+
+
+class WifiNetworkWrite(BaseModel):
+    """A network to save. An empty password saves an open network.
+
+    The helper on the bridge checks the same rules again. This check gives
+    the app a 422 before anything runs as root.
+    """
+
+    ssid: str
+    password: str = ""
+
+    @field_validator("ssid")
+    @classmethod
+    def ssid_fits(cls, ssid: str) -> str:
+        if not 1 <= len(ssid.encode()) <= WIFI_SSID_MAXIMUM_BYTES:
+            raise ValueError(f"a network name has 1 to {WIFI_SSID_MAXIMUM_BYTES} bytes")
+        if any(ord(character) < 0x20 or ord(character) == 0x7F for character in ssid):
+            raise ValueError("a network name cannot hold control characters")
+        return ssid
+
+    @field_validator("password")
+    @classmethod
+    def password_fits(cls, password: str) -> str:
+        is_hex_key = len(password) == 64 and all(character in "0123456789abcdefABCDEF" for character in password)
+        if password == "" or is_hex_key:
+            return password
+        if not 8 <= len(password) <= 63:
+            raise ValueError("a Wi-Fi password has 8 to 63 characters")
+        if any(not 0x20 <= ord(character) <= 0x7E for character in password):
+            raise ValueError("a Wi-Fi password holds printable ASCII characters only")
+        return password
+
+
+class WifiForgetWrite(BaseModel):
+    ssid: str

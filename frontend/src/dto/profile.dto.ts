@@ -251,3 +251,32 @@ export interface BridgeDto {
   uptime_seconds: number | null;
   notices: BridgeNoticeDto[];
 }
+
+/** A network that the bridge joins. `connected` is true while the bridge
+ * uses it. */
+export interface SavedWifiNetworkDto {
+  ssid: string;
+  connected: boolean;
+}
+
+/** A network in range, from the bridge's last scan. `signal` is 0 to 100. */
+export interface VisibleWifiNetworkDto {
+  ssid: string;
+  signal: number;
+  secured: boolean;
+}
+
+export interface WifiDto {
+  saved: SavedWifiNetworkDto[];
+  visible: VisibleWifiNetworkDto[];
+}
+
+/** An empty password saves an open network. */
+export interface WifiNetworkWriteDto {
+  ssid: string;
+  password: string;
+}
+
+export interface WifiForgetWriteDto {
+  ssid: string;
+}

@@ -20,6 +20,7 @@ from app.deq_device import device, link_keeper
 from app.device_routes import router as device_router
 from app.routes import router
 from app.seed import seed_factory_profiles
+from app.wifi_routes import router as wifi_router
 
 DIST_DIR = Path(__file__).resolve().parents[2] / "dist"
 
@@ -61,6 +62,7 @@ app.include_router(device_router, prefix="/api")
 app.include_router(bridge_router, prefix="/api")
 app.include_router(active_profile_router, prefix="/api")
 app.include_router(equalizer_router, prefix="/api")
+app.include_router(wifi_router, prefix="/api")
 
 
 @app.get("/health")

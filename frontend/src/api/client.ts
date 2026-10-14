@@ -19,6 +19,9 @@ import type {
   ProfileUpdateDto,
   UnitProfileCreateDto,
   VolumeWriteDto,
+  WifiDto,
+  WifiForgetWriteDto,
+  WifiNetworkWriteDto,
 } from "../dto/profile.dto.ts";
 
 export class ApiError extends Error {
@@ -115,7 +118,21 @@ export interface BridgeApi {
   readBridge(): Promise<BridgeDto>;
 }
 
-export class DeqApiClient implements ProfileApi, DeviceApi, EqualizerApi, BridgeApi {
+/** The Wi-Fi networks that the bridge joins.
+ *
+ * A save or a forget changes the saved networks only. The bridge joins a
+ * saved network on its own, or after `requestWifiJoin`. A 503 means the
+ * machine cannot manage Wi-Fi. A 409 means the bridge refused, most often
+ * because the DEQ holds the link.
+ */
+export interface WifiApi {
+  readWifi(): Promise<WifiDto>;
+  saveWifiNetwork(ssid: string, password: string): Promise<WifiDto>;
+  forgetWifiNetwork(ssid: string): Promise<WifiDto>;
+  requestWifiJoin(): Promise<void>;
+}
+
+export class DeqApiClient implements ProfileApi, DeviceApi, EqualizerApi, BridgeApi, WifiApi {
   private baseUrl: string;
   private fetchImpl: FetchLike;
 
@@ -172,6 +189,24 @@ export class DeqApiClient implements ProfileApi, DeviceApi, EqualizerApi, Bridge
 
   async readBridge(): Promise<BridgeDto> {
     return typia.assert<BridgeDto>(await this.call("GET", "/bridge"));
+  }
+
+  async readWifi(): Promise<WifiDto> {
+    return typia.assert<WifiDto>(await this.call("GET", "/wifi"));
+  }
+
+  async saveWifiNetwork(ssid: string, password: string): Promise<WifiDto> {
+    const validBody = typia.assert<WifiNetworkWriteDto>({ ssid, password });
+    return typia.assert<WifiDto>(await this.call("POST", "/wifi/networks", validBody));
+  }
+
+  async forgetWifiNetwork(ssid: string): Promise<WifiDto> {
+    const validBody = typia.assert<WifiForgetWriteDto>({ ssid });
+    return typia.assert<WifiDto>(await this.call("POST", "/wifi/forget", validBody));
+  }
+
+  async requestWifiJoin(): Promise<void> {
+    await this.call("POST", "/wifi/join");
   }
 
   async connectDevice(): Promise<DeviceDto> {

@@ -36,6 +36,7 @@ import "./dsp-panel.ts";
 import "./audio-controls.ts";
 import "./profile-activation.ts";
 import "./equalizer-editor.ts";
+import "./wifi-settings.ts";
 import { EqualizerLibraryController } from "./equalizer-library-controller.ts";
 import type { LinkState } from "./link-state.ts";
 import { appRootStyles } from "./app-root.styles.ts";
@@ -275,7 +276,9 @@ export class AppRoot extends LitElement {
           <div class="header-controls">
             ${this.isPhoneLayout
               ? nothing
-              : html`${this.renderLocaleSwitcher()}<span class="header-divider"></span>`}
+              : html`${this.renderWifiSettings()}${this.renderLocaleSwitcher()}<span
+                    class="header-divider"
+                  ></span>`}
             <bridge-notices .api=${this.api} .locale=${this.locale}></bridge-notices>
             <device-status
               .api=${this.api}
@@ -314,7 +317,7 @@ export class AppRoot extends LitElement {
           </button>
         </div>
         ${this.isPhoneLayout
-          ? html`<div class="sheet-locale">${this.renderLocaleSwitcher()}</div>`
+          ? html`<div class="sheet-locale">${this.renderLocaleSwitcher()}${this.renderWifiSettings()}</div>`
           : nothing}
         <profile-list
           .profiles=${this.profiles}
@@ -473,7 +476,13 @@ export class AppRoot extends LitElement {
     `;
   }
 
-  /** Tablet and desktop show one page at a time, with all of its panels.
+  /** The Pi's Wi-Fi networks. It sits beside the language control, in the
+   * header or in the phone's profiles sheet. */
+  private renderWifiSettings(): TemplateResult {
+    return html`<wifi-settings .api=${this.api} .locale=${this.locale}></wifi-settings>`;
+  }
+
+    /** Tablet and desktop show one page at a time, with all of its panels.
    * The grid areas in `app-root.styles.ts` place them per layout. */
   private renderWidePanels(strings: UiStrings): TemplateResult {
     if (this.page === "car") {

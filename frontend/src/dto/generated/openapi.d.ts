@@ -521,6 +521,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/wifi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Wifi */
+        get: operations["read_wifi_api_wifi_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wifi/networks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Network */
+        post: operations["save_network_api_wifi_networks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wifi/forget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Forget Network */
+        post: operations["forget_network_api_wifi_forget_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wifi/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Join Network */
+        post: operations["join_network_api_wifi_join_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -889,6 +957,13 @@ export interface components {
             name?: string | null;
             data?: components["schemas"]["TuningData"] | null;
         };
+        /** SavedWifiNetworkRead */
+        SavedWifiNetworkRead: {
+            /** Ssid */
+            ssid: string;
+            /** Connected */
+            connected: boolean;
+        };
         /** Speaker */
         Speaker: {
             /** Ispositivephase */
@@ -946,10 +1021,53 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /** VisibleWifiNetworkRead */
+        VisibleWifiNetworkRead: {
+            /** Ssid */
+            ssid: string;
+            /** Signal */
+            signal: number;
+            /** Secured */
+            secured: boolean;
+        };
         /** VolumeWrite */
         VolumeWrite: {
             /** Volume Db */
             volume_db: number;
+        };
+        /** WifiForgetWrite */
+        WifiForgetWrite: {
+            /** Ssid */
+            ssid: string;
+        };
+        /**
+         * WifiNetworkWrite
+         * @description A network to save. An empty password saves an open network.
+         *
+         *     The helper on the bridge checks the same rules again. This check gives
+         *     the app a 422 before anything runs as root.
+         */
+        WifiNetworkWrite: {
+            /** Ssid */
+            ssid: string;
+            /**
+             * Password
+             * @default
+             */
+            password: string;
+        };
+        /**
+         * WifiRead
+         * @description The networks that the bridge joins, and the networks in range.
+         *
+         *     `visible` comes from the bridge's last scan. Nothing scans for this
+         *     request, because a scan touches the radio.
+         */
+        WifiRead: {
+            /** Saved */
+            saved: components["schemas"]["SavedWifiNetworkRead"][];
+            /** Visible */
+            visible: components["schemas"]["VisibleWifiNetworkRead"][];
         };
     };
     responses: never;
@@ -1808,6 +1926,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_wifi_api_wifi_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WifiRead"];
+                };
+            };
+        };
+    };
+    save_network_api_wifi_networks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WifiNetworkWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WifiRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forget_network_api_wifi_forget_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WifiForgetWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WifiRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    join_network_api_wifi_join_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

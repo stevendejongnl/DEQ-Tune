@@ -83,6 +83,9 @@ export const appRootStyles = css`
     text-align: left;
   }
   .sheet-locale {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     padding-bottom: 8px;
   }
   /* The phone header has too little room for the name next to the
