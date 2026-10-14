@@ -256,6 +256,16 @@ export const profileListStyles = css`
     display: flex;
     gap: 6px;
   }
+  .active-tag {
+    margin-left: 8px;
+    padding: 1px 7px;
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+    color: var(--color-accent);
+    font-size: 11px;
+    font-weight: 600;
+    vertical-align: middle;
+  }
   .star {
     width: 32px;
     height: 32px;

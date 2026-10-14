@@ -1,5 +1,7 @@
 import typia from "typia";
 import type {
+  ActiveProfileDto,
+  ActiveProfileWriteDto,
   AudioSourceWriteDto,
   AudioStateDto,
   BridgeDto,
@@ -83,6 +85,10 @@ export interface DeviceApi {
   writeTuning(profileId: number): Promise<DeviceDto>;
   selectEqStyle(name: string): Promise<DeviceDto>;
   selectLiveSimulation(name: string): Promise<DeviceDto>;
+  readActiveProfile(): Promise<ActiveProfileDto>;
+  /** Makes a profile the one the unit plays. The backend pushes it now when
+   * the unit is connected, and on the next connect otherwise. */
+  activateProfile(profileId: number): Promise<ActiveProfileDto>;
 }
 
 /** What the app can ask about the machine holding the link.
@@ -183,6 +189,15 @@ export class DeqApiClient implements ProfileApi, DeviceApi, BridgeApi {
 
   async writeTuning(profileId: number): Promise<DeviceDto> {
     return typia.assert<DeviceDto>(await this.call("POST", `/device/tuning/${profileId}`));
+  }
+
+  async readActiveProfile(): Promise<ActiveProfileDto> {
+    return typia.assert<ActiveProfileDto>(await this.call("GET", "/active-profile"));
+  }
+
+  async activateProfile(profileId: number): Promise<ActiveProfileDto> {
+    const validBody = typia.assert<ActiveProfileWriteDto>({ profile_id: profileId });
+    return typia.assert<ActiveProfileDto>(await this.call("PUT", "/active-profile", validBody));
   }
 
   async selectEqStyle(name: string): Promise<DeviceDto> {

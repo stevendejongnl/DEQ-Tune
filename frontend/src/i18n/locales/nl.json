@@ -88,5 +88,14 @@
   "favorites": "Favorieten",
   "favoritesHint": "Geef een preset in de bibliotheek een ster om hem hier te bewaren.",
   "addFavoriteLabel": "Aan favorieten toevoegen",
-  "removeFavoriteLabel": "Uit favorieten halen"
+  "removeFavoriteLabel": "Uit favorieten halen",
+  "activate": "Activeren",
+  "activeApplied": "Actief op de DEQ",
+  "activeWaiting": "Actief · gaat erop zodra de DEQ verbindt",
+  "activeOutdated": "Actief · de DEQ speelt een oudere versie",
+  "activeFailed": "Actief · niet op de DEQ",
+  "applyChanges": "Wijzigingen toepassen",
+  "tryAgain": "Opnieuw proberen",
+  "saveBeforeActivate": "Bewaar eerst je wijzigingen",
+  "activeTag": "Actief"
 }

@@ -180,3 +180,19 @@ test("a star from the library keeps a preset in the sidebar after a reload", asy
   await sidebarRow.locator(".star").click();
   await unstarred;
 });
+
+test("activating a profile puts it on the connected unit", async ({ page, request }) => {
+  await openApp(page);
+  await expect(page.locator(DEVICE_PILL)).toContainText(FAKE_UNIT_FIRMWARE);
+  await openFirstPreset(page);
+
+  const activated = page.waitForResponse(
+    (response) => response.url().endsWith("/api/active-profile") && response.request().method() === "PUT",
+  );
+  await page.locator("profile-activation .activate").click();
+  await activated;
+
+  await expect(page.locator("profile-activation .status")).toContainText("Active on the DEQ");
+  const state = await (await request.get("/api/active-profile")).json();
+  expect(state.status).toBe("applied");
+});

@@ -1,7 +1,13 @@
 import { html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { DeqApiClient, type DeviceApi, type ProfileApi } from "../api/client.ts";
-import type { AudioStateDto, ProfileDto, Speaker, TuningDataDto } from "../dto/profile.dto.ts";
+import type {
+  ActiveProfileDto,
+  AudioStateDto,
+  ProfileDto,
+  Speaker,
+  TuningDataDto,
+} from "../dto/profile.dto.ts";
 import { blankTuningData } from "../dto/blank-tuning.ts";
 import { equalizerGains, withEqualizerGain, withSpeakerField } from "../dto/tuning-data-edits.ts";
 import { browserLocaleStorage } from "../i18n/browser-locale-storage.ts";
@@ -19,6 +25,7 @@ import "./device-status.ts";
 import "./locale-switcher.ts";
 import "./dsp-panel.ts";
 import "./audio-controls.ts";
+import "./profile-activation.ts";
 import type { LinkState } from "./link-state.ts";
 import { appRootStyles } from "./app-root.styles.ts";
 
@@ -129,6 +136,10 @@ export class AppRoot extends LitElement {
   @state() private audioBusy = false;
   /** Whether the DEQ link is up, as `device-status` last polled it. */
   @state() private unitConnected = false;
+  /** Which profile the unit plays, as the backend reports it. `null` until
+   * the first read answers. */
+  @state() private activeProfile: ActiveProfileDto | null = null;
+  @state() private activating = false;
   /** A custom profile's newest edit that the backend does not hold yet.
    * The screen shows it at once, and `saveUnsavedEdits` sends it. */
   @state() private unsavedEdit: { profileId: number; data: TuningDataDto } | null = null;
@@ -160,6 +171,7 @@ export class AppRoot extends LitElement {
     });
     this.loadProfiles();
     this.loadDeviceOptions();
+    void this.loadActiveProfile();
     window.addEventListener("keydown", this.onKeydown);
   }
 
@@ -287,6 +299,7 @@ export class AppRoot extends LitElement {
           .selectedId=${this.selectedId}
           .locale=${this.locale}
           .unitConnected=${this.unitConnected}
+          .activeProfileId=${this.activeProfile?.profile_id ?? null}
           @select-profile=${(selectEvent: CustomEvent<{ id: number }>) =>
             this.selectProfile(selectEvent.detail.id)}
           @duplicate-profile=${(duplicateEvent: CustomEvent<{ id: number }>) =>
@@ -329,6 +342,15 @@ export class AppRoot extends LitElement {
                 >`}
           </div>
           <h2 class="profile-title">${title}</h2>
+          <profile-activation
+            .profileId=${profile.id}
+            .active=${this.activeProfile}
+            ?hasDraft=${this.draft !== null}
+            ?busy=${this.activating}
+            .locale=${this.locale}
+            @activate-profile=${(activateEvent: CustomEvent<{ id: number }>) =>
+              this.activateProfile(activateEvent.detail.id)}
+          ></profile-activation>
         </div>
         ${this.isPhoneLayout ? nothing : this.renderHeadingActions(strings, editCount)}
       </div>
@@ -585,6 +607,9 @@ export class AppRoot extends LitElement {
       return;
     }
     this.unitConnected = connected;
+    // The backend pushes the active profile as the link comes up, and a
+    // dropped link leaves it waiting. Either way the status changed.
+    void this.loadActiveProfile();
     if (connected) {
       void this.pollAudio();
     } else {
@@ -787,6 +812,29 @@ export class AppRoot extends LitElement {
     this.profiles = this.profiles.map((profile) => byId.get(profile.id) ?? profile);
   }
 
+  /** Reads which profile the unit plays. A backend out of reach leaves the
+   * last answer on screen, and the header already says why. */
+  private async loadActiveProfile(): Promise<void> {
+    try {
+      this.activeProfile = await this.api.readActiveProfile();
+    } catch {
+      // Keep the last known status.
+    }
+  }
+
+  /** Makes a profile the one the unit plays. The backend pushes it now when
+   * the unit is connected, and on the next connect otherwise. */
+  private async activateProfile(id: number): Promise<void> {
+    this.activating = true;
+    try {
+      this.activeProfile = await this.api.activateProfile(id);
+    } catch {
+      // The backend is out of reach. The status stays as it was.
+    } finally {
+      this.activating = false;
+    }
+  }
+
   private async renameProfile(id: number, name: string): Promise<void> {
     const updated = await this.api.updateProfile(id, { name });
     this.profiles = this.profiles.map((profile) => (profile.id === id ? updated : profile));
@@ -801,6 +849,8 @@ export class AppRoot extends LitElement {
       this.selectedId = null;
     }
     await this.loadProfiles();
+    // The backend forgets a deleted active profile.
+    await this.loadActiveProfile();
   }
 
   private async changeGain(band: number, gain: number): Promise<void> {
@@ -894,6 +944,10 @@ export class AppRoot extends LitElement {
   private async saveProfileData(id: number, data: ProfileDto["data"]): Promise<void> {
     const updated = await this.api.updateProfile(id, { data });
     this.profiles = this.profiles.map((profile) => (profile.id === id ? updated : profile));
+    // An edit of the active profile leaves the unit on the older version.
+    if (id === this.activeProfile?.profile_id) {
+      await this.loadActiveProfile();
+    }
   }
 }
 

@@ -101,6 +101,24 @@ export interface ProfileDto {
   data: TuningDataDto;
 }
 
+/** Whether the unit plays the active profile now.
+ * - `none`: no profile is active.
+ * - `waiting`: the unit is not connected. The profile goes on when it connects.
+ * - `applied`: the unit plays this profile, as it is stored now.
+ * - `outdated`: the unit is connected but plays an older version, or none.
+ * - `failed`: the last push failed, and `problem` says why. */
+export type ActiveStatus = "none" | "waiting" | "applied" | "outdated" | "failed";
+
+export interface ActiveProfileDto {
+  profile_id: number | null;
+  status: ActiveStatus;
+  problem: string | null;
+}
+
+export interface ActiveProfileWriteDto {
+  profile_id: number;
+}
+
 export interface FavoriteWriteDto {
   favorite: boolean;
 }

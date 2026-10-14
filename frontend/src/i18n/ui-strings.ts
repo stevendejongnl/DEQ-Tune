@@ -95,6 +95,15 @@ export type UiStrings = {
   favoritesHint: string;
   addFavoriteLabel: string;
   removeFavoriteLabel: string;
+  activate: string;
+  activeApplied: string;
+  activeWaiting: string;
+  activeOutdated: string;
+  activeFailed: string;
+  applyChanges: string;
+  tryAgain: string;
+  saveBeforeActivate: string;
+  activeTag: string;
   rename: string;
   renameLabel: string;
   audioTitle: string;

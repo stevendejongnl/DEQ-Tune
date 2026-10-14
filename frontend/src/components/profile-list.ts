@@ -41,6 +41,8 @@ export class ProfileList extends LitElement {
   @property({ type: String }) locale: Locale = "en";
   /** Only a connected unit has a tune to save. */
   @property({ type: Boolean }) unitConnected = false;
+  /** The profile the unit plays. Its row carries an Active tag. */
+  @property({ type: Number }) activeProfileId: number | null = null;
 
   @state() private search = "";
   @state() private openMenuId: number | null = null;
@@ -140,7 +142,12 @@ export class ProfileList extends LitElement {
     return html`
       <li class="custom-row ${profile.id === this.selectedId ? "selected" : ""}">
         <button class="name" type="button" @click=${() => this.selectProfile(profile.id)}>
-          <span class="custom-name">${localizedProfileName(profile, this.locale)}</span>
+          <span class="custom-name"
+            >${localizedProfileName(profile, this.locale)}${this.renderActiveTag(
+              strings,
+              profile.id === this.activeProfileId,
+            )}</span
+          >
           <span class="custom-caption">${strings.customProfileCaption}</span>
         </button>
         <button
@@ -236,7 +243,12 @@ export class ProfileList extends LitElement {
     const holdsSelection = group.profiles.some((profile) => profile.id === this.selectedId);
     return html`
       <li class="model-row ${holdsSelection ? "selected" : ""}">
-        <span class="model-name">${group.modelName}</span>
+        <span class="model-name"
+          >${group.modelName}${this.renderActiveTag(
+            strings,
+            group.profiles.some((profile) => profile.id === this.activeProfileId),
+          )}</span
+        >
         <div class="chips">
           ${this.renderSpeakerChip(group, "carrozzeria", strings.speakerPioneerShort)}
           ${this.renderSpeakerChip(group, "general", strings.speakerStockShort)}
@@ -244,6 +256,10 @@ export class ProfileList extends LitElement {
         ${this.renderStar(strings, group)}
       </li>
     `;
+  }
+
+  private renderActiveTag(strings: UiStrings, active: boolean): TemplateResult | typeof nothing {
+    return active ? html`<span class="active-tag">${strings.activeTag}</span>` : nothing;
   }
 
   /** One star per car model. It stars both speaker types at once, because

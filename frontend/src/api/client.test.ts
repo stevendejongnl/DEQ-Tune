@@ -54,6 +54,25 @@ describe("DeqApiClient", () => {
     expect(api.calls[0].init?.body).toBe(JSON.stringify({ favorite: true }));
   });
 
+  it("activates a profile with one PUT", async () => {
+    const api = createFakeFetch(() => jsonResponse({ profile_id: 4, status: "waiting", problem: null }));
+    const client = new DeqApiClient("/api", api.fetch);
+
+    const state = await client.activateProfile(4);
+
+    expect(api.calls[0].url).toBe("/api/active-profile");
+    expect(api.calls[0].init?.method).toBe("PUT");
+    expect(api.calls[0].init?.body).toBe(JSON.stringify({ profile_id: 4 }));
+    expect(state.status).toBe("waiting");
+  });
+
+  it("rejects an active-profile status the app does not know", async () => {
+    const api = createFakeFetch(() => jsonResponse({ profile_id: 4, status: "maybe", problem: null }));
+    const client = new DeqApiClient("/api", api.fetch);
+
+    await expect(client.readActiveProfile()).rejects.toThrow();
+  });
+
   it("resolves to undefined on a 204 delete response", async () => {
     const api = createFakeFetch(() => new Response(null, { status: 204 }));
     const client = new DeqApiClient("/api", api.fetch);

@@ -1,5 +1,10 @@
 import type { DeviceApi } from "../../api/client.ts";
-import type { AudioStateDto, DeviceDto, DeviceOptionsDto } from "../../dto/profile.dto.ts";
+import type {
+  ActiveProfileDto,
+  AudioStateDto,
+  DeviceDto,
+  DeviceOptionsDto,
+} from "../../dto/profile.dto.ts";
 
 /** The two value sets the real unit offers, shortened for a test. The
  * backend reads the full lists out of the Pioneer app.
@@ -115,6 +120,29 @@ export class FakeDeviceApi implements DeviceApi {
   async writeTuning(profileId: number): Promise<DeviceDto> {
     this.pushedProfileIds = [...this.pushedProfileIds, profileId];
     return this.device;
+  }
+
+  /** The profile the app activated, in the order it asked. */
+  activatedProfileIds: number[] = [];
+  /** What the backend reports. A test sets it to show another status. */
+  activeProfile: ActiveProfileDto = { profile_id: null, status: "none", problem: null };
+
+  async readActiveProfile(): Promise<ActiveProfileDto> {
+    this.failIfUnreachable();
+    return this.activeProfile;
+  }
+
+  /** Behaves as the backend does: a connected unit gets the profile at
+   * once, and a unit that is not connected gets it on the next connect. */
+  async activateProfile(profileId: number): Promise<ActiveProfileDto> {
+    this.failIfUnreachable();
+    this.activatedProfileIds = [...this.activatedProfileIds, profileId];
+    this.activeProfile = {
+      profile_id: profileId,
+      status: this.device.connected ? "applied" : "waiting",
+      problem: null,
+    };
+    return this.activeProfile;
   }
 
   async selectEqStyle(name: string): Promise<DeviceDto> {

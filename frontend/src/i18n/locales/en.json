@@ -103,5 +103,14 @@
   "favorites": "Favorites",
   "favoritesHint": "Star a preset in the library to keep it here.",
   "addFavoriteLabel": "Add to favorites",
-  "removeFavoriteLabel": "Remove from favorites"
+  "removeFavoriteLabel": "Remove from favorites",
+  "activate": "Activate",
+  "activeApplied": "Active on the DEQ",
+  "activeWaiting": "Active · goes on when the DEQ connects",
+  "activeOutdated": "Active · the DEQ plays an older version",
+  "activeFailed": "Active · not on the DEQ",
+  "applyChanges": "Apply changes",
+  "tryAgain": "Try again",
+  "saveBeforeActivate": "Save your edits first",
+  "activeTag": "Active"
 }

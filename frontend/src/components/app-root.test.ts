@@ -140,6 +140,39 @@ describe("app-root", () => {
     expect(queryModelRows(element)).toHaveLength(1);
   });
 
+  it("activates a profile while the unit is away, and says it waits", async () => {
+    const api = new FakeProfileApi([starredPreset({ id: 1, name: "Mine", source: "custom" })]);
+    const element = await mount(api);
+    await click(
+      queryProfileList(element).shadowRoot!.querySelector(".custom-row .name") as HTMLButtonElement,
+      element,
+    );
+
+    const activation = element.shadowRoot!.querySelector("profile-activation")!;
+    await click(activation.shadowRoot!.querySelector(".activate") as HTMLButtonElement, element);
+
+    expect(api.device.activatedProfileIds).toEqual([1]);
+    expect(activation.shadowRoot!.textContent).toContain("goes on when the DEQ connects");
+    expect(
+      queryProfileList(element).shadowRoot!.querySelector(".custom-row .active-tag"),
+    ).not.toBeNull();
+  });
+
+  it("activates a profile on a connected unit, and says the unit plays it", async () => {
+    const api = new FakeProfileApi([starredPreset({ id: 1, name: "Mine", source: "custom" })]);
+    api.device.startConnected();
+    const element = await mount(api);
+    await click(
+      queryProfileList(element).shadowRoot!.querySelector(".custom-row .name") as HTMLButtonElement,
+      element,
+    );
+
+    const activation = element.shadowRoot!.querySelector("profile-activation")!;
+    await click(activation.shadowRoot!.querySelector(".activate") as HTMLButtonElement, element);
+
+    expect(activation.shadowRoot!.textContent).toContain("Active on the DEQ");
+  });
+
   it("saves the unit's tune as a custom profile and opens it", async () => {
     const api = new FakeProfileApi([starredPreset({ id: 1 })]);
     api.device.startConnected();

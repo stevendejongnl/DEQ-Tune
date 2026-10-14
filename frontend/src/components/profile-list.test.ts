@@ -167,6 +167,19 @@ describe("profile-list", () => {
     expect(asked).toBe(1);
   });
 
+  it("tags the profile the unit plays", async () => {
+    const element = await mount([
+      ...factoryProfiles,
+      sampleProfile({ id: 9, name: "Mine", source: "custom" }),
+    ]);
+
+    element.activeProfileId = 9;
+    await element.updateComplete;
+
+    const row = element.shadowRoot!.querySelector(".custom-row")!;
+    expect(row.querySelector(".active-tag")!.textContent).toBe("Active");
+  });
+
   it("renames a custom profile from the overflow menu", async () => {
     const element = await mount([
       ...factoryProfiles,
