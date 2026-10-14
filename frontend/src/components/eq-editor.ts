@@ -152,9 +152,11 @@ export class EqEditor extends LitElement {
           <h2>${strings.frequencyResponseTitle}</h2>
           <div class="legend">
             <span class="legend-entry"><span class="swatch yours"></span>${strings.legendYours}</span>
-            <span class="legend-entry"
-              ><span class="swatch factory"></span>${strings.legendFactory}</span
-            >
+            ${this.factoryGains.length === 0
+              ? nothing
+              : html`<span class="legend-entry"
+                  ><span class="swatch factory"></span>${strings.legendFactory}</span
+                >`}
           </div>
         </div>
         ${this.renderChart(box)}

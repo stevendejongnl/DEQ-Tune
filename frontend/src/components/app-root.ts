@@ -314,9 +314,11 @@ export class AppRoot extends LitElement {
               ? nothing
               : html`<span>${brand}</span><span aria-hidden="true">/</span
                   ><span>${speakerType}</span>`}
-            <span class="badge ${editCount === 0 ? "" : "edited"}"
-              >${editBadgeText(strings, editCount)}</span
-            >
+            ${this.factoryData === undefined
+              ? nothing
+              : html`<span class="badge ${editCount === 0 ? "" : "edited"}"
+                  >${editBadgeText(strings, editCount)}</span
+                >`}
           </div>
           <h2 class="profile-title">${title}</h2>
         </div>
@@ -325,9 +327,16 @@ export class AppRoot extends LitElement {
     `;
   }
 
-  private renderHeadingActions(strings: UiStrings, editCount: number): TemplateResult {
+  private renderHeadingActions(
+    strings: UiStrings,
+    editCount: number,
+  ): TemplateResult | typeof nothing {
     if (editCount === 0) {
-      return html`<span class="start-hint">${strings.startEditingHint}</span>`;
+      // A profile with no factory counterpart has nothing to compare
+      // against, so it has no hint about a version of its own either.
+      return this.factoryData === undefined
+        ? nothing
+        : html`<span class="start-hint">${strings.startEditingHint}</span>`;
     }
     return html`
       <div class="heading-actions">
