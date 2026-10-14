@@ -92,7 +92,7 @@ describe("profile-list", () => {
 
   it("shows the empty hint when there are no custom profiles", async () => {
     const element = await mount();
-    expect(element.shadowRoot!.querySelector(".empty")!.textContent).toContain("Duplicate");
+    expect(element.shadowRoot!.querySelector(".empty")!.textContent).toContain("Start a new profile");
   });
 
   it("shows a custom profile with its caption", async () => {
@@ -103,7 +103,7 @@ describe("profile-list", () => {
 
     const row = element.shadowRoot!.querySelector(".custom-row")!;
     expect(row.textContent).toContain("My copy");
-    expect(row.textContent).toContain("Your copy of the factory preset");
+    expect(row.textContent).toContain("Your own profile");
   });
 
   it("keeps duplicate and delete behind the overflow button", async () => {

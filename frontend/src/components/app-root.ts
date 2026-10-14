@@ -2,6 +2,7 @@ import { html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { DeqApiClient, type DeviceApi, type ProfileApi } from "../api/client.ts";
 import type { AudioStateDto, ProfileDto, Speaker, TuningDataDto } from "../dto/profile.dto.ts";
+import { blankTuningData } from "../dto/blank-tuning.ts";
 import { equalizerGains, withEqualizerGain, withSpeakerField } from "../dto/tuning-data-edits.ts";
 import { browserLocaleStorage } from "../i18n/browser-locale-storage.ts";
 import { type Locale, type LocaleStorage, resolveInitialLocale, saveLocale } from "../i18n/locale.ts";
@@ -730,21 +731,16 @@ export class AppRoot extends LitElement {
     this.closeProfilesDrawer();
   }
 
-  /** Starts a profile of your own. It copies the data of the selected
-   * profile, or of the first factory preset when the user selected none,
-   * so the new profile has a valid curve to edit. */
+  /** Starts a profile of your own from nothing: a flat curve and neutral
+   * speakers. A copy of a preset comes from "Save as my profile" or
+   * Duplicate. Unsaved edits would be lost, so ask first. */
   private async createProfile(): Promise<void> {
-    const source = this.selectedProfile ?? this.profiles.find((profile) => profile.source === "factory");
-    if (source === undefined) {
+    if (this.draft !== null && !this.confirmDiscard(uiStrings(this.locale).discardDraftConfirm)) {
       return;
     }
     const created = await this.api.createProfile({
       name: uiStrings(this.locale).newProfileName,
-      data: this.draft ?? source.data,
-      brand_name: source.brand_name,
-      car_model: source.car_model,
-      speaker_type: source.speaker_type,
-      supported_processors: source.supported_processors,
+      data: blankTuningData(),
     });
     this.draft = null;
     await this.loadProfiles();

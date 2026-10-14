@@ -56,6 +56,24 @@ function queryProfilesToggle(element: AppRoot): HTMLButtonElement {
 }
 
 describe("app-root", () => {
+  it("starts a new profile clean, not from the selected preset", async () => {
+    const preset = starredPreset({ id: 1 });
+    preset.data.foundationEq.eqs.LR.banks[0] = new Array(13).fill(4);
+    const api = new FakeProfileApi([preset]);
+    const element = await mount(api);
+    await click(queryFirstChip(element), element);
+
+    const newButton = queryProfileList(element).shadowRoot!.querySelector(
+      ".new-profile",
+    ) as HTMLButtonElement;
+    await click(newButton, element);
+
+    const created = (await api.listProfiles()).find((profile) => profile.source === "custom");
+    expect(created?.data.foundationEq.eqs.LR.banks[0]).toEqual(new Array(13).fill(0));
+    expect(created?.car_model).toBeNull();
+    expect(queryProfileList(element).selectedId).toBe(created?.id);
+  });
+
   it("stars a preset in the library and shows it in the sidebar", async () => {
     const api = new FakeProfileApi([
       sampleProfile({ id: 1, car_model: "mazda_2", speaker_type: "carrozzeria" }),
