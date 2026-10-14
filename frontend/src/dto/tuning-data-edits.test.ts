@@ -1,24 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { frontGains, withFrontGain, withSpeakerField } from "./tuning-data-edits.ts";
+import { equalizerGains, withEqualizerGain, withSpeakerField } from "./tuning-data-edits.ts";
 import { sampleTuningData } from "./testing/sample-profile.ts";
 
-describe("withFrontGain", () => {
+describe("withEqualizerGain", () => {
   it("replaces one band's gain and leaves the others untouched", () => {
     const original = sampleTuningData();
 
-    const updated = withFrontGain(original, 3, 6.5);
+    const updated = withEqualizerGain(original, 3, 6.5);
 
-    expect(frontGains(updated)[3]).toBe(6.5);
-    expect(frontGains(updated).filter((_, index) => index !== 3)).toEqual(
-      frontGains(original).filter((_, index) => index !== 3),
+    expect(equalizerGains(updated)[3]).toBe(6.5);
+    expect(equalizerGains(updated).filter((_, index) => index !== 3)).toEqual(
+      equalizerGains(original).filter((_, index) => index !== 3),
     );
   });
 
   it("does not mutate the original tuning data", () => {
     const original = sampleTuningData();
-    withFrontGain(original, 0, 12);
+    withEqualizerGain(original, 0, 12);
 
-    expect(frontGains(original)[0]).toBe(0);
+    expect(equalizerGains(original)[0]).toBe(0);
+  });
+
+  it("edits only the bank the profile selects, because the backend sends that one", () => {
+    const original = sampleTuningData();
+    original.foundationEq.eqs.LR.selectedBank = 1;
+
+    const updated = withEqualizerGain(original, 4, -3);
+
+    expect(updated.foundationEq.eqs.LR.banks[1][4]).toBe(-3);
+    expect(updated.foundationEq.eqs.LR.banks[0]).toEqual(original.foundationEq.eqs.LR.banks[0]);
+  });
+
+  it("leaves expandEq alone, because nothing sends it", () => {
+    const original = sampleTuningData();
+
+    const updated = withEqualizerGain(original, 2, 5);
+
+    expect(updated.foundationEq.expandEq).toEqual(original.foundationEq.expandEq);
   });
 });
 
@@ -33,9 +51,17 @@ describe("withSpeakerField", () => {
   });
 });
 
-describe("frontGains", () => {
-  it("reads the FRONT channel's gain curve", () => {
+describe("equalizerGains", () => {
+  it("reads the selected bank's gain curve", () => {
     const tuningData = sampleTuningData();
-    expect(frontGains(tuningData)).toHaveLength(13);
+    expect(equalizerGains(tuningData)).toHaveLength(13);
+  });
+
+  it("falls back to the first slot when the profile has no LR slot", () => {
+    const tuningData = sampleTuningData();
+    const slot = tuningData.foundationEq.eqs.LR;
+    tuningData.foundationEq.eqs = { FRONT: { ...slot, banks: [new Array(13).fill(2), slot.banks[1]] } };
+
+    expect(equalizerGains(tuningData)).toEqual(new Array(13).fill(2));
   });
 });

@@ -90,7 +90,7 @@ describe("app-root", () => {
     await element.updateComplete;
 
     const saved = await api.getProfile(1);
-    expect(saved.data.foundationEq.expandEq.FRONT.banks.gain[2]).toBe(4.5);
+    expect(saved.data.foundationEq.eqs.LR.banks[0][2]).toBe(4.5);
   });
 
   it("selects the new copy after a duplicate-profile event", async () => {
@@ -294,7 +294,7 @@ describe("app-root", () => {
     await element.updateComplete;
 
     const stored = await api.getProfile(1);
-    expect(stored.data.foundationEq.expandEq.FRONT.banks.gain[2]).toBe(0);
+    expect(stored.data.foundationEq.eqs.LR.banks[0][2]).toBe(0);
     expect(element.shadowRoot!.querySelector(".badge")!.textContent).toContain("Edited · 1 band");
   });
 
@@ -353,7 +353,7 @@ describe("app-root", () => {
     const copies = queryProfileList(element).shadowRoot!.querySelectorAll(".custom-row");
     expect(copies).toHaveLength(1);
     const saved = await api.getProfile(2);
-    expect(saved.data.foundationEq.expandEq.FRONT.banks.gain[2]).toBe(4.5);
+    expect(saved.data.foundationEq.eqs.LR.banks[0][2]).toBe(4.5);
   });
 
   it("asks before it drops a draft for another profile", async () => {

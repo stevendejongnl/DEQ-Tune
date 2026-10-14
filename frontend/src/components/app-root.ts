@@ -2,7 +2,7 @@ import { html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { DeqApiClient, type DeviceApi, type ProfileApi } from "../api/client.ts";
 import type { AudioStateDto, ProfileDto, Speaker, TuningDataDto } from "../dto/profile.dto.ts";
-import { frontGains, withFrontGain, withSpeakerField } from "../dto/tuning-data-edits.ts";
+import { equalizerGains, withEqualizerGain, withSpeakerField } from "../dto/tuning-data-edits.ts";
 import { browserLocaleStorage } from "../i18n/browser-locale-storage.ts";
 import { type Locale, type LocaleStorage, resolveInitialLocale, saveLocale } from "../i18n/locale.ts";
 import { localizedModelName, localizedSpeakerTypeLabel } from "../i18n/preset-names.ts";
@@ -208,7 +208,7 @@ export class AppRoot extends LitElement {
    * factory profile for the same car model and speaker type. */
   private get factoryGains(): number[] {
     const factory = this.factoryData;
-    return factory === undefined ? [] : frontGains(factory);
+    return factory === undefined ? [] : equalizerGains(factory);
   }
 
   override render() {
@@ -478,7 +478,7 @@ export class AppRoot extends LitElement {
     return html`
       <eq-editor
         class="area-eq"
-        .gains=${frontGains(this.shownData ?? profile.data)}
+        .gains=${equalizerGains(this.shownData ?? profile.data)}
         .factoryGains=${this.factoryGains}
         .locale=${this.locale}
         .layout=${this.layout}
@@ -767,7 +767,7 @@ export class AppRoot extends LitElement {
     if (profile === undefined || shown === undefined) {
       return;
     }
-    await this.applyEdit(profile, withFrontGain(shown, band, gain));
+    await this.applyEdit(profile, withEqualizerGain(shown, band, gain));
   }
 
   private async changeSpeaker(

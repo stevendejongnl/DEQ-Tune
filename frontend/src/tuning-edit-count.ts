@@ -1,5 +1,5 @@
 import type { Speaker, TuningDataDto } from "./dto/profile.dto.ts";
-import { frontGains } from "./dto/tuning-data-edits.ts";
+import { equalizerGains } from "./dto/tuning-data-edits.ts";
 
 const SPEAKER_FIELDS: readonly (keyof Speaker)[] = [
   "levelDB",
@@ -14,8 +14,8 @@ export function countEdits(draft: TuningDataDto, factory: TuningDataDto): number
 }
 
 export function countBandEdits(draft: TuningDataDto, factory: TuningDataDto): number {
-  const draftGains = frontGains(draft);
-  const factoryGains = frontGains(factory);
+  const draftGains = equalizerGains(draft);
+  const factoryGains = equalizerGains(factory);
   return draftGains.filter((gain, band) => gain !== factoryGains[band]).length;
 }
 
