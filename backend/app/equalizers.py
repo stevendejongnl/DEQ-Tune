@@ -22,9 +22,27 @@ GAIN_LIMIT_DB = 12.0
 
 FLAT = [0.0] * EQUALIZER_BAND_COUNT
 
-# The EQs that come with the app. Pioneer's own styles join them once their
-# curves come out of the player library.
-FACTORY_EQUALIZERS: dict[str, list[float]] = {"Flat": FLAT}
+# The EQs that come with the app: Pioneer's own styles, as its picker names
+# them. The curves come from the app's player library. Its
+# `MultiBandEqualizer::getBandEq` in `libPMGJni.so` copies a 13-band table per
+# preset. Run under an emulator on 2026-10-14, it gave these values. The
+# library also holds BLASTER1 to BLASTER5, which no picker shows.
+FACTORY_EQUALIZERS: dict[str, list[float]] = {
+    "Flat": FLAT,
+    "Super Bass": [8.0, 8.0, 6.0, 6.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0, 4.0, 2.0],
+    "Powerful": [2.0, 6.0, 4.0, 2.0, 0.0, -2.0, 0.0, 2.0, 2.0, 2.0, 4.0, 4.0, 6.0],
+    "Natural": [-6.0, 2.0, 2.0, 2.0, 0.0, 0.0, 2.0, 2.0, -2.0, -2.0, 2.0, 2.0, 4.0],
+    "Vocal": [-6.0, -2.0, 0.0, 4.0, 6.0, 6.0, 2.0, 0.0, 2.0, 4.0, 4.0, 2.0, 0.0],
+    "TODOROKI": [8.0, 8.0, 8.0, 8.0, 6.0, 2.0, 0.0, 0.0, 2.0, 6.0, 8.0, 8.0, 10.0],
+    "Pop rock": [6.0, 8.0, 8.0, 6.0, 4.0, 2.0, 2.0, 0.0, 2.0, 2.0, 4.0, 6.0, 6.0],
+    "Eletrônica": [8.0, 10.0, 8.0, 6.0, 4.0, 2.0, 0.0, 0.0, 0.0, 2.0, 4.0, 4.0, 4.0],
+    "Samba": [4.0, 6.0, 6.0, 4.0, 6.0, 2.0, 2.0, 2.0, 4.0, 6.0, 6.0, 6.0, 4.0],
+    "Sertanejo": [2.0, 4.0, 4.0, 6.0, 8.0, 6.0, 6.0, 6.0, 8.0, 6.0, 6.0, 4.0, 4.0],
+    "P.R.O.": [6.0, 8.0, 10.0, 8.0, 6.0, 4.0, 2.0, 2.0, 2.0, 4.0, 6.0, 8.0, 6.0],
+    "Vivid": [2.0, 2.0, 2.0, 2.0, 2.0, 4.0, 4.0, 4.0, 6.0, 6.0, 8.0, 8.0, 4.0],
+    "Dynamic": [6.0, 6.0, 6.0, 6.0, 6.0, 4.0, 4.0, 4.0, 6.0, 6.0, 8.0, 6.0, 4.0],
+    "BANDA": [12.0, 12.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+}
 
 
 def clamp_gain(gain_db: float) -> float:
