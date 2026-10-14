@@ -374,3 +374,25 @@ def test_keeping_a_dead_link_alive_is_harmless():
     state = unit.keep_alive()
 
     assert state.connected is False
+
+
+def test_the_after_connect_hook_runs_once_per_new_link():
+    calls = []
+    unit = DeqDevice(build_transport_function=FakeDeq, after_connect=lambda: calls.append(1))
+
+    unit.connect()
+    unit.connect()
+
+    assert calls == [1, 1]
+    assert unit.link_generation == 2
+
+
+def test_a_hook_that_raises_keeps_the_link_up():
+    """The hook reports its own failures. The link it failed on still works."""
+
+    def failing_hook() -> None:
+        raise RuntimeError("the profile could not go on")
+
+    unit = DeqDevice(build_transport_function=FakeDeq, after_connect=failing_hook)
+
+    assert unit.connect().connected

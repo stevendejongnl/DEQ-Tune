@@ -111,8 +111,15 @@ class DeqDevice:
     makes one whole exchange the unit of work, and not one write.
     """
 
-    def __init__(self, build_transport_function=build_transport) -> None:
+    def __init__(self, build_transport_function=build_transport, after_connect=None) -> None:
         self.build_transport_function = build_transport_function
+        # Runs once each time a link comes up, inside the link lock. So a
+        # caller sees the unit as connected only after this returns. The
+        # active profile goes onto the unit here.
+        self.after_connect = after_connect
+        # Counts the links that came up. A setting that went onto the unit
+        # on an earlier link may be gone after the unit restarted.
+        self.link_generation = 0
         self._session: DeqSession | None = None
         self._identity = None
         self._link_lock = threading.RLock()
@@ -144,7 +151,22 @@ class DeqDevice:
                 return DeviceState(connected=False, problem=self._problem)
             self._session = session
             self._problem = None
+            self.link_generation += 1
+            self._run_after_connect()
             return self.state()
+
+    def _run_after_connect(self) -> None:
+        """Runs the hook, and keeps the link up when the hook fails.
+
+        The hook reports its own failures. A raise here would only throw away
+        a link that works.
+        """
+        if self.after_connect is None:
+            return
+        try:
+            self.after_connect()
+        except Exception:
+            pass
 
     def state(self) -> DeviceState:
         """Returns what the header shows, without opening a link."""
