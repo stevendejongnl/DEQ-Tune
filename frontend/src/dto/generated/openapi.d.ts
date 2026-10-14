@@ -365,6 +365,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/active-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Active Profile */
+        get: operations["read_active_profile_api_active_profile_get"];
+        /**
+         * Activate Profile
+         * @description Makes one profile the active one, and pushes it when the unit is connected.
+         *
+         *     A second call with the same profile pushes it again. That is how the app
+         *     applies edits that came after the last push. A failed push answers 200 with
+         *     status failed: the choice still holds, and the next link tries again.
+         */
+        put: operations["activate_profile_api_active_profile_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -386,6 +411,26 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ActiveProfileRead
+         * @description Which profile the unit should play, and whether it plays it now.
+         *
+         *     `status` is one of none, waiting, applied, outdated and failed.
+         *     `problem` says why the last push failed.
+         */
+        ActiveProfileRead: {
+            /** Profile Id */
+            profile_id: number | null;
+            /** Status */
+            status: string;
+            /** Problem */
+            problem?: string | null;
+        };
+        /** ActiveProfileWrite */
+        ActiveProfileWrite: {
+            /** Profile Id */
+            profile_id: number;
+        };
         /** AudioSourceWrite */
         AudioSourceWrite: {
             /** Name */
@@ -1281,6 +1326,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BridgeRead"];
+                };
+            };
+        };
+    };
+    read_active_profile_api_active_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveProfileRead"];
+                };
+            };
+        };
+    };
+    activate_profile_api_active_profile_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActiveProfileWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

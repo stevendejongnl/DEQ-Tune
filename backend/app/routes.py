@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.active_profile import read_active_profile_id, write_active_profile_id
 from app.models import Profile
 from app.schemas import FavoriteWrite, ProfileCreate, ProfileRead, ProfileUpdate
 
@@ -89,6 +90,9 @@ def delete_profile(profile_id: int, session: Session = Depends(get_session)) -> 
 
     session.delete(profile)
     session.commit()
+    # A deleted profile cannot stay the one the unit should play.
+    if read_active_profile_id(session) == profile_id:
+        write_active_profile_id(session, None)
 
 
 @router.post("/{profile_id}/duplicate", response_model=ProfileRead, status_code=201)

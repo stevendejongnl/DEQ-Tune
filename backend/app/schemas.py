@@ -33,6 +33,22 @@ class UnitProfileCreate(BaseModel):
     name: str
 
 
+class ActiveProfileRead(BaseModel):
+    """Which profile the unit should play, and whether it plays it now.
+
+    `status` is one of none, waiting, applied, outdated and failed.
+    `problem` says why the last push failed.
+    """
+
+    profile_id: int | None
+    status: str
+    problem: str | None = None
+
+
+class ActiveProfileWrite(BaseModel):
+    profile_id: int
+
+
 class FavoriteWrite(BaseModel):
     favorite: bool
 

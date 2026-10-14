@@ -10,9 +10,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 
+from app.active_profile import active_profile
+from app.active_profile_routes import router as active_profile_router
 from app.bridge_routes import router as bridge_router
 from app.db import create_db_and_tables, engine
-from app.deq_device import link_keeper
+from app.deq_device import device, link_keeper
 from app.device_routes import router as device_router
 from app.routes import router
 from app.seed import seed_factory_profiles
@@ -25,6 +27,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     create_db_and_tables()
     with Session(engine) as session:
         seed_factory_profiles(session)
+    # Each new link gets the active profile before anything sees the unit
+    # as connected.
+    device.after_connect = active_profile.apply_after_connect
     # The app connects to the unit by itself and keeps trying. Nothing in
     # the frontend asks for a connection: the link is a fact to report.
     link_keeper.start()
@@ -46,6 +51,7 @@ app.add_middleware(
 app.include_router(router, prefix="/api")
 app.include_router(device_router, prefix="/api")
 app.include_router(bridge_router, prefix="/api")
+app.include_router(active_profile_router, prefix="/api")
 
 
 @app.get("/health")

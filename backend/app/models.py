@@ -19,3 +19,13 @@ class Profile(SQLModel, table=True):
     supported_processors: list[str] = Field(sa_column=Column(JSON), default_factory=list)
     data: dict = Field(sa_column=Column(JSON))
     """The `TuningData` blob (see eq_data.py), stored as-is."""
+
+
+class ActiveProfileSetting(SQLModel, table=True):
+    """Which profile the unit should play. The table holds one row at most.
+
+    It lives in the database, so the choice outlives a restart of the backend.
+    The unit gets the profile each time its link comes up."""
+
+    id: int = Field(default=1, primary_key=True)
+    profile_id: int | None = None

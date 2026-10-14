@@ -695,6 +695,67 @@
         }
       }
     },
+    "/api/active-profile": {
+      "get": {
+        "tags": [
+          "active-profile"
+        ],
+        "summary": "Read Active Profile",
+        "operationId": "read_active_profile_api_active_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveProfileRead"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "active-profile"
+        ],
+        "summary": "Activate Profile",
+        "description": "Makes one profile the active one, and pushes it when the unit is connected.\n\nA second call with the same profile pushes it again. That is how the app\napplies edits that came after the last push. A failed push answers 200 with\nstatus failed: the choice still holds, and the next link tries again.",
+        "operationId": "activate_profile_api_active_profile_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActiveProfileWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveProfileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -720,6 +781,56 @@
   },
   "components": {
     "schemas": {
+      "ActiveProfileRead": {
+        "properties": {
+          "profile_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile_id",
+          "status"
+        ],
+        "title": "ActiveProfileRead",
+        "description": "Which profile the unit should play, and whether it plays it now.\n\n`status` is one of none, waiting, applied, outdated and failed.\n`problem` says why the last push failed."
+      },
+      "ActiveProfileWrite": {
+        "properties": {
+          "profile_id": {
+            "type": "integer",
+            "title": "Profile Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile_id"
+        ],
+        "title": "ActiveProfileWrite"
+      },
       "AudioSourceWrite": {
         "properties": {
           "name": {
