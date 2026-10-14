@@ -89,6 +89,12 @@ export type UiStrings = {
   newProfileName: string;
   saveUnitTune: string;
   unitTuneName: string;
+  library: string;
+  libraryBack: string;
+  favorites: string;
+  favoritesHint: string;
+  addFavoriteLabel: string;
+  removeFavoriteLabel: string;
   rename: string;
   renameLabel: string;
   audioTitle: string;

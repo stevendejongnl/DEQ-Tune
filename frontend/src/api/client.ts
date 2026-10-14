@@ -6,6 +6,7 @@ import type {
   DeviceDto,
   DeviceOptionsDto,
   EqStyleWriteDto,
+  FavoriteWriteDto,
   LiveSimulationWriteDto,
   ProfileCreateDto,
   ProfileDto,
@@ -63,6 +64,8 @@ export interface ProfileApi {
   updateProfile(id: number, body: ProfileUpdateDto): Promise<ProfileDto>;
   deleteProfile(id: number): Promise<void>;
   duplicateProfile(id: number): Promise<ProfileDto>;
+  /** Stars or unstars a profile. A starred preset shows in the sidebar. */
+  setFavorite(id: number, favorite: boolean): Promise<ProfileDto>;
   /** Reads the tune the unit holds now and stores it as a custom profile. */
   saveUnitProfile(name: string): Promise<ProfileDto>;
 }
@@ -130,6 +133,11 @@ export class DeqApiClient implements ProfileApi, DeviceApi, BridgeApi {
 
   async duplicateProfile(id: number): Promise<ProfileDto> {
     return typia.assert<ProfileDto>(await this.call("POST", `/profiles/${id}/duplicate`));
+  }
+
+  async setFavorite(id: number, favorite: boolean): Promise<ProfileDto> {
+    const validBody = typia.assert<FavoriteWriteDto>({ favorite });
+    return typia.assert<ProfileDto>(await this.call("PUT", `/profiles/${id}/favorite`, validBody));
   }
 
   async saveUnitProfile(name: string): Promise<ProfileDto> {

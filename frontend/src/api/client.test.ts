@@ -42,6 +42,18 @@ describe("DeqApiClient", () => {
     expect(saved).toEqual(profile);
   });
 
+  it("puts the star on its own route", async () => {
+    const profile = sampleProfile({ id: 3, favorite: true });
+    const api = createFakeFetch(() => jsonResponse(profile));
+    const client = new DeqApiClient("/api", api.fetch);
+
+    await client.setFavorite(3, true);
+
+    expect(api.calls[0].url).toBe("/api/profiles/3/favorite");
+    expect(api.calls[0].init?.method).toBe("PUT");
+    expect(api.calls[0].init?.body).toBe(JSON.stringify({ favorite: true }));
+  });
+
   it("resolves to undefined on a 204 delete response", async () => {
     const api = createFakeFetch(() => new Response(null, { status: 204 }));
     const client = new DeqApiClient("/api", api.fetch);

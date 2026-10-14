@@ -23,6 +23,16 @@ async function mount(
   return element;
 }
 
+async function mountLibrary(
+  profiles: ProfileDto[] = factoryProfiles,
+  selectedId: number | null = null,
+): Promise<ProfileList> {
+  const element = await mount(profiles, selectedId);
+  (element.shadowRoot!.querySelector(".open-library") as HTMLButtonElement).click();
+  await element.updateComplete;
+  return element;
+}
+
 function queryModelRows(element: ProfileList): NodeListOf<HTMLLIElement> {
   return element.shadowRoot!.querySelectorAll(".model-row");
 }
@@ -36,12 +46,12 @@ async function type(element: ProfileList, text: string): Promise<void> {
 
 describe("profile-list", () => {
   it("shows one row per car model, not one per preset", async () => {
-    const element = await mount();
+    const element = await mountLibrary();
     expect(queryModelRows(element)).toHaveLength(2);
   });
 
   it("offers a Pioneer chip and a Stock chip per model", async () => {
-    const element = await mount();
+    const element = await mountLibrary();
     const chips = [...queryModelRows(element)[0].querySelectorAll(".chip")].map(
       (chip) => chip.textContent?.trim(),
     );
@@ -49,7 +59,7 @@ describe("profile-list", () => {
   });
 
   it("emits select-profile with the id behind the pressed chip", async () => {
-    const element = await mount();
+    const element = await mountLibrary();
     let detail: { id: number } | undefined;
     element.addEventListener("select-profile", (rawEvent) => {
       detail = (rawEvent as CustomEvent).detail;
@@ -62,7 +72,7 @@ describe("profile-list", () => {
   });
 
   it("marks the selected chip and its row", async () => {
-    const element = await mount(factoryProfiles, 2);
+    const element = await mountLibrary(factoryProfiles, 2);
 
     const row = queryModelRows(element)[0];
     const chips = row.querySelectorAll(".chip");
@@ -72,7 +82,7 @@ describe("profile-list", () => {
   });
 
   it("filters the factory rows by the search text", async () => {
-    const element = await mount();
+    const element = await mountLibrary();
 
     await type(element, "cx");
 
@@ -225,10 +235,51 @@ describe("profile-list", () => {
   });
 
   it("names the factory group after the brand", async () => {
-    const element = await mount();
+    const element = await mountLibrary();
     const labels = [...element.shadowRoot!.querySelectorAll(".group-label")].map(
       (label) => label.textContent?.replace(/\s+/g, " ").trim(),
     );
-    expect(labels[1]).toBe("Factory · Mazda");
+    expect(labels[0]).toBe("Factory · Mazda");
+  });
+
+  it("keeps the presets out of the sidebar until one has a star", async () => {
+    const element = await mount();
+
+    expect(queryModelRows(element)).toHaveLength(0);
+    expect(element.shadowRoot!.textContent).toContain("Star a preset in the library");
+  });
+
+  it("shows a starred model in the sidebar, with both of its chips", async () => {
+    const starred = factoryProfiles.map((profile) =>
+      profile.car_model === "mazda_cx5" ? { ...profile, favorite: true } : profile,
+    );
+    const element = await mount(starred);
+
+    const rows = queryModelRows(element);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain("CX-5");
+    expect(rows[0].querySelectorAll(".chip")).toHaveLength(2);
+  });
+
+  it("stars both speaker types of a model at once", async () => {
+    const element = await mountLibrary();
+    let detail: { ids: number[]; favorite: boolean } | undefined;
+    element.addEventListener("favorite-change", (rawEvent) => {
+      detail = (rawEvent as CustomEvent).detail;
+    });
+
+    (queryModelRows(element)[1].querySelector(".star") as HTMLButtonElement).click();
+
+    expect(detail).toEqual({ ids: [3, 4], favorite: true });
+  });
+
+  it("goes back from the library to the sidebar", async () => {
+    const element = await mountLibrary();
+
+    (element.shadowRoot!.querySelector(".library-back") as HTMLButtonElement).click();
+    await element.updateComplete;
+
+    expect(element.shadowRoot!.querySelector(".open-library")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector('input[type="search"]')).toBeNull();
   });
 });

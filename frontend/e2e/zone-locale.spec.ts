@@ -4,7 +4,9 @@ import { expect, test, type Page } from "@playwright/test";
 async function openFirstProfile(page: Page): Promise<void> {
   await page.goto("/");
   await expect(page.locator("app-root")).toBeVisible();
-  await page.locator("profile-list li button").first().click();
+  // The presets live in the library until a person stars one.
+  await page.locator("profile-list .open-library").click();
+  await page.locator("profile-list .model-row .chip").first().click();
   await expect(page.locator("eq-editor")).toBeVisible();
 }
 

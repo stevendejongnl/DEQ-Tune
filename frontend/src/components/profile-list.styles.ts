@@ -40,6 +40,34 @@ export const profileListStyles = css`
       }
     }
   }
+  .open-library,
+  .library-back {
+    align-self: flex-start;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-foreground);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 12px;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--color-accent);
+      color: var(--color-accent);
+    }
+  }
+  .library-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .library-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
   .group {
     display: flex;
     flex-direction: column;
@@ -227,6 +255,25 @@ export const profileListStyles = css`
   .chips {
     display: flex;
     gap: 6px;
+  }
+  .star {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-muted-foreground);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--color-accent);
+    }
+
+    &.starred {
+      color: var(--color-accent);
+    }
   }
   .chip {
     height: 36px;

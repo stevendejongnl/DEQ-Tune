@@ -82,5 +82,11 @@
   "dismiss": "Sluiten",
   "bridgeNoticeDismissHint": "Verbergt dit tot de bridge opnieuw start.",
   "saveUnitTune": "Tuning van unit bewaren",
-  "unitTuneName": "Tuning van unit"
+  "unitTuneName": "Tuning van unit",
+  "library": "Bibliotheek",
+  "libraryBack": "Profielen",
+  "favorites": "Favorieten",
+  "favoritesHint": "Geef een preset in de bibliotheek een ster om hem hier te bewaren.",
+  "addFavoriteLabel": "Aan favorieten toevoegen",
+  "removeFavoriteLabel": "Uit favorieten halen"
 }

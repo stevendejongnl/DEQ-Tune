@@ -18,13 +18,20 @@ function renderSearchIcon(): TemplateResult {
 }
 
 /**
- * The profile list: a search field, your own profiles, and the factory
- * presets grouped by car model. Each model row offers a Pioneer chip
+ * The profile list. The sidebar shows your own profiles and the presets you
+ * starred. The library holds every preset, grouped by car model, with a
+ * search field and a star per model. Each model row offers a Pioneer chip
  * and a Stock chip, which map to the two speaker types.
  *
- * It emits `select-profile` ({ id }), `duplicate-profile` ({ id }) and
- * `delete-profile` ({ id }).
+ * It emits `select-profile` ({ id }), `duplicate-profile` ({ id }),
+ * `delete-profile` ({ id }), `rename-profile` ({ id, name }),
+ * `create-profile`, `save-unit-profile` and `favorite-change`
+ * ({ ids, favorite }).
  */
+function isFavoriteGroup(group: CarModelGroup): boolean {
+  return group.profiles.some((profile) => profile.favorite);
+}
+
 @customElement("profile-list")
 export class ProfileList extends LitElement {
   static override styles = profileListStyles;
@@ -38,14 +45,36 @@ export class ProfileList extends LitElement {
   @state() private search = "";
   @state() private openMenuId: number | null = null;
   @state() private renamingId: number | null = null;
+  @state() private libraryOpen = false;
 
   override render() {
+    return this.libraryOpen ? this.renderLibrary() : this.renderSidebar();
+  }
+
+  private renderSidebar(): TemplateResult {
     const strings = uiStrings(this.locale);
     const customProfiles = this.profiles.filter((profile) => profile.source === "custom");
+    const favoriteGroups = groupFactoryProfiles(this.profiles, this.locale, "").filter(isFavoriteGroup);
+    return html`
+      <button type="button" class="open-library" @click=${() => (this.libraryOpen = true)}>
+        ${strings.library}
+      </button>
+      ${this.renderCustomSection(strings, customProfiles)}
+      ${this.renderFavoriteSection(strings, favoriteGroups)}
+    `;
+  }
+
+  private renderLibrary(): TemplateResult {
+    const strings = uiStrings(this.locale);
     const groups = groupFactoryProfiles(this.profiles, this.locale, this.search);
     return html`
-      ${this.renderSearchField(strings)} ${this.renderCustomSection(strings, customProfiles)}
-      ${this.renderFactorySection(strings, groups)}
+      <div class="library-head">
+        <button type="button" class="library-back" @click=${() => (this.libraryOpen = false)}>
+          ‹ ${strings.libraryBack}
+        </button>
+        <h2 class="library-title">${strings.library}</h2>
+      </div>
+      ${this.renderSearchField(strings)} ${this.renderFactorySection(strings, groups)}
     `;
   }
 
@@ -168,6 +197,24 @@ export class ProfileList extends LitElement {
     `;
   }
 
+  private renderFavoriteSection(
+    strings: UiStrings,
+    groups: readonly CarModelGroup[],
+  ): TemplateResult {
+    return html`
+      <section class="group">
+        <h3 class="group-label">${strings.favorites}</h3>
+        ${groups.length === 0
+          ? html`<p class="empty">${strings.favoritesHint}</p>`
+          : html`
+              <ul class="factory-list favorite-list">
+                ${groups.map((group) => this.renderModelRow(strings, group))}
+              </ul>
+            `}
+      </section>
+    `;
+  }
+
   private renderFactorySection(
     strings: UiStrings,
     groups: readonly CarModelGroup[],
@@ -194,7 +241,25 @@ export class ProfileList extends LitElement {
           ${this.renderSpeakerChip(group, "carrozzeria", strings.speakerPioneerShort)}
           ${this.renderSpeakerChip(group, "general", strings.speakerStockShort)}
         </div>
+        ${this.renderStar(strings, group)}
       </li>
+    `;
+  }
+
+  /** One star per car model. It stars both speaker types at once, because
+   * the sidebar shows a model as one row. */
+  private renderStar(strings: UiStrings, group: CarModelGroup): TemplateResult {
+    const starred = isFavoriteGroup(group);
+    return html`
+      <button
+        type="button"
+        class="star ${starred ? "starred" : ""}"
+        aria-pressed=${starred}
+        aria-label=${starred ? strings.removeFavoriteLabel : strings.addFavoriteLabel}
+        @click=${() => this.changeFavorite(group, !starred)}
+      >
+        ${starred ? "★" : "☆"}
+      </button>
     `;
   }
 
@@ -259,6 +324,11 @@ export class ProfileList extends LitElement {
   private duplicateProfile(id: number) {
     this.openMenuId = null;
     this.dispatchEvent(new CustomEvent("duplicate-profile", { detail: { id } }));
+  }
+
+  private changeFavorite(group: CarModelGroup, favorite: boolean) {
+    const ids = group.profiles.map((profile) => profile.id);
+    this.dispatchEvent(new CustomEvent("favorite-change", { detail: { ids, favorite } }));
   }
 
   private deleteProfile(id: number) {

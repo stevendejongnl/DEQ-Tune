@@ -47,6 +47,7 @@ export function sampleProfile(overrides: Partial<ProfileDto> = {}): ProfileDto {
     car_model: "mazda_3",
     speaker_type: "general",
     supported_processors: ["DEQ-1000A-MZ"],
+    favorite: false,
     data: sampleTuningData(),
     ...overrides,
   };

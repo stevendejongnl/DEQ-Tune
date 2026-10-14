@@ -98,6 +98,7 @@ export class FakeProfileApi implements ProfileApi, DeviceApi {
       car_model: body.car_model ?? null,
       speaker_type: body.speaker_type ?? null,
       supported_processors: body.supported_processors ?? [],
+      favorite: false,
       data: body.data,
     };
     this.profiles = [...this.profiles, created];
@@ -115,6 +116,12 @@ export class FakeProfileApi implements ProfileApi, DeviceApi {
     this.profiles = this.profiles.filter((profile) => profile.id !== id);
   }
 
+  async setFavorite(id: number, favorite: boolean): Promise<ProfileDto> {
+    const updated: ProfileDto = { ...this.requireProfile(id), favorite };
+    this.profiles = this.profiles.map((profile) => (profile.id === id ? updated : profile));
+    return updated;
+  }
+
   async saveUnitProfile(name: string): Promise<ProfileDto> {
     if (this.unitTuning === null) {
       throw new Error("the unit is not connected");
@@ -127,6 +134,7 @@ export class FakeProfileApi implements ProfileApi, DeviceApi {
       car_model: null,
       speaker_type: null,
       supported_processors: [],
+      favorite: false,
       data: this.unitTuning,
     };
     this.profiles = [...this.profiles, saved];
@@ -135,7 +143,13 @@ export class FakeProfileApi implements ProfileApi, DeviceApi {
 
   async duplicateProfile(id: number): Promise<ProfileDto> {
     const source = this.requireProfile(id);
-    const copy: ProfileDto = { ...source, id: this.nextId++, name: `${source.name} (copy)`, source: "custom" };
+    const copy: ProfileDto = {
+      ...source,
+      id: this.nextId++,
+      name: `${source.name} (copy)`,
+      source: "custom",
+      favorite: false,
+    };
     this.profiles = [...this.profiles, copy];
     return copy;
   }

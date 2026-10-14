@@ -96,7 +96,13 @@ export interface ProfileDto {
   car_model: string | null;
   speaker_type: string | null;
   supported_processors: string[];
+  /** A starred profile shows in the sidebar. The rest stay in the library. */
+  favorite: boolean;
   data: TuningDataDto;
+}
+
+export interface FavoriteWriteDto {
+  favorite: boolean;
 }
 
 export interface ProfileCreateDto {

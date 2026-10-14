@@ -8,6 +8,13 @@ import { createFakeLocaleStorage } from "../i18n/testing/fake-locale-storage.ts"
 import { createFakeLayoutQuery, type FakeLayoutQuery } from "../testing/fake-layout-query.ts";
 import type { AppLayout } from "../layout-query.ts";
 import type { ProfileList } from "./profile-list.ts";
+import type { ProfileDto } from "../dto/profile.dto.ts";
+
+/** A preset with a star, so the sidebar shows it. Most tests here select a
+ * preset through its sidebar chip. */
+function starredPreset(overrides: Partial<ProfileDto> = {}): ProfileDto {
+  return sampleProfile({ favorite: true, ...overrides });
+}
 
 async function mount(api: FakeProfileApi, layout: AppLayout = "desktop"): Promise<AppRoot> {
   const element = document.createElement("app-root") as AppRoot;
@@ -49,10 +56,27 @@ function queryProfilesToggle(element: AppRoot): HTMLButtonElement {
 }
 
 describe("app-root", () => {
+  it("stars a preset in the library and shows it in the sidebar", async () => {
+    const api = new FakeProfileApi([
+      sampleProfile({ id: 1, car_model: "mazda_2", speaker_type: "carrozzeria" }),
+      sampleProfile({ id: 2, car_model: "mazda_2", speaker_type: "general" }),
+    ]);
+    const element = await mount(api);
+    const list = queryProfileList(element);
+    expect(queryModelRows(element)).toHaveLength(0);
+
+    await click(list.shadowRoot!.querySelector(".open-library") as HTMLButtonElement, element);
+    await click(list.shadowRoot!.querySelector(".star") as HTMLButtonElement, element);
+    await click(list.shadowRoot!.querySelector(".library-back") as HTMLButtonElement, element);
+
+    expect((await api.listProfiles()).every((profile) => profile.favorite)).toBe(true);
+    expect(queryModelRows(element)).toHaveLength(1);
+  });
+
   it("saves the unit's tune as a custom profile and opens it", async () => {
-    const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+    const api = new FakeProfileApi([starredPreset({ id: 1 })]);
     api.device.startConnected();
-    api.unitTuning = sampleProfile().data;
+    api.unitTuning = starredPreset().data;
     const element = await mount(api);
 
     const saveButton = queryProfileList(element).shadowRoot!.querySelector(
@@ -68,7 +92,7 @@ describe("app-root", () => {
 
   it("loads and lists profiles from the injected api on connect", async () => {
     const api = new FakeProfileApi([
-      sampleProfile({ id: 1, name: "Factory preset", source: "factory" }),
+      starredPreset({ id: 1, name: "Factory preset", source: "factory" }),
     ]);
 
     const element = await mount(api);
@@ -77,14 +101,14 @@ describe("app-root", () => {
   });
 
   it("shows a prompt to select a profile before one is chosen", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
 
     expect(element.shadowRoot!.textContent).toContain("Select a profile");
   });
 
   it("shows the EQ editor for the selected profile", async () => {
     const api = new FakeProfileApi([
-      sampleProfile({ id: 1, name: "Factory preset", source: "factory" }),
+      starredPreset({ id: 1, name: "Factory preset", source: "factory" }),
     ]);
     const element = await mount(api);
 
@@ -94,7 +118,7 @@ describe("app-root", () => {
   });
 
   it("persists a gain change through the api for a custom profile", async () => {
-    const api = new FakeProfileApi([sampleProfile({ id: 1, name: "My EQ", source: "custom" })]);
+    const api = new FakeProfileApi([starredPreset({ id: 1, name: "My EQ", source: "custom" })]);
     const element = await mount(api);
     const customName = queryProfileList(element).shadowRoot!.querySelector(
       ".custom-row .name",
@@ -112,7 +136,7 @@ describe("app-root", () => {
 
   it("selects the new copy after a duplicate-profile event", async () => {
     const api = new FakeProfileApi([
-      sampleProfile({ id: 1, name: "Factory preset", source: "factory" }),
+      starredPreset({ id: 1, name: "Factory preset", source: "factory" }),
     ]);
     const element = await mount(api);
 
@@ -127,7 +151,7 @@ describe("app-root", () => {
 
   it("starts in the browser's detected language when nothing is saved", async () => {
     const element = document.createElement("app-root") as AppRoot;
-    element.api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+    element.api = new FakeProfileApi([starredPreset({ id: 1 })]);
     element.localeStorage = createFakeLocaleStorage({});
     element.browserLanguages = ["ja-JP"];
     element.layoutQuery = createFakeLayoutQuery("desktop");
@@ -142,7 +166,7 @@ describe("app-root", () => {
   it("switches language via the locale switcher and remembers the choice", async () => {
     const storage = createFakeLocaleStorage({});
     const element = document.createElement("app-root") as AppRoot;
-    element.api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+    element.api = new FakeProfileApi([starredPreset({ id: 1 })]);
     element.localeStorage = storage;
     element.browserLanguages = ["en-US"];
     element.layoutQuery = createFakeLayoutQuery("desktop");
@@ -158,19 +182,19 @@ describe("app-root", () => {
     await element.updateComplete;
 
     const profileListText = queryProfileList(element).shadowRoot!.textContent;
-    expect(profileListText).toContain("Werk");
+    expect(profileListText).toContain("Meine Profile");
     expect(storage.getItem("deq-tune-locale")).toBe("de");
   });
 
   it("starts with the profiles drawer closed", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
 
     expect(queryDrawer(element).classList.contains("open")).toBe(false);
     expect(element.shadowRoot!.querySelector(".drawer-backdrop")).toBeNull();
   });
 
   it("opens the profiles drawer from the header toggle", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
 
     await click(queryProfilesToggle(element), element);
 
@@ -179,7 +203,7 @@ describe("app-root", () => {
   });
 
   it("closes the profiles drawer when the backdrop is clicked", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
     await click(queryProfilesToggle(element), element);
 
     const backdrop = element.shadowRoot!.querySelector(".drawer-backdrop") as HTMLElement;
@@ -191,7 +215,7 @@ describe("app-root", () => {
   });
 
   it("closes the profiles drawer when Escape is pressed", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
     await click(queryProfilesToggle(element), element);
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
@@ -201,7 +225,7 @@ describe("app-root", () => {
   });
 
   it("shows the brand, the speaker type and the model name above the panels", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
 
     await click(queryFirstChip(element), element);
 
@@ -212,7 +236,7 @@ describe("app-root", () => {
   });
 
   it("shows every panel at once outside the phone layout", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
     await click(queryFirstChip(element), element);
 
     expect(element.shadowRoot!.querySelector(".tab-bar")).toBeNull();
@@ -222,7 +246,7 @@ describe("app-root", () => {
   });
 
   it("passes the unit's own EQ style and live simulation ids to the panel", async () => {
-    const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+    const api = new FakeProfileApi([starredPreset({ id: 1 })]);
     const element = await mount(api);
     await click(queryFirstChip(element), element);
 
@@ -232,7 +256,7 @@ describe("app-root", () => {
   });
 
   it("sends an EQ style choice to the unit, under the name the unit knows", async () => {
-    const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+    const api = new FakeProfileApi([starredPreset({ id: 1 })]);
     const element = await mount(api);
     await click(queryFirstChip(element), element);
 
@@ -245,7 +269,7 @@ describe("app-root", () => {
   });
 
   it("sends a live simulation choice to the unit", async () => {
-    const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+    const api = new FakeProfileApi([starredPreset({ id: 1 })]);
     const element = await mount(api);
     await click(queryFirstChip(element), element);
 
@@ -258,7 +282,7 @@ describe("app-root", () => {
   });
 
   it("keeps the choice when the unit is not reachable", async () => {
-    const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+    const api = new FakeProfileApi([starredPreset({ id: 1 })]);
     api.device.selectEqStyle = () => Promise.reject(new Error("the unit is not connected"));
     const element = await mount(api);
     await click(queryFirstChip(element), element);
@@ -272,7 +296,7 @@ describe("app-root", () => {
   });
 
   it("renders only the active tab in the phone layout", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]), "phone");
     await click(queryFirstChip(element), element);
     const eqTab = element.shadowRoot!.querySelectorAll(".tab")[1] as HTMLButtonElement;
     await click(eqTab, element);
@@ -284,7 +308,7 @@ describe("app-root", () => {
   });
 
   it("swaps the panel when another phone tab is pressed", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]), "phone");
     await click(queryFirstChip(element), element);
     const eqTab = element.shadowRoot!.querySelectorAll(".tab")[1] as HTMLButtonElement;
     await click(eqTab, element);
@@ -299,7 +323,7 @@ describe("app-root", () => {
 
   it("edits a factory preset without saving it", async () => {
     const api = new FakeProfileApi([
-      sampleProfile({ id: 1, name: "Factory preset", source: "factory" }),
+      starredPreset({ id: 1, name: "Factory preset", source: "factory" }),
     ]);
     const element = await mount(api);
     await click(queryFirstChip(element), element);
@@ -316,7 +340,7 @@ describe("app-root", () => {
   });
 
   it("shows the neutral badge and the hint before any edit", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
     await click(queryFirstChip(element), element);
 
     expect(element.shadowRoot!.querySelector(".badge")!.textContent).toContain("Factory preset");
@@ -324,7 +348,7 @@ describe("app-root", () => {
   });
 
   it("counts every changed band in the badge", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
     await click(queryFirstChip(element), element);
     const editor = element.shadowRoot!.querySelector("eq-editor")!;
 
@@ -338,7 +362,7 @@ describe("app-root", () => {
   });
 
   it("reverts a draft back to the factory data", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
     await click(queryFirstChip(element), element);
     element.shadowRoot!.querySelector("eq-editor")!.dispatchEvent(
       new CustomEvent("gain-change", { detail: { band: 2, value: 4.5 } }),
@@ -353,7 +377,7 @@ describe("app-root", () => {
 
   it("saves a draft as a new profile and selects the copy", async () => {
     const api = new FakeProfileApi([
-      sampleProfile({ id: 1, name: "Factory preset", source: "factory" }),
+      starredPreset({ id: 1, name: "Factory preset", source: "factory" }),
     ]);
     const element = await mount(api);
     await click(queryFirstChip(element), element);
@@ -374,7 +398,7 @@ describe("app-root", () => {
   });
 
   it("asks before it drops a draft for another profile", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 }), sampleProfile({ id: 2, car_model: "mazda_6" })]));
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 }), starredPreset({ id: 2, car_model: "mazda_6" })]));
     const questions: string[] = [];
     element.confirmDiscard = (question) => {
       questions.push(question);
@@ -395,7 +419,7 @@ describe("app-root", () => {
   });
 
   it("puts the save actions in a bar on the phone", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]), "phone");
     await click(queryFirstChip(element), element);
     const eqTab = element.shadowRoot!.querySelectorAll(".tab")[1] as HTMLButtonElement;
     await click(eqTab, element);
@@ -413,14 +437,14 @@ describe("app-root", () => {
   });
 
   it("keeps the language control in the header outside the phone layout", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
 
     expect(element.shadowRoot!.querySelector("header locale-switcher")).not.toBeNull();
     expect(element.shadowRoot!.querySelector(".drawer locale-switcher")).toBeNull();
   });
 
   it("moves the language control into the sheet in the phone layout", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]), "phone");
 
     expect(element.shadowRoot!.querySelector("header locale-switcher")).toBeNull();
     expect(element.shadowRoot!.querySelector(".drawer locale-switcher")).not.toBeNull();
@@ -429,7 +453,7 @@ describe("app-root", () => {
   it("moves to the phone layout when the viewport becomes narrow", async () => {
     const layoutQuery: FakeLayoutQuery = createFakeLayoutQuery("desktop");
     const element = document.createElement("app-root") as AppRoot;
-    element.api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+    element.api = new FakeProfileApi([starredPreset({ id: 1 })]);
     element.localeStorage = createFakeLocaleStorage({});
     element.browserLanguages = ["en-US"];
     element.layoutQuery = layoutQuery;
@@ -445,7 +469,7 @@ describe("app-root", () => {
   });
 
   it("closes the profiles drawer after selecting a profile", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
     await click(queryProfilesToggle(element), element);
 
     await click(queryFirstChip(element), element);
@@ -497,13 +521,13 @@ describe("app-root", () => {
     }
 
     it("has no refresh button: the panel refreshes itself", async () => {
-      const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+      const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
 
       expect(queryAudioControls(element).shadowRoot!.querySelector("button.refresh")).toBeNull();
     });
 
     it("does not read the unit, and says why, while it is not connected", async () => {
-      const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+      const api = new FakeProfileApi([starredPreset({ id: 1 })]);
       const schedule = new ManualSchedule();
 
       const element = await mountWithSchedule(api, schedule);
@@ -516,7 +540,7 @@ describe("app-root", () => {
     });
 
     it("reads when the unit comes up, then again on every tick", async () => {
-      const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+      const api = new FakeProfileApi([starredPreset({ id: 1 })]);
       api.device.startConnected();
       const schedule = new ManualSchedule();
 
@@ -532,7 +556,7 @@ describe("app-root", () => {
     });
 
     it("skips the read while the phone shows another tab, and reads on opening audio", async () => {
-      const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+      const api = new FakeProfileApi([starredPreset({ id: 1 })]);
       api.device.startConnected();
       const schedule = new ManualSchedule();
       const element = await mountWithSchedule(api, schedule, "phone");

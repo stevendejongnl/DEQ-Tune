@@ -97,5 +97,11 @@
   "audioSourceCarSource": "Car source",
   "audioSourceThrough": "Through (car audio)",
   "saveUnitTune": "Save unit's tune",
-  "unitTuneName": "Unit tune"
+  "unitTuneName": "Unit tune",
+  "library": "Library",
+  "libraryBack": "Profiles",
+  "favorites": "Favorites",
+  "favoritesHint": "Star a preset in the library to keep it here.",
+  "addFavoriteLabel": "Add to favorites",
+  "removeFavoriteLabel": "Remove from favorites"
 }

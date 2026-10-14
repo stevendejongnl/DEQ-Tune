@@ -48,6 +48,13 @@ async function openApp(page: Page): Promise<string[]> {
   return consoleErrors;
 }
 
+/** Opens the first preset. The presets live in the library until a person
+ * stars one, so the sidebar alone may show none. */
+async function openFirstPreset(page: Page): Promise<void> {
+  await page.locator("profile-list .open-library").click();
+  await page.locator("profile-list .model-row .chip").first().click();
+}
+
 /** Waits until the backend reports a live link. The backend retries every
  * few seconds, so a test that dropped the link waits here for the retry. */
 async function waitForTheBackendToConnect(request: APIRequestContext): Promise<void> {
@@ -120,7 +127,7 @@ test("the connected state survives a reload, because the backend holds it", asyn
 test("an EQ style choice reaches the unit", async ({ page }) => {
   await openApp(page);
   await expect(page.locator(DEVICE_PILL)).toContainText(FAKE_UNIT_FIRMWARE);
-  await page.locator("profile-list li button, profile-list .tile").first().click();
+  await openFirstPreset(page);
 
   const styleTile = page.locator("dsp-panel .tile").first();
   await expect(styleTile).toBeVisible();
@@ -149,3 +156,27 @@ test("the unit's option lists are the app's own, not a shortened copy", async ({
   expect(options.live_simulations).toHaveLength(7);
 });
 
+
+test("a star from the library keeps a preset in the sidebar after a reload", async ({ page }) => {
+  await openApp(page);
+  await page.locator("profile-list .open-library").click();
+  const firstRow = page.locator("profile-list .model-row").first();
+  const modelName = (await firstRow.locator(".model-name").textContent())!.trim();
+  const starred = page.waitForResponse(
+    (response) => response.url().includes("/favorite") && response.ok(),
+  );
+  await firstRow.locator(".star").click();
+  await starred;
+
+  await page.reload();
+
+  const sidebarRow = page.locator("profile-list .favorite-list .model-row", { hasText: modelName });
+  await expect(sidebarRow).toBeVisible();
+
+  // The backend's database outlives this test, so take the star off again.
+  const unstarred = page.waitForResponse(
+    (response) => response.url().includes("/favorite") && response.ok(),
+  );
+  await sidebarRow.locator(".star").click();
+  await unstarred;
+});

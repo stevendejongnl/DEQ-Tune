@@ -288,6 +288,8 @@ export class AppRoot extends LitElement {
             this.renameProfile(renameEvent.detail.id, renameEvent.detail.name)}
           @create-profile=${() => this.createProfile()}
           @save-unit-profile=${() => this.saveUnitProfile()}
+          @favorite-change=${(favoriteEvent: CustomEvent<{ ids: number[]; favorite: boolean }>) =>
+            this.changeFavorite(favoriteEvent.detail.ids, favoriteEvent.detail.favorite)}
         ></profile-list>
       </aside>
     `;
@@ -764,6 +766,12 @@ export class AppRoot extends LitElement {
     await this.loadProfiles();
     this.selectedId = saved.id;
     this.closeProfilesDrawer();
+  }
+
+  private async changeFavorite(ids: readonly number[], favorite: boolean): Promise<void> {
+    const updated = await Promise.all(ids.map((id) => this.api.setFavorite(id, favorite)));
+    const byId = new Map(updated.map((profile) => [profile.id, profile]));
+    this.profiles = this.profiles.map((profile) => byId.get(profile.id) ?? profile);
   }
 
   private async renameProfile(id: number, name: string): Promise<void> {
