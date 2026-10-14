@@ -163,9 +163,10 @@ class LiveSimulationWrite(BaseModel):
 #: and live_simulation. The decompiled app never puts this enum behind a
 #: labelled picker. It reaches the processor tab some other way.
 #:
-#: These three have a plain meaning. THROUGH is the car's own audio and the
-#: default (see `DEFAULT_AUDIO_SOURCE`). CAR_SOURCE and STAND_ALONE are the
-#: unit's other named modes. The rest (`SP_OTHER_SOURCE`, the `MIX_*` pairs,
+#: These three have a plain meaning. CAR_SOURCE is the car's own audio
+#: through the unit's DSP, and the default (see `DEFAULT_AUDIO_SOURCE`).
+#: THROUGH is the car's own audio, most likely past the DSP. STAND_ALONE is
+#: the unit's other named mode. The rest (`SP_OTHER_SOURCE`, the `MIX_*` pairs,
 #: `UNKNOWN`) are wire-internal states that `/volume` passes through on its
 #: own. A person should not pick them.
 AUDIO_SOURCE_CHOICES = ("STAND_ALONE", "CAR_SOURCE", "THROUGH")

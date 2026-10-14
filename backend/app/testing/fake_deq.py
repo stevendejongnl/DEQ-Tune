@@ -78,6 +78,8 @@ REPLY_SYNC_WORD = bytes.fromhex("3dd378e1054592964b2ede1fb9283b2b")
 # The sync reply the real unit sends is 32 bytes: STATUS, the word above,
 # and then the three ASP_STATE fields of `deq_commands.json`.
 STATUS_REFUSED_SYNC = -5
+# What the real unit answered a volume write with in THROUGH, 2026-10-08.
+STATUS_VOLUME_REFUSED = -6
 
 # The volume the car's own unit reported, so the default is a real value.
 FAKE_VOLUME_DB = -27
@@ -143,6 +145,13 @@ class FakeDeq:
     refuses_sync: bool = False
     # STATUS to answer with, per command id. Anything not listed answers 0.
     status_by_command: dict[int, int] = field(default_factory=dict)
+    # Source modes, as wire values, in which the unit refuses a volume write
+    # with STATUS -6. The real unit did that in THROUGH (4) on 2026-10-08,
+    # and took one on SP_OTHER_SOURCE. Nobody measured the other modes. The
+    # set starts empty, because the captured replies that other tests pin
+    # came from sessions that wrote a volume. A test that needs the refusal
+    # sets it.
+    volume_refused_in_modes: set[int] = field(default_factory=set)
     # Command ids to stop answering after, so a caller can see a timeout
     # mid-sequence rather than only at the start.
     silent_after: set[int] = field(default_factory=set)
@@ -212,6 +221,8 @@ class FakeDeq:
             # 2026-10-08. It wants the whole 2028-byte structure.
             return self.status_bytes(STATUS_REFUSED_SYNC)
         status = self.status_by_command.get(request.command_id, STATUS_OK)
+        if request.command_id == COMMAND_SET_VOLUME and self.mode in self.volume_refused_in_modes:
+            status = STATUS_VOLUME_REFUSED
         if status != STATUS_OK:
             if request.command_id in COMMANDS_THAT_REPORT_STATE_WHEN_REFUSING:
                 return self.status_bytes(status) + self.build_tail(request)
@@ -361,7 +372,11 @@ class FakeDeq:
         `20261008_volume_refusal_reply.hex`. A caller sets that refusal
         with `status_by_command`, and this method honours it.
         """
-        if self.status_by_command.get(request.command_id, 0) == 0:
+        refused = (
+            self.status_by_command.get(request.command_id, 0) != 0
+            or self.mode in self.volume_refused_in_modes
+        )
+        if not refused:
             self.volume_db = int.from_bytes(request.body, "little", signed=True)
         return self.volume_db.to_bytes(4, "little", signed=True)
 

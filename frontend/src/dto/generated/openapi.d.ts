@@ -180,9 +180,13 @@ export interface paths {
          * @description Sets the master volume, in dB.
          *
          *     The unit refuses a volume write with STATUS -6 while it holds THROUGH, and
-         *     takes one on an OTHER mode. So this route moves the mode, writes, and puts
-         *     the mode back. `scripts/probe_audio_output.py` does the same dance. Without
-         *     it, the app could not set a volume before.
+         *     takes one on an OTHER mode. Nobody measured CAR_SOURCE yet. So this route
+         *     writes first. Only a refusal makes it move the mode, write again, and put
+         *     the mode back. The refusal must not escape: `DeqDevice.run` drops the link
+         *     on any session error, and a refused volume is no broken link.
+         *     `scripts/probe_audio_output.py` does the same dance. A mode change cuts
+         *     the audio for a moment, so the route avoids one that the unit does not
+         *     need.
          */
         post: operations["set_volume_api_device_volume_post"];
         delete?: never;

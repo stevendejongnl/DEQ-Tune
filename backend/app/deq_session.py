@@ -163,15 +163,24 @@ CONFIGURATION_PAYLOAD_BYTES = 2028
 # seconds. So a reply that takes longer than this timeout means a dead link.
 DEFAULT_TIMEOUT_SECONDS = 5.0
 
-# Which input the unit plays once a link is up. THROUGH passes the car's
-# own audio through, so connecting this app never costs a person their
-# radio.
+# Which input the unit plays once a link is up, when nobody chose one.
 #
-# The app itself makes this choice, so the value is no guess. On 2026-10-08 the
-# real Sound & Tune app ran against a fake accessory in the emulator. Its cold
-# start sends `0x0b` with body `04000000`: SourceMode THROUGH, wire value 4.
-# See `DeqSession.set_audio_source`.
-DEFAULT_AUDIO_SOURCE = "THROUGH"
+# CAR_SOURCE plays the car's own audio through the unit's DSP. THROUGH
+# most likely skips the DSP. The app's code shows this, and the car has
+# not confirmed it yet (2026-10-14):
+#
+# - The app picks THROUGH only while a phone call rings, and during a
+#   calibration measurement (`service/g`, "ringing:
+#   setSourceMode(SourceMode.THROUGH)").
+# - Otherwise its start restores the mode that the person last chose.
+# - Its level block (0x05 CONFIG_ID 0) has a level for each source mode
+#   except THROUGH.
+#
+# An emulated cold start sent THROUGH on 2026-10-08. That app was a fresh
+# install with no mode to restore. A drive on 2026-10-14 pushed four
+# profiles and two EQ styles in THROUGH, and none of them changed the
+# sound much.
+DEFAULT_AUDIO_SOURCE = "CAR_SOURCE"
 
 # The order the app sends on connect. Each entry is a command id and the body
 # to send with it. A body of `b""` means the command carries nothing but its
@@ -369,8 +378,8 @@ class DeqSession:
         if status != STATUS_OK:
             raise DeviceStatusError(reply.command_id, status)
 
-    def start(self) -> None:
-        """Runs the app's own connect sequence, then claims no audio.
+    def start(self, source_name: str = DEFAULT_AUDIO_SOURCE) -> None:
+        """Runs the app's own connect sequence, then sets the source mode.
 
         `STARTUP_STEPS` reads and changes nothing. The source mode is the one
         exception. This method sends it, and the table does not hold it. So the
@@ -379,9 +388,9 @@ class DeqSession:
         The mode has to be set, because an unset mode has an effect too. A Pi
         that offers an audio function leaves the unit on USB, and an empty USB
         input is silence. A car on 2026-10-08 showed this: the audio came back
-        within seconds of a stop of the gadget. `THROUGH` hands the car's own
-        audio back. Our own audio needs a deliberate step on top of this. A
-        link does not start in that state.
+        within seconds of a stop of the gadget. CAR_SOURCE and THROUGH both
+        hand the car's own audio back. Our own audio needs a deliberate step on
+        top of this. A link does not start in that state.
 
         The last frame is PLAY_READY, and it gives the car its audio. The real
         app ends every cold start with it, right after the mode write. A
@@ -393,7 +402,7 @@ class DeqSession:
         """
         for command_id, body in STARTUP_STEPS:
             self.exchange(command_id, body)
-        self.set_audio_source(DEFAULT_AUDIO_SOURCE)
+        self.set_audio_source(source_name)
         self.notify_play_ready()
 
     def send_keepalive(self) -> None:
@@ -586,10 +595,9 @@ class DeqSession:
 
         Both measurements had the Pi's audio function attached and a tone
         playing. So an attached audio function does not take the car's audio.
-        An earlier version of this docstring said that it did. THROUGH is the
-        right default, and the connect sequence ends with it. The real app also
-        sets the mode explicitly. `service/g` in the APK logs "ringing:
-        setSourceMode(SourceMode.THROUGH)".
+        An earlier version of this docstring said that it did. THROUGH most
+        likely skips the DSP, so the connect sequence uses CAR_SOURCE unless
+        the person chose a mode (see `DEFAULT_AUDIO_SOURCE`).
 
         One catch: the unit refuses a volume write with STATUS -6 while it
         holds THROUGH, and takes one on an OTHER mode. Set the mode first.

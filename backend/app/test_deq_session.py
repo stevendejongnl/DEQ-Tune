@@ -83,18 +83,31 @@ def test_start_sends_no_command_that_changes_the_units_tuning():
     assert sent.isdisjoint(WRITING_COMMANDS)
 
 
-def test_start_hands_the_cars_own_audio_back():
+def test_start_hands_the_cars_own_audio_back_through_the_dsp():
     """Connecting must not cost a person their radio. The unit plays
-    whatever source it holds, so the mode has to be said out loud."""
+    whatever source it holds, so the mode has to be said out loud. The
+    default is CAR_SOURCE (3), because THROUGH most likely skips the DSP."""
     fake = FakeDeq()
 
     DeqSession(fake).start()
 
+    assert sent_mode(fake) == 3
+
+
+def test_start_sets_the_mode_it_is_given():
+    fake = FakeDeq()
+
+    DeqSession(fake).start("THROUGH")
+
+    assert sent_mode(fake) == 4
+
+
+def sent_mode(fake: FakeDeq) -> int:
     mode_request = next(
         one.request for one in fake.exchanges
         if one.request.command_id == COMMAND_SET_MODE
     )
-    assert int.from_bytes(mode_request.body, "little", signed=True) == 4
+    return int.from_bytes(mode_request.body, "little", signed=True)
 
 
 def test_start_ends_with_play_ready_after_the_mode_write():

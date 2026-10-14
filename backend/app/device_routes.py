@@ -12,6 +12,7 @@ from sqlmodel import Session
 
 from app.db import get_session
 from app.deq_device import DeqDevice, DeviceUnavailable, device
+from app.deq_session import DeviceStatusError
 from app.eq_data import TuningData
 from app.models import Profile
 from app.schemas import (
@@ -112,29 +113,37 @@ def set_volume(
     """Sets the master volume, in dB.
 
     The unit refuses a volume write with STATUS -6 while it holds THROUGH, and
-    takes one on an OTHER mode. So this route moves the mode, writes, and puts
-    the mode back. `scripts/probe_audio_output.py` does the same dance. Without
-    it, the app could not set a volume before.
+    takes one on an OTHER mode. Nobody measured CAR_SOURCE yet. So this route
+    writes first. Only a refusal makes it move the mode, write again, and put
+    the mode back. The refusal must not escape: `DeqDevice.run` drops the link
+    on any session error, and a refused volume is no broken link.
+    `scripts/probe_audio_output.py` does the same dance. A mode change cuts
+    the audio for a moment, so the route avoids one that the unit does not
+    need.
     """
 
     def action(session) -> AudioStateRead:
         original_wire = session.read_mode()
         original = AUDIO_SOURCE.by_wire_value(original_wire).name
-        if original == "THROUGH":
-            session.set_audio_source("SP_OTHER_SOURCE")
+        if original != "THROUGH":
+            try:
+                session.set_volume(body.volume_db)
+                return _read_audio_state(session)
+            except DeviceStatusError:
+                pass
+        session.set_audio_source("SP_OTHER_SOURCE")
         try:
             session.set_volume(body.volume_db)
         finally:
             # Always put the mode back, also when the write fails. A unit left
             # on SP_OTHER_SOURCE plays whatever this device writes, which is
             # silence. This endpoint exists to get people out of that failure.
-            if original == "THROUGH":
-                session.set_audio_source(original)
-                # A return to THROUGH is not enough. Without PLAY_READY the car
-                # stays silent after the mode comes back, the same way a fresh
-                # connect did before `start` sent it. A slider move cut the
-                # audio for this reason.
-                session.notify_play_ready()
+            session.set_audio_source(original)
+            # A return to the car's mode is not enough. Without PLAY_READY the
+            # car stays silent after the mode comes back, the same way a fresh
+            # connect did before `start` sent it. A slider move cut the audio
+            # for this reason.
+            session.notify_play_ready()
         return _read_audio_state(session)
 
     return run_on_unit(lambda: unit.run(action))

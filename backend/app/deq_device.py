@@ -29,7 +29,7 @@ import threading
 from dataclasses import dataclass
 
 from app.deq_blob import UserConfiguration
-from app.deq_session import DeqSession, SessionError
+from app.deq_session import DEFAULT_AUDIO_SOURCE, DeqSession, SessionError
 from app.deq_transport import Transport, TransportError
 from app.eq_data import TuningData
 
@@ -111,8 +111,16 @@ class DeqDevice:
     makes one whole exchange the unit of work, and not one write.
     """
 
-    def __init__(self, build_transport_function=build_transport, after_connect=None) -> None:
+    def __init__(
+        self,
+        build_transport_function=build_transport,
+        after_connect=None,
+        source_for_connect=None,
+    ) -> None:
         self.build_transport_function = build_transport_function
+        # Returns the source mode to set as a link comes up, or None for the
+        # default. The person's last choice lives in the database.
+        self.source_for_connect = source_for_connect
         # Runs once each time a link comes up, inside the link lock. So a
         # caller sees the unit as connected only after this returns. The
         # active profile goes onto the unit here.
@@ -143,7 +151,7 @@ class DeqDevice:
             self.disconnect()
             try:
                 session = DeqSession(self.build_transport_function())
-                session.start()
+                session.start(self._source_name_for_connect())
                 self._identity = session.read_device_identity()
             except (SessionError, TransportError, DeviceUnavailable) as caught_error:
                 self.disconnect()
@@ -154,6 +162,19 @@ class DeqDevice:
             self.link_generation += 1
             self._run_after_connect()
             return self.state()
+
+    def _source_name_for_connect(self) -> str:
+        """Returns the remembered source mode, or the default one.
+
+        A failed lookup must not cost the link, so it falls back to the
+        default too.
+        """
+        if self.source_for_connect is None:
+            return DEFAULT_AUDIO_SOURCE
+        try:
+            return self.source_for_connect() or DEFAULT_AUDIO_SOURCE
+        except Exception:
+            return DEFAULT_AUDIO_SOURCE
 
     def _run_after_connect(self) -> None:
         """Runs the hook, and keeps the link up when the hook fails.

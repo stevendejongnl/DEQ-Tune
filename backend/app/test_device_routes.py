@@ -171,8 +171,8 @@ def test_the_audio_state_reports_what_the_unit_holds(
 ) -> None:
     device_client.post("/api/device/connect")
     body = device_client.get("/api/device/audio").json()
-    assert body["source_mode"] == "THROUGH"
-    assert body["source_mode_wire"] == 4
+    assert body["source_mode"] == "CAR_SOURCE"
+    assert body["source_mode_wire"] == 3
     assert body["muted"] is False
     assert isinstance(body["volume_db"], int)
 
@@ -212,6 +212,7 @@ def test_setting_the_volume_puts_the_source_mode_back(
     silence. The endpoint exists to get people out of that failure.
     """
     device_client.post("/api/device/connect")
+    device_client.post("/api/device/audio-source", json={"name": "THROUGH"})
     body = device_client.post("/api/device/volume", json={"volume_db": -20}).json()
     assert body["volume_db"] == -20
     assert body["source_mode"] == "THROUGH"
@@ -225,7 +226,7 @@ def test_play_ready_is_sent_and_the_audio_state_comes_back(
     answer = device_client.post("/api/device/play-ready")
 
     assert answer.status_code == 200
-    assert answer.json()["source_mode"] == "THROUGH"
+    assert answer.json()["source_mode"] == "CAR_SOURCE"
 
 
 def test_play_ready_without_a_unit_answers_503(device_client: TestClient) -> None:
@@ -241,6 +242,7 @@ def test_setting_the_volume_ends_with_play_ready_after_the_mode_comes_back(
     back, and a return to THROUGH alone leaves the car silent until PLAY_READY
     follows it."""
     device_client.post("/api/device/connect")
+    device_client.post("/api/device/audio-source", json={"name": "THROUGH"})
     transport = unit.require_session().transport
     sent_before = len(transport.command_order)
 
@@ -250,6 +252,41 @@ def test_setting_the_volume_ends_with_play_ready_after_the_mode_comes_back(
     # read mode, to OTHER, write volume, back to THROUGH, PLAY_READY, then the
     # four reads that build the reply.
     assert sent == [0x0C, 0x0B, 0x0D, 0x0B, 0x1A, 0x0C, 0x0E, 0x10, 0x11]
+
+
+def test_a_volume_the_unit_takes_needs_no_mode_change(
+    device_client: TestClient, unit: DeqDevice
+) -> None:
+    """A mode change cuts the audio for a moment. On CAR_SOURCE the route
+    writes first, and a write that took needs nothing more."""
+    device_client.post("/api/device/connect")
+    transport = unit.require_session().transport
+    sent_before = len(transport.command_order)
+
+    body = device_client.post("/api/device/volume", json={"volume_db": -20}).json()
+
+    sent = transport.command_order[sent_before:]
+    # read mode, write volume, then the four reads of the reply.
+    assert sent == [0x0C, 0x0D, 0x0C, 0x0E, 0x10, 0x11]
+    assert body["volume_db"] == -20
+
+
+def test_a_refused_volume_moves_the_mode_and_puts_it_back(
+    device_client: TestClient, unit: DeqDevice
+) -> None:
+    """The unit refuses with STATUS -6. The route catches that, moves the
+    mode and writes again, and the link stays up."""
+    device_client.post("/api/device/connect")
+    transport = unit.require_session().transport
+    # Suppose CAR_SOURCE (3) refuses too, as THROUGH does.
+    transport.volume_refused_in_modes = {3, 4}
+    sent_before = len(transport.command_order)
+
+    body = device_client.post("/api/device/volume", json={"volume_db": -20}).json()
+
+    sent = transport.command_order[sent_before:]
+    assert sent[:6] == [0x0C, 0x0D, 0x0B, 0x0D, 0x0B, 0x1A]
+    assert unit.state().connected
 
 
 def test_changing_the_audio_source_is_followed_by_play_ready(

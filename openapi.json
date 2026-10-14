@@ -382,7 +382,7 @@
           "device"
         ],
         "summary": "Set Volume",
-        "description": "Sets the master volume, in dB.\n\nThe unit refuses a volume write with STATUS -6 while it holds THROUGH, and\ntakes one on an OTHER mode. So this route moves the mode, writes, and puts\nthe mode back. `scripts/probe_audio_output.py` does the same dance. Without\nit, the app could not set a volume before.",
+        "description": "Sets the master volume, in dB.\n\nThe unit refuses a volume write with STATUS -6 while it holds THROUGH, and\ntakes one on an OTHER mode. Nobody measured CAR_SOURCE yet. So this route\nwrites first. Only a refusal makes it move the mode, write again, and put\nthe mode back. The refusal must not escape: `DeqDevice.run` drops the link\non any session error, and a refused volume is no broken link.\n`scripts/probe_audio_output.py` does the same dance. A mode change cuts\nthe audio for a moment, so the route avoids one that the unit does not\nneed.",
         "operationId": "set_volume_api_device_volume_post",
         "requestBody": {
           "content": {
