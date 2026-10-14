@@ -50,7 +50,7 @@ A test refuses a pull request that loses a placeholder, so Weblate will not let
 this one through.
 
 **Keep the short strings short.** These sit in a header, a tab, or a badge. The
-app cuts long text off: `connectShort`, `revertShort`, `saveShort`,
+app cuts long text off: `revertShort`, `saveShort`,
 `speakerPioneerShort`, `speakerStockShort`, `tabEq`, `tabStyle`.
 
 **Keep these words as they are:** DEQ, EQ, Pioneer, Carrozzeria, Mazda.

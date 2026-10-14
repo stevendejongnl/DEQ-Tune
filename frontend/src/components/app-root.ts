@@ -84,8 +84,8 @@ function editBadgeText(strings: UiStrings, editCount: number): string {
 
 /**
  * Top-level page: loads profiles from the backend and wires the
- * profile sidebar, EQ editor, speaker panel, USB connect stub, and
- * language switcher together.
+ * profile sidebar, EQ editor, speaker panel, DSP and audio panels,
+ * device status pill, and language switcher together.
  *
  * One shell serves three layouts. The sidebar is permanent on desktop,
  * a drawer on tablet, and a bottom sheet on the phone. The phone layout
@@ -363,8 +363,6 @@ export class AppRoot extends LitElement {
     `;
   }
 
-  /** The connect message is a toast under the header on the desktop,
-   * and a banner at the top of the content on a touch layout. */
   /** The phone header replaces the wordmark and the profiles button
    * with the selected profile, which opens the sheet. */
   private renderPhoneProfileButton(strings: UiStrings): TemplateResult {
@@ -519,9 +517,10 @@ export class AppRoot extends LitElement {
   }
 
   /** The ids this panel offers are the unit's own value sets, read once
-   * at startup. A unit that is not connected (or has not yet responded)
-   * shows an empty panel rather than a guessed list. See dsp-presets.ts
-   * for why there is no local fallback list any more. */
+   * at startup. The backend reads them from the Pioneer app's enums, so
+   * the request needs no connected unit. A failed request leaves the panel
+   * empty, and the app shows no guessed list. See dsp-presets.ts for why
+   * there is no local fallback list any more. */
   private async loadDeviceOptions(): Promise<void> {
     try {
       const options = await this.api.readDeviceOptions();
@@ -531,8 +530,8 @@ export class AppRoot extends LitElement {
       ) as LiveSimulationId[];
       this.audioSourceNames = options.audio_sources.map((value) => value.name);
     } catch {
-      // The unit is not reachable yet. The panel stays empty until a
-      // later connect succeeds. device-status.ts already reports why.
+      // The backend is out of reach, so the panel stays empty until the
+      // next page load. device-status.ts reports the link in the header.
     }
   }
 

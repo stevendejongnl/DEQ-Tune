@@ -8,9 +8,9 @@ import { defineConfig, devices } from "@playwright/test";
  * tests next to their components. These tests use `.spec.ts` under `e2e/`,
  * so the two runners never pick up each other's files.
  *
- * The backend runs with `DEQ_TRANSPORT=fake`, so the unit the tests connect
- * to is the fake DEQ. No hardware, and the replies are the ones measured
- * from a real DEQ-S1000A2.
+ * The backend runs with `DEQ_TRANSPORT=fake`, so the unit that the backend
+ * connects to is the fake DEQ. No hardware, and the replies are the ones
+ * measured from a real DEQ-S1000A2.
  */
 const FRONTEND_PORT = 5273;
 // `vite.config.ts` proxies /api to this port, so the e2e backend uses it too.

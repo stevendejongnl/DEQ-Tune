@@ -52,14 +52,11 @@ const CONNECTED: DeviceDto = {
 /**
  * An in-memory `DeviceApi` fixture: real behaviour, no network, no mocking.
  *
- * It answers as a unit the backend can reach. You set `refuses` to make the
- * link fail, or `unreachable` to make the request fail the way an
- * out-of-reach bridge does. It records what the app asked it to send.
+ * It answers as a unit the backend can reach, and it records what the app
+ * asked it to send. You set `unreachable` to make the request fail the way
+ * an out-of-reach bridge does.
  */
 export class FakeDeviceApi implements DeviceApi {
-  /** Set before connecting to see how the UI reports a failure. */
-  refuses: string | null = null;
-
   /** Set to make every call reject, the way `fetch` does when the phone
    * is not on the bridge's network. That is a different state from a
    * bridge that answers and reports the unit as down. */
@@ -102,10 +99,6 @@ export class FakeDeviceApi implements DeviceApi {
   }
 
   async connectDevice(): Promise<DeviceDto> {
-    if (this.refuses !== null) {
-      this.device = { ...DISCONNECTED, problem: this.refuses };
-      return this.device;
-    }
     this.device = CONNECTED;
     return this.device;
   }

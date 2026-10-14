@@ -1,19 +1,24 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 /**
  * The device flow, through a real browser and a real backend.
  *
  * The backend runs with `DEQ_TRANSPORT=fake`, so the unit on the other end
  * is the fake DEQ, which answers with the replies measured from a real
- * DEQ-S1000A2. A pass here means the whole path works: a click in the
- * header reaches the session layer and the unit's own answer comes back.
+ * DEQ-S1000A2. The backend connects to it by itself, and the header only
+ * reports the link. A pass here means the whole path works: the backend's
+ * own connection reaches the header, and a click in the app reaches the unit.
  */
 
 /** The app is one web component tree, so every locator reaches into shadow
  * DOM. Playwright pierces shadow roots for CSS selectors, so a plain CSS
  * selector finds the pill. */
-const DEVICE_PILL = "device-status .pill";
-const CONNECT_BUTTON = "device-status button.connect";
+const DEVICE_PILL = "device-status device-pill";
+const PILL_DOT = "device-status .dot";
+
+/** The firmware version that the real unit reported in the captured
+ * accessory string. The fake DEQ reports the same one. */
+const FAKE_UNIT_FIRMWARE = "2.02";
 
 /** Noise the Vite dev server makes, which says nothing about the app.
  *
@@ -43,11 +48,31 @@ async function openApp(page: Page): Promise<string[]> {
   return consoleErrors;
 }
 
+/** Waits until the backend reports a live link. The backend retries every
+ * few seconds, so a test that dropped the link waits here for the retry. */
+async function waitForTheBackendToConnect(request: APIRequestContext): Promise<void> {
+  await expect
+    .poll(async () => (await (await request.get("/api/device")).json()).connected)
+    .toBe(true);
+}
+
+/** Reads the colour that a CSS token resolves to, in the form that
+ * `getComputedStyle` returns, so a test can compare it to a computed colour. */
+async function resolveColourToken(page: Page, tokenName: string): Promise<string> {
+  return page.evaluate((name) => {
+    const probe = document.createElement("div");
+    probe.style.backgroundColor = `var(${name})`;
+    document.body.append(probe);
+    const resolved = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return resolved;
+  }, tokenName);
+}
+
 test.beforeEach(async ({ request }) => {
-  // The backend keeps one unit for the whole process, so each test starts
-  // from a disconnected one. This needs no page, so it does not navigate:
-  // a second `goto` to the same URL can wait for a load that never fires.
-  await request.post("/api/device/disconnect");
+  // The backend keeps one unit for the whole process, and one test drops
+  // the link on purpose. Each test starts once the backend has it again.
+  await waitForTheBackendToConnect(request);
 });
 
 test("the app loads with no console errors of its own", async ({ page }) => {
@@ -56,44 +81,36 @@ test("the app loads with no console errors of its own", async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
-test("the header offers a connect button while no unit is connected", async ({ page }) => {
+test("the header shows the unit and its firmware version without a click", async ({ page }) => {
   await openApp(page);
 
-  await expect(page.locator(DEVICE_PILL)).toContainText("DEQ not connected");
-  await expect(page.locator(CONNECT_BUTTON)).toBeVisible();
+  await expect(page.locator(DEVICE_PILL)).toContainText("DEQ connected");
+  await expect(page.locator(DEVICE_PILL)).toContainText(FAKE_UNIT_FIRMWARE);
+  await expect(page.locator("device-status button")).toHaveCount(0);
 });
 
-test("connecting shows the unit's own firmware version", async ({ page }) => {
-  await openApp(page);
+test("the backend connects again by itself after the link drops", async ({ request }) => {
+  const dropped = await (await request.post("/api/device/disconnect")).json();
+  expect(dropped.connected).toBe(false);
 
-  await page.locator(CONNECT_BUTTON).click();
-
-  // 2.02 is what the real unit reported in the captured accessory string.
-  await expect(page.locator(DEVICE_PILL)).toContainText("DEQ connected");
-  await expect(page.locator(DEVICE_PILL)).toContainText("2.02");
-  await expect(page.locator(CONNECT_BUTTON)).toHaveCount(0);
+  await waitForTheBackendToConnect(request);
 });
 
-test("the pill's dot turns to the accent colour once connected", async ({ page }) => {
+test("the pill's dot has the accent colour while connected", async ({ page }) => {
   await openApp(page);
-  const dot = page.locator("device-status .dot");
-  const idleColour = await dot.evaluate((element) => getComputedStyle(element).backgroundColor);
-
-  await page.locator(CONNECT_BUTTON).click();
   await expect(page.locator(DEVICE_PILL)).toContainText("DEQ connected");
 
-  // The nested CSS rule `.pill.connected & { }` sets this colour, and jsdom
-  // cannot parse that rule. Only a real browser can check it.
-  const connectedColour = await dot.evaluate(
-    (element) => getComputedStyle(element).backgroundColor,
-  );
-  expect(connectedColour).not.toBe(idleColour);
+  // The nested CSS rule `:host([linkstate="connected"]) & { }` sets this
+  // colour, and jsdom cannot parse that rule. Only a real browser can check it.
+  const dotColour = await page
+    .locator(PILL_DOT)
+    .evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(dotColour).toBe(await resolveColourToken(page, "--color-accent"));
 });
 
 test("the connected state survives a reload, because the backend holds it", async ({ page }) => {
   await openApp(page);
-  await page.locator(CONNECT_BUTTON).click();
-  await expect(page.locator(DEVICE_PILL)).toContainText("2.02");
+  await expect(page.locator(DEVICE_PILL)).toContainText(FAKE_UNIT_FIRMWARE);
 
   await page.reload();
 
@@ -102,8 +119,7 @@ test("the connected state survives a reload, because the backend holds it", asyn
 
 test("an EQ style choice reaches the unit", async ({ page }) => {
   await openApp(page);
-  await page.locator(CONNECT_BUTTON).click();
-  await expect(page.locator(DEVICE_PILL)).toContainText("2.02");
+  await expect(page.locator(DEVICE_PILL)).toContainText(FAKE_UNIT_FIRMWARE);
   await page.locator("profile-list li button, profile-list .tile").first().click();
 
   const styleTile = page.locator("dsp-panel .tile").first();
@@ -116,12 +132,9 @@ test("an EQ style choice reaches the unit", async ({ page }) => {
   expect((await pushed).status()).toBe(200);
 });
 
-test("pushing a profile sends the three coefficient blocks", async ({ page }) => {
-  await openApp(page);
-  await page.request.post("/api/device/connect");
-
-  const profiles = await (await page.request.get("/api/profiles")).json();
-  const response = await page.request.post(`/api/device/tuning/${profiles[0].id}`);
+test("pushing a profile sends the three coefficient blocks", async ({ request }) => {
+  const profiles = await (await request.get("/api/profiles")).json();
+  const response = await request.post(`/api/device/tuning/${profiles[0].id}`);
 
   expect(response.status()).toBe(200);
   expect(await response.json()).toMatchObject({ connected: true });
@@ -130,7 +143,9 @@ test("pushing a profile sends the three coefficient blocks", async ({ page }) =>
 test("the unit's option lists are the app's own, not a shortened copy", async ({ request }) => {
   const options = await (await request.get("/api/device/options")).json();
 
-  // 21 EQ styles and 8 live-simulation modes, read from the Pioneer APK.
-  expect(options.eq_styles).toHaveLength(21);
-  expect(options.live_simulations).toHaveLength(8);
+  // The app's 21 EQ styles and 8 live-simulation modes, read from the
+  // Pioneer APK, without the `UNKNOWN` value that a decoder returns.
+  expect(options.eq_styles).toHaveLength(20);
+  expect(options.live_simulations).toHaveLength(7);
 });
+

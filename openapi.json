@@ -264,7 +264,7 @@
           "device"
         ],
         "summary": "Connect Device",
-        "description": "Opens the link and runs the unit's startup sequence.\n\nA failure is reported in the body, not as an error status: the frontend\nshows the reason in the header rather than treating it as a broken\nrequest.",
+        "description": "Opens the link and runs the unit's startup sequence.\n\n`LinkKeeper` connects by itself, so the frontend does not call this route.\nThis route reports a failure in the body, and not as an error status. An\nunplugged unit is a normal state, and not a broken request.",
         "operationId": "connect_device_api_device_connect_post",
         "responses": {
           "200": {
@@ -307,7 +307,7 @@
           "device"
         ],
         "summary": "Read Audio State",
-        "description": "Reads what the unit is doing with sound, live from the unit.\n\nFour reads in one action, so they are one lock and one consistent\npicture rather than four that can interleave with another caller.\n\nThis is not part of `GET /api/device` on purpose: that one is polled\nby the header and never opens a link, and these cost USB exchanges.",
+        "description": "Reads what the unit is doing with sound, live from the unit.\n\nFour reads in one action, so they share one lock and give one consistent\npicture. Four separate reads could interleave with another caller.\n\nThis route stays out of `GET /api/device` on purpose. The header polls that\nroute, and it never opens a link. These reads cost USB exchanges.",
         "operationId": "read_audio_state_api_device_audio_get",
         "responses": {
           "200": {
@@ -329,7 +329,7 @@
           "device"
         ],
         "summary": "Set Volume",
-        "description": "Sets the master volume, in dB.\n\nThe unit refuses a volume write with STATUS -6 while it holds\nTHROUGH, and takes one on an OTHER mode, so this moves the mode,\nwrites, and puts the mode back. That is the same dance\n`scripts/probe_audio_output.py` does, and the reason a volume could\nnot be set from the app before.",
+        "description": "Sets the master volume, in dB.\n\nThe unit refuses a volume write with STATUS -6 while it holds THROUGH, and\ntakes one on an OTHER mode. So this route moves the mode, writes, and puts\nthe mode back. `scripts/probe_audio_output.py` does the same dance. Without\nit, the app could not set a volume before.",
         "operationId": "set_volume_api_device_volume_post",
         "requestBody": {
           "content": {
@@ -358,6 +358,28 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/device/play-ready": {
+      "post": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Send Play Ready",
+        "description": "Tells the unit this device is ready to play audio (0x1a).\n\nThe real app sends it at the end of every cold start, and so does the\nconnect sequence here. Without it the car stayed silent for as long as the\nPi stayed attached. Sent alone in a car on 2026-10-11, it brought the audio\nback at once. This endpoint stays as a lever for a link that is up but\nsilent. It has no body and the reply is a status only.",
+        "operationId": "send_play_ready_api_device_play_ready_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioStateRead"
                 }
               }
             }
@@ -562,7 +584,7 @@
           "bridge"
         ],
         "summary": "Read Bridge",
-        "description": "Returns the bridge's health, and everything it has gone wrong with.\n\nReading raises a notice when the health says so, which is what makes\na power dip outlive itself: the live reading recovers, and the notice\nstays until the bridge restarts.",
+        "description": "Returns the bridge's health, and everything that went wrong with it.\n\nA read raises a notice when the health says so. That lets a power dip\noutlive itself: the live reading recovers, and the notice stays until the\nbridge restarts.",
         "operationId": "read_bridge_api_bridge_get",
         "responses": {
           "200": {
@@ -653,7 +675,7 @@
           "driving"
         ],
         "title": "AudioStateRead",
-        "description": "What the unit is actually doing with sound, read live from it.\n\nDeliberately separate from `DeviceRead`. That one is polled by the\nheader and never opens a link; every field here costs a request and a\nreply over USB, so asking for them is a choice the caller makes.\n\nThis exists because a tuning can apply perfectly and still produce\nsilence, and until now nothing said so: on 2026-10-09 profiles and EQ\nstyles were applied in a car with no sound at all, and there was no\nway to see whether the unit was muted, near the bottom of its volume\nrange, or holding a source that plays nothing."
+        "description": "What the unit does with sound, read live from it.\n\nA separate model from `DeviceRead`, on purpose. The header polls that one,\nand it never opens a link. Every field here costs a request and a reply\nover USB. So the caller chooses when to ask for them.\n\nThis model exists because a tuning can apply without error and still give\nsilence, and nothing said so before. On 2026-10-09 a person applied\nprofiles and EQ styles in a car with no sound at all. The app could not\nshow whether the unit was on mute, near the bottom of its volume range, or\non a source that plays nothing."
       },
       "BridgeNoticeRead": {
         "properties": {
@@ -692,7 +714,7 @@
           "count"
         ],
         "title": "BridgeNoticeRead",
-        "description": "One fault the bridge has seen since it started."
+        "description": "One fault that the bridge saw since it started."
       },
       "BridgeRead": {
         "properties": {
@@ -740,7 +762,7 @@
         },
         "type": "object",
         "title": "BridgeRead",
-        "description": "What the app shows about the machine holding the link.\n\nThis is the bridge, not the DEQ. The two fail for different reasons\nand ask different things of a person: a DEQ that is off is normal,\nand a bridge that is browning out is a fault in the wiring.\n\nThe undervoltage fields are `None` where the machine cannot tell. A\nlaptop has no `vcgencmd`, and `False` would be a claim it cannot\nmake."
+        "description": "What the app shows about the machine that holds the link.\n\nThis model describes the bridge, and not the DEQ. The two fail for\ndifferent reasons and ask different things of a person. A DEQ that is off\nis normal. A bridge that browns out has a fault in the wiring.\n\nThe undervoltage fields are `None` where the machine cannot tell. A laptop\nhas no `vcgencmd`, and `False` would be a claim it cannot make."
       },
       "CancellingEq": {
         "properties": {
@@ -1121,7 +1143,7 @@
           "banks"
         ],
         "title": "LRBank",
-        "description": "A combined L+R graphic-EQ slot. `banks` holds one 13-value gain\narray per storable bank (device has multiple slots); `selectedBank`\npicks which one is active. Frequencies follow the fixed 13-band\ntable also given explicitly per-channel in `expandEq` (50Hz-12.5kHz,\ndoubling)."
+        "description": "A combined L+R graphic-EQ slot. `banks` holds one 13-value gain array\nper storable bank (the device has multiple slots). `selectedBank` picks\nwhich one is active. Frequencies follow the fixed 13-band table that\n`expandEq` also gives explicitly per channel (50Hz-12.5kHz, doubling)."
       },
       "LiveSimulationWrite": {
         "properties": {
@@ -1379,7 +1401,7 @@
           "timeAlignment"
         ],
         "title": "TuningData",
-        "description": "Everything except `header` \u2014 the part that's actually editable\nin the EQ UI and (eventually) written to the device."
+        "description": "Everything except `header`: the part that the EQ UI edits, and that the\nbackend writes to the device."
       },
       "ValidationError": {
         "properties": {

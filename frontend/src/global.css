@@ -27,7 +27,7 @@
   --color-on-accent:  #1a1206;
   --color-reference:  #7fb8d4;   /* factory ghost curve, "reset band" link */
 
-  /* warning surface (connect errors) */
+  /* warning surface. No component uses these two tokens. */
   --color-warn-bg:    #2a211a;
   --color-warn-border:#5a4126;
 

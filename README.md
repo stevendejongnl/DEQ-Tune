@@ -39,12 +39,19 @@ A `Makefile` at the repo root wraps the commands below. Run `make` or `make help
 ```bash
 make install        # install backend and frontend dependencies
 make dev             # run backend (8420) and frontend (5173) dev servers together
+make dev-backend     # run only the backend dev server (8420)
+make dev-frontend    # run only the frontend dev server (5173)
+make dev-sim         # run the whole stack against the simulated DEQ
+make dev-simulator   # run only the backend against the simulated DEQ
+make console         # change what the simulated DEQ reports
+make warm            # fill the frontend's dependency cache
 make test            # run backend and frontend tests
 make e2e             # run the end-to-end tests in a real browser
 make e2e-install     # install the browser those tests need, once
 make typecheck       # type-check the frontend
 make generate-dto    # regenerate frontend DTOs from the backend schema
-make clean           # remove .venv, node_modules, and the local database
+make check-real-deq  # run the hardware check against a real unit
+make clean           # remove .venv, node_modules, the local database and the simulator state
 ```
 
 ## Run it locally
@@ -138,7 +145,7 @@ to, Pioneer.
   The unit keeps two equalizer banks. The Pioneer app offers them as "Custom A" and "Custom B", because it has nowhere else to keep a curve. This app keeps named profiles instead, so it shows one "Custom" entry. The bank is only where a profile lands: a style write goes to the bank that `bank_in_use` names.
 - **Browsers**: all of them. The backend owns the USB link, so the frontend needs no WebUSB and the app has no browser requirement. It once blocked Safari, Firefox and iOS for a capability it no longer uses.
 - **DSP coefficients**: works. `backend/app/deq_dsp.py` computes the numbers the DEQ expects: the 13-band equalizer, the crossover filters, and the time alignment. The DEQ designs no filters of its own. The Android app sends finished coefficients, so this app has to produce the same ones. The tests check the maths against coefficients captured from the Android app's own designer library (`backend/app/deq_dsp_reference.json`, 253 cases). The maths matches to within one Q27 step. The equalizer needs one step beyond filter design. The library spreads every band's gain over the other bands before it designs a biquad. So two raised bands are not two independent peakers. `fit_equalizer_gains` reproduces that step from the library's own constant tables. `conformance/flows.json` then checks whole payloads, byte for byte, against what the Android app produces (`backend/app/test_conformance.py`).
-- **Driving the unit**: works, apart from the wire. `backend/app/deq_session.py` runs the unit's own startup sequence and matches every reply to its request. It sends a profile's DSP settings as the three blocks of command `0x05` that the unit wants. The equalizer goes under CONFIG_ID 13, the time alignment under 10, and the crossover under 11 or 12. Each of those CONFIG_IDs comes from the APK's own dispatch table. Each payload size matches the field width that table declares. `backend/app/deq_protocol.py` reads and writes the wire format. `backend/app/deq_commands.json` lists every command's fields in both directions, generated from the Android app's field enums. `backend/app/deq_blob.py` reads and writes the settings blob: speaker mode, both equalizer banks, crossovers, per-speaker values.
+- **Driving the unit**: works, against a real unit through the Pi (see **A real unit** below). `backend/app/deq_session.py` runs the unit's own startup sequence and matches every reply to its request. It sends a profile's DSP settings as the three blocks of command `0x05` that the unit wants. The equalizer goes under CONFIG_ID 13, the time alignment under 10, and the crossover under 11 or 12. Each of those CONFIG_IDs comes from the APK's own dispatch table. Each payload size matches the field width that table declares. `backend/app/deq_protocol.py` reads and writes the wire format. `backend/app/deq_commands.json` lists every command's fields in both directions, generated from the Android app's field enums. `backend/app/deq_blob.py` reads and writes the settings blob: speaker mode, both equalizer banks, crossovers, per-speaker values.
 
   A profile carries only a front and a rear high-pass filter. Those two are the first of the unit's five crossover slots. The person sets the rest on the unit itself. So a push reads the unit's stored crossover and keeps those slots, and does not send Pass over them. Pass would write identity biquads into the audio path while the blob still named a frequency and a slope. The unit would then disagree with itself.
 
@@ -179,7 +186,7 @@ make console    # in a second terminal, to change what it reports
 
   The gadget program owns the USB handle. The backend does not. The gadget answers the mode-switch request and re-enumerates the gadget. It puts the accessory interface where the unit expects it. It feeds the audio function that the unit demands before it will talk. The backend does none of that work. Two programs also cannot share the handle, because two writers on one link interleave frames. So the gadget keeps the handle and relays whole frames over a Unix socket. `accessory_transport.py` is the other end of that socket. While the backend holds the socket, the gadget sends nothing of its own: no cold start and no keepalive. The backend's session carries both. When the backend detaches, the gadget takes the link back, so the link does not drop. The SysEx framing and all command parsing stay in `deq_protocol.py`, unchanged. The gadget program itself is not in this repository.
 
-- **A real unit**: answering. A DEQ-S1000A2 in a car answered all ten commands of the read-only cold start, each with `STATUS 0`. It sent its firmware version (2.02), its device id, and 2032 bytes of tuning state. This app's own blob decoder read that state on the first try. So the hardware itself backs the protocol work, and not only the captures.
+- **A real unit**: answering. A DEQ-S1000A2 in a car answered all ten commands of the read-only cold start, each with `STATUS 0`. It sent its firmware version (2.02), its device id, and 2032 bytes of tuning state. This app's own blob decoder read that state on the first try. The same day, `check_real_deq.py --write` wrote the unit's own settings back, and the unit kept every byte. So the hardware itself backs the protocol work, and not only the captures.
 
   The road there had four bugs worth knowing about, because any reimplementation inherits them. The session must open with `0x00`, and that frame must carry its 24-byte body. The unit answers an empty one with `STATUS -5` in 40ms and then ignores it. That reads like success if nobody checks `STATUS`. Every capture shows `0x02` as the opener instead, because every capture started mid-session. The accessory interface has to land at index 2, and the audio function has to be a source rather than a sink.
 

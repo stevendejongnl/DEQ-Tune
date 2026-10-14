@@ -2,9 +2,9 @@
 """Checks this app against a real DEQ unit.
 
 This project came from the Pioneer app and from captured traffic, with a fake
-unit in place of the hardware. Before this script, no real unit answered it.
-This script closes that gap: plug a DEQ in, run the script, and read what
-matched.
+unit in place of the hardware. This script checks that work against the
+hardware. Plug a DEQ in, run the script, and read what matched. A DEQ-S1000A2
+passed every check, reads and writes, on 2026-10-08.
 
     cd backend
     PYTHONPATH=. uv run python scripts/check_real_deq.py

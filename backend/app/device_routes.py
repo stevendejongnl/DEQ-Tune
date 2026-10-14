@@ -47,9 +47,9 @@ def read_device(unit: DeqDevice = Depends(get_device)) -> DeviceRead:
 def connect_device(unit: DeqDevice = Depends(get_device)) -> DeviceRead:
     """Opens the link and runs the unit's startup sequence.
 
-    This route reports a failure in the body, and not as an error status. The
-    frontend shows the reason in the header, and does not treat it as a broken
-    request.
+    `LinkKeeper` connects by itself, so the frontend does not call this route.
+    This route reports a failure in the body, and not as an error status. An
+    unplugged unit is a normal state, and not a broken request.
     """
     return DeviceRead(**vars(unit.connect()))
 

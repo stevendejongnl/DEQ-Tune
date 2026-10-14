@@ -91,9 +91,9 @@ export interface paths {
          * Connect Device
          * @description Opens the link and runs the unit's startup sequence.
          *
-         *     A failure is reported in the body, not as an error status: the frontend
-         *     shows the reason in the header rather than treating it as a broken
-         *     request.
+         *     `LinkKeeper` connects by itself, so the frontend does not call this route.
+         *     This route reports a failure in the body, and not as an error status. An
+         *     unplugged unit is a normal state, and not a broken request.
          */
         post: operations["connect_device_api_device_connect_post"];
         delete?: never;
@@ -130,11 +130,11 @@ export interface paths {
          * Read Audio State
          * @description Reads what the unit is doing with sound, live from the unit.
          *
-         *     Four reads in one action, so they are one lock and one consistent
-         *     picture rather than four that can interleave with another caller.
+         *     Four reads in one action, so they share one lock and give one consistent
+         *     picture. Four separate reads could interleave with another caller.
          *
-         *     This is not part of `GET /api/device` on purpose: that one is polled
-         *     by the header and never opens a link, and these cost USB exchanges.
+         *     This route stays out of `GET /api/device` on purpose. The header polls that
+         *     route, and it never opens a link. These reads cost USB exchanges.
          */
         get: operations["read_audio_state_api_device_audio_get"];
         put?: never;
@@ -158,13 +158,38 @@ export interface paths {
          * Set Volume
          * @description Sets the master volume, in dB.
          *
-         *     The unit refuses a volume write with STATUS -6 while it holds
-         *     THROUGH, and takes one on an OTHER mode, so this moves the mode,
-         *     writes, and puts the mode back. That is the same dance
-         *     `scripts/probe_audio_output.py` does, and the reason a volume could
-         *     not be set from the app before.
+         *     The unit refuses a volume write with STATUS -6 while it holds THROUGH, and
+         *     takes one on an OTHER mode. So this route moves the mode, writes, and puts
+         *     the mode back. `scripts/probe_audio_output.py` does the same dance. Without
+         *     it, the app could not set a volume before.
          */
         post: operations["set_volume_api_device_volume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device/play-ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Play Ready
+         * @description Tells the unit this device is ready to play audio (0x1a).
+         *
+         *     The real app sends it at the end of every cold start, and so does the
+         *     connect sequence here. Without it the car stayed silent for as long as the
+         *     Pi stayed attached. Sent alone in a car on 2026-10-11, it brought the audio
+         *     back at once. This endpoint stays as a lever for a link that is up but
+         *     silent. It has no body and the reply is a status only.
+         */
+        post: operations["send_play_ready_api_device_play_ready_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -280,11 +305,11 @@ export interface paths {
         };
         /**
          * Read Bridge
-         * @description Returns the bridge's health, and everything it has gone wrong with.
+         * @description Returns the bridge's health, and everything that went wrong with it.
          *
-         *     Reading raises a notice when the health says so, which is what makes
-         *     a power dip outlive itself: the live reading recovers, and the notice
-         *     stays until the bridge restarts.
+         *     A read raises a notice when the health says so. That lets a power dip
+         *     outlive itself: the live reading recovers, and the notice stays until the
+         *     bridge restarts.
          */
         get: operations["read_bridge_api_bridge_get"];
         put?: never;
@@ -323,17 +348,17 @@ export interface components {
         };
         /**
          * AudioStateRead
-         * @description What the unit is actually doing with sound, read live from it.
+         * @description What the unit does with sound, read live from it.
          *
-         *     Deliberately separate from `DeviceRead`. That one is polled by the
-         *     header and never opens a link; every field here costs a request and a
-         *     reply over USB, so asking for them is a choice the caller makes.
+         *     A separate model from `DeviceRead`, on purpose. The header polls that one,
+         *     and it never opens a link. Every field here costs a request and a reply
+         *     over USB. So the caller chooses when to ask for them.
          *
-         *     This exists because a tuning can apply perfectly and still produce
-         *     silence, and until now nothing said so: on 2026-10-09 profiles and EQ
-         *     styles were applied in a car with no sound at all, and there was no
-         *     way to see whether the unit was muted, near the bottom of its volume
-         *     range, or holding a source that plays nothing.
+         *     This model exists because a tuning can apply without error and still give
+         *     silence, and nothing said so before. On 2026-10-09 a person applied
+         *     profiles and EQ styles in a car with no sound at all. The app could not
+         *     show whether the unit was on mute, near the bottom of its volume range, or
+         *     on a source that plays nothing.
          */
         AudioStateRead: {
             /** Source Mode */
@@ -351,7 +376,7 @@ export interface components {
         };
         /**
          * BridgeNoticeRead
-         * @description One fault the bridge has seen since it started.
+         * @description One fault that the bridge saw since it started.
          */
         BridgeNoticeRead: {
             /** Key */
@@ -369,15 +394,14 @@ export interface components {
         };
         /**
          * BridgeRead
-         * @description What the app shows about the machine holding the link.
+         * @description What the app shows about the machine that holds the link.
          *
-         *     This is the bridge, not the DEQ. The two fail for different reasons
-         *     and ask different things of a person: a DEQ that is off is normal,
-         *     and a bridge that is browning out is a fault in the wiring.
+         *     This model describes the bridge, and not the DEQ. The two fail for
+         *     different reasons and ask different things of a person. A DEQ that is off
+         *     is normal. A bridge that browns out has a fault in the wiring.
          *
-         *     The undervoltage fields are `None` where the machine cannot tell. A
-         *     laptop has no `vcgencmd`, and `False` would be a claim it cannot
-         *     make.
+         *     The undervoltage fields are `None` where the machine cannot tell. A laptop
+         *     has no `vcgencmd`, and `False` would be a claim it cannot make.
          */
         BridgeRead: {
             /** Undervoltage Now */
@@ -524,11 +548,10 @@ export interface components {
         };
         /**
          * LRBank
-         * @description A combined L+R graphic-EQ slot. `banks` holds one 13-value gain
-         *     array per storable bank (device has multiple slots); `selectedBank`
-         *     picks which one is active. Frequencies follow the fixed 13-band
-         *     table also given explicitly per-channel in `expandEq` (50Hz-12.5kHz,
-         *     doubling).
+         * @description A combined L+R graphic-EQ slot. `banks` holds one 13-value gain array
+         *     per storable bank (the device has multiple slots). `selectedBank` picks
+         *     which one is active. Frequencies follow the fixed 13-band table that
+         *     `expandEq` also gives explicitly per channel (50Hz-12.5kHz, doubling).
          */
         LRBank: {
             /** Islocked */
@@ -611,8 +634,8 @@ export interface components {
         };
         /**
          * TuningData
-         * @description Everything except `header` — the part that's actually editable
-         *     in the EQ UI and (eventually) written to the device.
+         * @description Everything except `header`: the part that the EQ UI edits, and that the
+         *     backend writes to the device.
          */
         TuningData: {
             foundationEq: components["schemas"]["FoundationEq"];
@@ -940,6 +963,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_play_ready_api_device_play_ready_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioStateRead"];
                 };
             };
         };
