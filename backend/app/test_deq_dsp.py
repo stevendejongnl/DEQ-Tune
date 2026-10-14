@@ -25,6 +25,7 @@ from app.deq_dsp import (
     build_equalizer_payload,
     build_time_alignment_block,
     build_time_alignment_payload,
+    convert_wide_bands_to_equalizer_bands,
     decode_sections,
     design_crossover,
     crossover_cutoff_hz,
@@ -139,6 +140,19 @@ def test_an_equalizer_block_repeats_one_curve_over_four_channels() -> None:
 def test_an_equalizer_block_rejects_the_wrong_band_count() -> None:
     with pytest.raises(ValueError):
         build_equalizer_block([0.0] * 12)
+
+
+@pytest.mark.parametrize("row", REFERENCE["band_conversion"])
+def test_31_bands_become_13_exactly_as_the_library_does(row: dict) -> None:
+    """These rows come from `ConvEq31to13` in `libPMGJni.so`, run under an
+    emulator and rounded to float32 as the app keeps them. The equalizer
+    truncates, so the match must be exact, not close."""
+    assert convert_wide_bands_to_equalizer_bands(row["bands31"]) == row["bands13"]
+
+
+def test_band_conversion_rejects_the_wrong_band_count() -> None:
+    with pytest.raises(ValueError):
+        convert_wide_bands_to_equalizer_bands([0.0] * EQUALIZER_BAND_COUNT)
 
 
 def test_the_equalizer_payload_is_two_blocks_of_1040_bytes() -> None:

@@ -41,10 +41,12 @@ from app.deq_enums import AUDIO_SOURCE, EQ_STYLE, LIVE_SIMULATION, MUTE_STATE
 from app.deq_dsp import (
     CROSSOVER_SLOT_COUNT,
     TIME_ALIGNMENT_SLOT_COUNT,
+    WIDE_BAND_COUNT,
     FilterSlope,
     build_crossover_payload,
     build_equalizer_payload,
     build_time_alignment_payload,
+    convert_wide_bands_to_equalizer_bands,
     crossover_slot_settings,
 )
 from app.deq_protocol import (
@@ -667,6 +669,9 @@ def selected_band_gains_db(tuning: TuningData) -> list[float]:
     `foundationEq.eqs` holds one slot per channel group. Each slot stores
     several banks, and `selectedBank` names the live one. A profile in LR mode
     keeps one combined slot. The unit still wants one curve.
+
+    A 31-band bank, as the unit's own tune holds, goes through the app's
+    31-to-13 conversion first.
     """
     slots = tuning.foundationEq.eqs
     if slots == {}:
@@ -677,7 +682,10 @@ def selected_band_gains_db(tuning: TuningData) -> list[float]:
             f"the profile selects bank {slot.selectedBank}, "
             f"but carries only {len(slot.banks)}"
         )
-    return list(slot.banks[slot.selectedBank])
+    gains_db = list(slot.banks[slot.selectedBank])
+    if len(gains_db) == WIDE_BAND_COUNT:
+        return convert_wide_bands_to_equalizer_bands(gains_db)
+    return gains_db
 
 
 def cancelled_band_gains_db(

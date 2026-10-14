@@ -13,9 +13,11 @@ from app.deq_blob import (
     UserConfiguration,
 )
 from app.deq_dsp import (
+    WIDE_BAND_COUNT,
     FilterSlope,
     build_crossover_payload,
     build_equalizer_payload,
+    convert_wide_bands_to_equalizer_bands,
     crossover_slot_settings,
 )
 from app.deq_protocol import Direction, Message, decode_frame, encode_frame
@@ -311,6 +313,24 @@ def test_a_profile_selecting_a_bank_it_does_not_have_raises():
     slot.selectedBank = len(slot.banks)
     with pytest.raises(ValueError, match="selects bank"):
         selected_band_gains_db(tuning)
+
+
+def test_a_31_band_bank_reaches_the_unit_as_13_bands():
+    """The unit's own tune is 31-band. The app converts such a bank before
+    it builds the equalizer, and so does the session."""
+    tuning = load_factory_tuning()
+    slot = tuning.foundationEq.eqs["LR"]
+    wide_gains_db = [float(band % 7) - 3 for band in range(WIDE_BAND_COUNT)]
+    slot.banks[slot.selectedBank] = wide_gains_db
+
+    gains_db = selected_band_gains_db(tuning)
+
+    assert gains_db == convert_wide_bands_to_equalizer_bands(wide_gains_db)
+    fake = FakeDeq()
+    DeqSession(fake).write_equalizer(tuning)
+    assert fake.exchanges[0].request.body[4:] == build_equalizer_payload(
+        cancelled_band_gains_db(tuning, gains_db), gains_db
+    )
 
 
 def load_factory_tuning() -> TuningData:

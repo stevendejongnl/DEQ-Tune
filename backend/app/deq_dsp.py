@@ -25,6 +25,7 @@ unit and the library.
 from __future__ import annotations
 
 import math
+import struct
 from dataclasses import dataclass
 from enum import Enum
 
@@ -47,6 +48,10 @@ EQUALIZER_Q = 4.7
 # One block holds four channels of the same curve.
 EQUALIZER_CHANNELS_PER_BLOCK = 4
 EQUALIZER_BAND_COUNT = len(EQUALIZER_BAND_CENTRES_HZ)
+
+# A 31-band bank holds the ISO third-octave bands from 20 Hz to 20 kHz. The
+# unit's own settings blob stores its tune in this form.
+WIDE_BAND_COUNT = 31
 
 # A crossover slot on Pass lets the signal through untouched.
 IDENTITY_SECTION = (1.0, 0.0, 0.0, 0.0, 0.0)
@@ -363,6 +368,40 @@ def design_equalizer_band(centre_hz: float, gain_db: float) -> Biquad:
         -feedback_first,
         -(1 - denominator_alpha) / scale,
     )
+
+
+def convert_wide_bands_to_equalizer_bands(wide_gains_db: list[float]) -> list[float]:
+    """Returns the 13 equalizer gains for one 31-band bank.
+
+    The app does this with `ConvEq31to13` in `libPMGJni.so`, before it adds
+    the cancelling equalizer. Each output band averages the third-octave
+    bands around its own centre. The end bands take more neighbours.
+
+    The sums follow the library's order, operand for operand. Another order
+    changes the last bit, and the equalizer truncates. The library works in
+    float64 and the app keeps the gains as float32, so this function rounds
+    each input and each result to float32 too.
+    """
+    if len(wide_gains_db) != WIDE_BAND_COUNT:
+        raise ValueError(
+            f"expected {WIDE_BAND_COUNT} band gains, got {len(wide_gains_db)}"
+        )
+    gains = [_to_float32(gain_db) for gain_db in wide_gains_db]
+    lowest = (gains[0] + gains[1] + gains[2] + gains[3] + gains[4] * 5 + gains[5]) / 10
+    middle = [
+        (
+            (gains[2 * band + 3] + (gains[2 * band + 4] + gains[2 * band + 4]))
+            + gains[2 * band + 5]
+        )
+        * 0.25
+        for band in range(1, EQUALIZER_BAND_COUNT - 1)
+    ]
+    highest = (gains[27] + gains[28] * 3 + gains[29] + gains[30]) / 6
+    return [_to_float32(gain_db) for gain_db in [lowest, *middle, highest]]
+
+
+def _to_float32(value: float) -> float:
+    return struct.unpack("<f", struct.pack("<f", value))[0]
 
 
 def build_equalizer_block(band_gains_db: list[float]) -> list[Biquad]:
