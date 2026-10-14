@@ -129,6 +129,10 @@ export class AppRoot extends LitElement {
   @state() private audioBusy = false;
   /** Whether the DEQ link is up, as `device-status` last polled it. */
   @state() private unitConnected = false;
+  /** A custom profile's newest edit that the backend does not hold yet.
+   * The screen shows it at once, and `saveUnsavedEdits` sends it. */
+  @state() private unsavedEdit: { profileId: number; data: TuningDataDto } | null = null;
+  private savingEdits = false;
 
   /** Edits to a factory preset live here until the user saves them. */
   @state() private draft: TuningDataDto | null = null;
@@ -178,6 +182,10 @@ export class AppRoot extends LitElement {
   /** The data the panels show: the draft while it exists, else the
    * stored profile. */
   private get shownData(): TuningDataDto | undefined {
+    const unsaved = this.unsavedEdit;
+    if (unsaved !== null && unsaved.profileId === this.selectedId) {
+      return unsaved.data;
+    }
     return this.draft ?? this.selectedProfile?.data;
   }
 
@@ -785,6 +793,9 @@ export class AppRoot extends LitElement {
   }
 
   private async deleteProfile(id: number): Promise<void> {
+    if (this.unsavedEdit?.profileId === id) {
+      this.unsavedEdit = null;
+    }
     await this.api.deleteProfile(id);
     if (this.selectedId === id) {
       this.selectedId = null;
@@ -821,9 +832,37 @@ export class AppRoot extends LitElement {
       this.draft = data;
       return;
     }
-    this.draft = data;
-    await this.saveProfileData(profile.id, data);
-    this.draft = null;
+    this.unsavedEdit = { profileId: profile.id, data };
+    await this.saveUnsavedEdits();
+  }
+
+  /** Sends custom-profile edits one save at a time, and always the newest.
+   *
+   * A drag fires an edit on every 0.5 dB step. Each one used to start its
+   * own save, and each save put the backend's reply on screen when it came
+   * back. An older reply could land after a newer edit, so the curve jumped
+   * back while the pointer moved on. Now the screen shows the newest edit,
+   * and one save runs at a time. The edits a save missed go in the next one.
+   */
+  private async saveUnsavedEdits(): Promise<void> {
+    if (this.savingEdits) {
+      return;
+    }
+    this.savingEdits = true;
+    try {
+      while (this.unsavedEdit !== null) {
+        const edit = this.unsavedEdit;
+        await this.saveProfileData(edit.profileId, edit.data);
+        if (this.unsavedEdit === edit) {
+          this.unsavedEdit = null;
+        }
+      }
+    } catch {
+      // The backend did not take the edit. The screen keeps it, and the
+      // next edit tries the save again.
+    } finally {
+      this.savingEdits = false;
+    }
   }
 
   private revertToFactory(): void {
@@ -833,7 +872,8 @@ export class AppRoot extends LitElement {
     if (profile === undefined || factory === undefined || profile.source === "factory") {
       return;
     }
-    this.saveProfileData(profile.id, factory);
+    this.unsavedEdit = { profileId: profile.id, data: factory };
+    void this.saveUnsavedEdits();
   }
 
   /** Copies the factory preset, writes the draft into the copy, then

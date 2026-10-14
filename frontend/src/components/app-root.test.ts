@@ -8,7 +8,8 @@ import { createFakeLocaleStorage } from "../i18n/testing/fake-locale-storage.ts"
 import { createFakeLayoutQuery, type FakeLayoutQuery } from "../testing/fake-layout-query.ts";
 import type { AppLayout } from "../layout-query.ts";
 import type { ProfileList } from "./profile-list.ts";
-import type { ProfileDto } from "../dto/profile.dto.ts";
+import type { ProfileDto, ProfileUpdateDto } from "../dto/profile.dto.ts";
+import { equalizerGains } from "../dto/tuning-data-edits.ts";
 
 /** A preset with a star, so the sidebar shows it. Most tests here select a
  * preset through its sidebar chip. */
@@ -55,7 +56,55 @@ function queryProfilesToggle(element: AppRoot): HTMLButtonElement {
   return element.shadowRoot!.querySelector(".profiles-toggle") as HTMLButtonElement;
 }
 
+/** A profile API whose saves wait until the test lets them finish, the way
+ * a save to the Pi can take longer than the next pointer move. */
+class SlowSaveProfileApi extends FakeProfileApi {
+  readonly heldSaves: (() => void)[] = [];
+  readonly savedGains: number[][] = [];
+
+  override async updateProfile(id: number, body: ProfileUpdateDto): Promise<ProfileDto> {
+    await new Promise<void>((release) => this.heldSaves.push(release));
+    if (body.data !== undefined) {
+      this.savedGains.push(equalizerGains(body.data));
+    }
+    return super.updateProfile(id, body);
+  }
+
+  async releaseAll(element: AppRoot): Promise<void> {
+    while (this.heldSaves.length > 0) {
+      this.heldSaves.shift()!();
+      await flushMicrotasks();
+      await element.updateComplete;
+    }
+  }
+}
+
 describe("app-root", () => {
+  it("keeps showing the newest gain while older saves are still out", async () => {
+    const api = new SlowSaveProfileApi([starredPreset({ id: 1, name: "Mine", source: "custom" })]);
+    const element = await mount(api);
+    const customName = queryProfileList(element).shadowRoot!.querySelector(
+      ".custom-row .name",
+    ) as HTMLButtonElement;
+    await click(customName, element);
+    const eqEditor = element.shadowRoot!.querySelector("eq-editor")!;
+
+    for (const value of [1, 2, 3]) {
+      eqEditor.dispatchEvent(new CustomEvent("gain-change", { detail: { band: 4, value } }));
+      await flushMicrotasks();
+      await element.updateComplete;
+    }
+    expect(eqEditor.gains[4]).toBe(3);
+
+    await api.releaseAll(element);
+
+    // One save for the first edit, then one for the newest. The middle
+    // edit never needed a save of its own.
+    expect(api.savedGains.map((gains) => gains[4])).toEqual([1, 3]);
+    expect(eqEditor.gains[4]).toBe(3);
+    expect((await api.getProfile(1)).data.foundationEq.eqs.LR.banks[0][4]).toBe(3);
+  });
+
   it("starts a new profile clean, not from the selected preset", async () => {
     const preset = starredPreset({ id: 1 });
     preset.data.foundationEq.eqs.LR.banks[0] = new Array(13).fill(4);

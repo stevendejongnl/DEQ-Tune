@@ -24,6 +24,42 @@ function queryBandButtons(element: EqEditor): NodeListOf<HTMLButtonElement> {
   return element.shadowRoot!.querySelectorAll(".band-hit");
 }
 
+function queryChartFrame(element: EqEditor): HTMLElement {
+  return element.shadowRoot!.querySelector(".chart-frame") as HTMLElement;
+}
+
+/** The x of a band on the desktop chart at its fallback width of 640:
+ * 36 px of left padding, 16 px of right padding, and a log axis. */
+function bandCentreX(band: number): number {
+  return 36 + (Math.log(EQ_BAND_FREQUENCIES[band] / 50) / Math.log(250)) * (640 - 36 - 16);
+}
+
+/** The same on the phone chart at 358 wide, with 30 and 10 of padding. */
+function phoneBandCentreX(band: number): number {
+  return 30 + (Math.log(EQ_BAND_FREQUENCIES[band] / 50) / Math.log(250)) * (358 - 30 - 10);
+}
+
+/** Presses the chart at (x, y), moves to each y in turn, and lets go.
+ * jsdom puts the chart at the page origin, so client and chart
+ * coordinates agree. */
+function drag(element: EqEditor, x: number, startY: number, moveYs: readonly number[]): void {
+  const frame = queryChartFrame(element);
+  const pointer = { pointerId: 1, bubbles: true, clientX: x };
+  frame.dispatchEvent(new PointerEvent("pointerdown", { ...pointer, clientY: startY }));
+  for (const y of moveYs) {
+    frame.dispatchEvent(new PointerEvent("pointermove", { ...pointer, clientY: y }));
+  }
+  frame.dispatchEvent(new PointerEvent("pointerup", pointer));
+}
+
+function collectGains(element: EqEditor): { band: number; value: number }[] {
+  const changes: { band: number; value: number }[] = [];
+  element.addEventListener("gain-change", (rawEvent) => {
+    changes.push((rawEvent as CustomEvent).detail);
+  });
+  return changes;
+}
+
 async function click(element: EqEditor, button: HTMLElement): Promise<void> {
   button.dispatchEvent(new Event("click"));
   await element.updateComplete;
@@ -139,34 +175,63 @@ describe("eq-editor", () => {
 
   it("changes the gain while a dot is dragged", async () => {
     const element = await mount([...FLAT], [...FLAT]);
-    const gains: number[] = [];
-    element.addEventListener("gain-change", (rawEvent) => {
-      gains.push((rawEvent as CustomEvent).detail.value);
-    });
+    const gains = collectGains(element);
 
-    const dot = queryBandButtons(element)[6];
-    dot.setPointerCapture = () => {};
-    dot.hasPointerCapture = () => false;
-    dot.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, bubbles: true }));
-    // The chart is 300 tall with 24 padding, so its top edge is +12 dB.
-    dot.dispatchEvent(new PointerEvent("pointermove", { pointerId: 1, clientY: 24, bubbles: true }));
-    dot.dispatchEvent(new PointerEvent("pointerup", { pointerId: 1, bubbles: true }));
-    await element.updateComplete;
+    // The chart is 300 tall with 24 padding, so 0 dB sits at y 150 and
+    // the top edge, +12 dB, at y 24.
+    drag(element, bandCentreX(6), 150, [24]);
 
-    expect(gains.length).toBeGreaterThan(0);
-    expect(gains[gains.length - 1]).toBe(12);
+    expect(gains.at(-1)).toEqual({ band: 6, value: 12 });
   });
 
-  it("ignores pointer moves when no dot is held", async () => {
+  it("keeps the grab offset, so the dot does not jump to the pointer", async () => {
     const element = await mount([...FLAT], [...FLAT]);
-    let changes = 0;
-    element.addEventListener("gain-change", () => (changes += 1));
+    const gains = collectGains(element);
 
-    queryBandButtons(element)[6].dispatchEvent(
+    // A press 20 px below the dot, then a move up by 63 px, which is 6 dB
+    // on a 252 px span for 24 dB.
+    drag(element, bandCentreX(6), 170, [107]);
+
+    expect(gains.at(-1)).toEqual({ band: 6, value: 6 });
+  });
+
+  it("drags the band nearest to the press, also between two dots", async () => {
+    const element = await mount([...FLAT], [...FLAT]);
+    const gains = collectGains(element);
+
+    drag(element, bandCentreX(2) + 3, 150, [24]);
+
+    expect(gains.at(-1)?.band).toBe(2);
+  });
+
+  it("sends nothing for a move inside one 0.5 dB step", async () => {
+    const element = await mount([...FLAT], [...FLAT]);
+    const gains = collectGains(element);
+
+    drag(element, bandCentreX(6), 150, [149, 148]);
+
+    expect(gains).toHaveLength(0);
+  });
+
+  it("ignores pointer moves when no band is held", async () => {
+    const element = await mount([...FLAT], [...FLAT]);
+    const gains = collectGains(element);
+
+    queryChartFrame(element).dispatchEvent(
       new PointerEvent("pointermove", { pointerId: 1, clientY: 24, bubbles: true }),
     );
 
-    expect(changes).toBe(0);
+    expect(gains).toHaveLength(0);
+  });
+
+  it("drags on the phone too, where the dots are too small to hit", async () => {
+    const element = await mount([...FLAT], [...FLAT], "phone");
+    const gains = collectGains(element);
+
+    // The phone chart is 220 tall with 16 padding: 0 dB at y 110, +12 at 16.
+    drag(element, phoneBandCentreX(4), 110, [16]);
+
+    expect(gains.at(-1)).toEqual({ band: 4, value: 12 });
   });
 
   it("shows band chips instead of zones in the phone layout", async () => {

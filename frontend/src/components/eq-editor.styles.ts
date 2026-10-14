@@ -55,6 +55,12 @@ export const eqEditorStyles = css`
   .chart-frame {
     position: relative;
     width: 100%;
+    /* The chart is a drag surface. Without this, a touch drag scrolls the
+       page and the browser cancels the pointer. */
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: ns-resize;
   }
   .chart {
     position: absolute;

@@ -90,6 +90,26 @@ function zoneEdges(box: ChartBox, zone: EqZone): { left: number; right: number }
   return { left, right };
 }
 
+/** One drag in progress. `grabOffsetY` keeps the distance between the
+ * pointer and the dot at the start, so the dot moves with the pointer and
+ * never jumps to it. */
+interface BandDrag {
+  band: number;
+  pointerId: number;
+  grabOffsetY: number;
+}
+
+/** The band whose dot is closest to `x`, left to right. */
+function nearestBand(box: ChartBox, x: number): number {
+  let nearest = 0;
+  for (let band = 1; band <= LAST_BAND; band += 1) {
+    if (Math.abs(bandX(box, band) - x) < Math.abs(bandX(box, nearest) - x)) {
+      nearest = band;
+    }
+  }
+  return nearest;
+}
+
 /**
  * The frequency-response chart for one channel. It draws your curve
  * over the factory curve, and edits one band at a time.
@@ -111,7 +131,7 @@ export class EqEditor extends LitElement {
   @state() private chartWidth = 0;
 
   private resizeObserver: ResizeObserver | null = null;
-  private draggingBand: number | null = null;
+  private drag: BandDrag | null = null;
 
   override disconnectedCallback() {
     super.disconnectedCallback();
@@ -173,7 +193,14 @@ export class EqEditor extends LitElement {
     const zone = zoneOfBand(this.selectedBand);
     const edges = zoneEdges(box, zone);
     return html`
-      <div class="chart-frame" style="height: ${box.height}px">
+      <div
+        class="chart-frame"
+        style="height: ${box.height}px"
+        @pointerdown=${(event: PointerEvent) => this.startDrag(event)}
+        @pointermove=${(event: PointerEvent) => this.dragTo(event)}
+        @pointerup=${(event: PointerEvent) => this.endDrag(event)}
+        @pointercancel=${(event: PointerEvent) => this.endDrag(event)}
+      >
         <svg
           class="chart"
           width=${box.width}
@@ -212,8 +239,9 @@ export class EqEditor extends LitElement {
     `;
   }
 
-  /** On the phone the dots only report the curve. The chips below the
-   * chart select a band instead. */
+  /** On the phone the dots are too small to hit, so they only draw the
+   * curve. A drag anywhere on the chart moves the nearest band, and the
+   * chips below the chart select a band too. */
   private renderPlainDots(points: readonly { x: number; y: number }[]): TemplateResult {
     return html`
       ${points.map((point, band) => {
@@ -244,10 +272,6 @@ export class EqEditor extends LitElement {
             aria-pressed=${selected}
             @click=${() => this.selectBand(band)}
             @keydown=${(event: KeyboardEvent) => this.onBandKeydown(event, band)}
-            @pointerdown=${(event: PointerEvent) => this.startDrag(event, band)}
-            @pointermove=${(event: PointerEvent) => this.dragTo(event)}
-            @pointerup=${(event: PointerEvent) => this.endDrag(event)}
-            @pointercancel=${(event: PointerEvent) => this.endDrag(event)}
           >
             <span
               class="dot ${selected ? "selected" : this.isChanged(band) ? "changed" : ""}"
@@ -421,45 +445,58 @@ export class EqEditor extends LitElement {
     this.selectedBand = band;
   }
 
-  /** Dragging a dot up and down sets the gain of its band. The editor
-   * captures the pointer, so the drag continues outside the dot. */
-  private startDrag(event: PointerEvent, band: number): void {
+  /** A press anywhere on the chart takes the band nearest to it. The
+   * chart frame captures the pointer, so the drag goes on outside the
+   * chart, and a re-render of the dots cannot drop it. */
+  private startDrag(event: PointerEvent): void {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+    const frame = event.currentTarget as HTMLElement;
+    const box = chartBox(this.layout, this.chartWidth);
+    const bounds = frame.getBoundingClientRect();
+    const band = nearestBand(box, event.clientX - bounds.left);
+    const dotY = gainY(box, this.gainOf(band));
     this.selectedBand = band;
-    this.draggingBand = band;
-    (event.target as Element).setPointerCapture(event.pointerId);
+    this.drag = { band, pointerId: event.pointerId, grabOffsetY: event.clientY - bounds.top - dotY };
+    // A test environment can lack pointer capture. A browser always has it.
+    frame.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
   }
 
   private dragTo(event: PointerEvent): void {
-    const band = this.draggingBand;
-    if (band === null) {
-      return;
-    }
-    const frame = this.shadowRoot?.querySelector(".chart-frame");
-    if (frame === null || frame === undefined) {
+    const drag = this.drag;
+    if (drag === null || event.pointerId !== drag.pointerId) {
       return;
     }
     event.preventDefault();
+    const frame = event.currentTarget as HTMLElement;
     const box = chartBox(this.layout, this.chartWidth);
-    const offsetY = event.clientY - frame.getBoundingClientRect().top;
-    this.changeGain(band, gainFromY(box, offsetY));
+    const pointerY = event.clientY - frame.getBoundingClientRect().top;
+    this.changeGain(drag.band, gainFromY(box, pointerY - drag.grabOffsetY));
   }
 
   private endDrag(event: PointerEvent): void {
-    if (this.draggingBand === null) {
+    if (this.drag === null || event.pointerId !== this.drag.pointerId) {
       return;
     }
-    this.draggingBand = null;
-    const target = event.target as Element;
-    if (target.hasPointerCapture(event.pointerId)) {
-      target.releasePointerCapture(event.pointerId);
+    this.drag = null;
+    const frame = event.currentTarget as HTMLElement;
+    if (frame.hasPointerCapture?.(event.pointerId)) {
+      frame.releasePointerCapture(event.pointerId);
     }
   }
 
+  /** Sends a change only when the gain moves to another 0.5 dB step. A drag
+   * fires many pointer moves inside one step, and each event costs the app
+   * a render and a save. */
   private changeGain(band: number, gain: number): void {
     this.selectedBand = band;
-    this.dispatchEvent(
-      new CustomEvent("gain-change", { detail: { band, value: clampGain(gain) } }),
-    );
+    const value = clampGain(gain);
+    if (value === this.gainOf(band)) {
+      return;
+    }
+    this.dispatchEvent(new CustomEvent("gain-change", { detail: { band, value } }));
   }
 }
 
