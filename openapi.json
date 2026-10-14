@@ -494,6 +494,48 @@
         }
       }
     },
+    "/api/device/profile": {
+      "post": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Save Unit Profile",
+        "description": "Reads the tune the unit holds now and stores it as a custom profile.\n\nA unit that a Pioneer app tuned keeps that tune in its settings blob. This\nroute turns the blob into a profile, so a person keeps that tune before\na push replaces it.",
+        "operationId": "save_unit_profile_api_device_profile_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnitProfileCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/device/eq-style": {
       "post": {
         "tags": [
@@ -1402,6 +1444,20 @@
         ],
         "title": "TuningData",
         "description": "Everything except `header`: the part that the EQ UI edits, and that the\nbackend writes to the device."
+      },
+      "UnitProfileCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "UnitProfileCreate",
+        "description": "The name for a profile read from the unit."
       },
       "ValidationError": {
         "properties": {

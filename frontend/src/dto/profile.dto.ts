@@ -108,6 +108,11 @@ export interface ProfileCreateDto {
   supported_processors?: string[];
 }
 
+/** The name for a profile read from the unit's own tune. */
+export interface UnitProfileCreateDto {
+  name: string;
+}
+
 export interface ProfileUpdateDto {
   name?: string;
   data?: TuningDataDto;

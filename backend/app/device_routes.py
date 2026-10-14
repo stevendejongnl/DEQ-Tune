@@ -16,6 +16,8 @@ from app.eq_data import TuningData
 from app.models import Profile
 from app.schemas import (
     AudioSourceWrite,
+    ProfileRead,
+    UnitProfileCreate,
     AudioStateRead,
     DeviceOptionsRead,
     DeviceRead,
@@ -25,6 +27,7 @@ from app.schemas import (
     device_options,
 )
 from app.deq_enums import AUDIO_SOURCE, MUTE_STATE
+from app.unit_tuning import tuning_from_configuration
 
 router = APIRouter(prefix="/device", tags=["device"])
 
@@ -213,6 +216,34 @@ def write_tuning(
     tuning = TuningData.model_validate(profile.data)
     run_on_unit(lambda: unit.write_tuning(tuning))
     return DeviceRead(**vars(unit.state()))
+
+
+@router.post("/profile", response_model=ProfileRead, status_code=201)
+def save_unit_profile(
+    body: UnitProfileCreate,
+    unit: DeqDevice = Depends(get_device),
+    session: Session = Depends(get_session),
+) -> Profile:
+    """Reads the tune the unit holds now and stores it as a custom profile.
+
+    A unit that a Pioneer app tuned keeps that tune in its settings blob. This
+    route turns the blob into a profile, so a person keeps that tune before
+    a push replaces it.
+    """
+    configuration = run_on_unit(unit.read_configuration)
+    try:
+        tuning = tuning_from_configuration(configuration)
+    except ValueError as caught_error:
+        raise HTTPException(status_code=409, detail=str(caught_error)) from caught_error
+    profile = Profile(
+        name=body.name,
+        source="custom",
+        data=tuning.model_dump(mode="json"),
+    )
+    session.add(profile)
+    session.commit()
+    session.refresh(profile)
+    return profile
 
 
 @router.post("/eq-style", response_model=DeviceRead)

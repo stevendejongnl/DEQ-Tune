@@ -49,6 +49,23 @@ function queryProfilesToggle(element: AppRoot): HTMLButtonElement {
 }
 
 describe("app-root", () => {
+  it("saves the unit's tune as a custom profile and opens it", async () => {
+    const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+    api.device.startConnected();
+    api.unitTuning = sampleProfile().data;
+    const element = await mount(api);
+
+    const saveButton = queryProfileList(element).shadowRoot!.querySelector(
+      ".save-unit-tune",
+    ) as HTMLButtonElement;
+    await click(saveButton, element);
+
+    const profiles = await api.listProfiles();
+    const saved = profiles.find((profile) => profile.name === "Unit tune");
+    expect(saved?.source).toBe("custom");
+    expect(queryProfileList(element).selectedId).toBe(saved?.id);
+  });
+
   it("loads and lists profiles from the injected api on connect", async () => {
     const api = new FakeProfileApi([
       sampleProfile({ id: 1, name: "Factory preset", source: "factory" }),

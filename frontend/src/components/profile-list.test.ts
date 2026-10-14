@@ -144,6 +144,19 @@ describe("profile-list", () => {
     expect(asked).toBe(1);
   });
 
+  it("offers to save the unit's tune only while a unit is connected", async () => {
+    const element = await mount();
+    expect(element.shadowRoot!.querySelector(".save-unit-tune")).toBeNull();
+
+    element.unitConnected = true;
+    await element.updateComplete;
+    let asked = 0;
+    element.addEventListener("save-unit-profile", () => (asked += 1));
+    (element.shadowRoot!.querySelector(".save-unit-tune") as HTMLButtonElement).click();
+
+    expect(asked).toBe(1);
+  });
+
   it("renames a custom profile from the overflow menu", async () => {
     const element = await mount([
       ...factoryProfiles,

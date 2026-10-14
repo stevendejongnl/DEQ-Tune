@@ -10,6 +10,7 @@ import type {
   ProfileCreateDto,
   ProfileDto,
   ProfileUpdateDto,
+  UnitProfileCreateDto,
   VolumeWriteDto,
 } from "../dto/profile.dto.ts";
 
@@ -62,6 +63,8 @@ export interface ProfileApi {
   updateProfile(id: number, body: ProfileUpdateDto): Promise<ProfileDto>;
   deleteProfile(id: number): Promise<void>;
   duplicateProfile(id: number): Promise<ProfileDto>;
+  /** Reads the tune the unit holds now and stores it as a custom profile. */
+  saveUnitProfile(name: string): Promise<ProfileDto>;
 }
 
 /** The unit, as the backend presents it. The backend owns the USB link,
@@ -127,6 +130,11 @@ export class DeqApiClient implements ProfileApi, DeviceApi, BridgeApi {
 
   async duplicateProfile(id: number): Promise<ProfileDto> {
     return typia.assert<ProfileDto>(await this.call("POST", `/profiles/${id}/duplicate`));
+  }
+
+  async saveUnitProfile(name: string): Promise<ProfileDto> {
+    const validBody = typia.assert<UnitProfileCreateDto>({ name });
+    return typia.assert<ProfileDto>(await this.call("POST", "/device/profile", validBody));
   }
 
   async readDevice(): Promise<DeviceDto> {

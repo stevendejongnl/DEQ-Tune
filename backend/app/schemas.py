@@ -26,6 +26,12 @@ class ProfileCreate(BaseModel):
     supported_processors: list[str] = []
 
 
+class UnitProfileCreate(BaseModel):
+    """The name for a profile read from the unit."""
+
+    name: str
+
+
 class ProfileUpdate(BaseModel):
     name: str | None = None
     data: TuningData | None = None

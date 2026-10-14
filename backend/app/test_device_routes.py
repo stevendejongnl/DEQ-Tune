@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from app.deq_blob import BANK_B
+from app.deq_blob import BANK_B, SpeakerRecord, UserConfiguration
 from app.deq_device import DeqDevice, format_firmware_version
 from app.device_routes import _read_audio_state, get_device
 from app.main import app
@@ -281,3 +281,40 @@ def test_an_unknown_audio_source_is_refused(device_client: TestClient) -> None:
     answer = device_client.post("/api/device/audio-source", json={"name": "NONSENSE"})
     assert answer.status_code == 422
     assert "NONSENSE" in answer.json()["detail"]
+
+
+def test_the_units_tune_becomes_a_custom_profile(device_client: TestClient) -> None:
+    configuration = UserConfiguration(speakers=[SpeakerRecord(level_db=-2.0)] * 7)
+    app.dependency_overrides[get_device] = lambda: connected_device(configuration)
+
+    response = device_client.post("/api/device/profile", json={"name": "Car tune"})
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["source"] == "custom"
+    assert body["data"]["speakers"]["FL"]["levelDB"] == -2.0
+    stored = device_client.get(f"/api/profiles/{body['id']}").json()
+    assert stored["name"] == "Car tune"
+
+
+def test_a_tune_this_app_cannot_read_is_a_409(device_client: TestClient) -> None:
+    app.dependency_overrides[get_device] = lambda: connected_device(
+        UserConfiguration(band_count=20)
+    )
+
+    response = device_client.post("/api/device/profile", json={"name": "Car tune"})
+
+    assert response.status_code == 409
+
+
+def test_saving_the_units_tune_needs_a_unit(device_client: TestClient) -> None:
+    response = device_client.post("/api/device/profile", json={"name": "Car tune"})
+
+    assert response.status_code == 503
+
+
+def connected_device(configuration: UserConfiguration) -> DeqDevice:
+    """Returns a connected device whose fake unit holds `configuration`."""
+    device = DeqDevice(build_transport_function=lambda: FakeDeq(configuration=configuration))
+    device.connect()
+    return device

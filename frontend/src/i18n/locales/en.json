@@ -95,5 +95,7 @@
   "audioDrivingNo": "No",
   "audioSourceStandAlone": "Stand-alone",
   "audioSourceCarSource": "Car source",
-  "audioSourceThrough": "Through (car audio)"
+  "audioSourceThrough": "Through (car audio)",
+  "saveUnitTune": "Save unit's tune",
+  "unitTuneName": "Unit tune"
 }

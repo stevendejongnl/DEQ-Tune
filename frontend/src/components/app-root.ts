@@ -277,6 +277,7 @@ export class AppRoot extends LitElement {
           .profiles=${this.profiles}
           .selectedId=${this.selectedId}
           .locale=${this.locale}
+          .unitConnected=${this.unitConnected}
           @select-profile=${(selectEvent: CustomEvent<{ id: number }>) =>
             this.selectProfile(selectEvent.detail.id)}
           @duplicate-profile=${(duplicateEvent: CustomEvent<{ id: number }>) =>
@@ -286,6 +287,7 @@ export class AppRoot extends LitElement {
           @rename-profile=${(renameEvent: CustomEvent<{ id: number; name: string }>) =>
             this.renameProfile(renameEvent.detail.id, renameEvent.detail.name)}
           @create-profile=${() => this.createProfile()}
+          @save-unit-profile=${() => this.saveUnitProfile()}
         ></profile-list>
       </aside>
     `;
@@ -745,6 +747,22 @@ export class AppRoot extends LitElement {
     this.draft = null;
     await this.loadProfiles();
     this.selectedId = created.id;
+    this.closeProfilesDrawer();
+  }
+
+  /** Keeps the tune the unit holds now as a profile of its own. A Pioneer
+   * app may have tuned the unit, and a push replaces that tune. A unit that
+   * does not answer leaves the list as it was. The header already says why. */
+  private async saveUnitProfile(): Promise<void> {
+    let saved: ProfileDto;
+    try {
+      saved = await this.api.saveUnitProfile(uiStrings(this.locale).unitTuneName);
+    } catch {
+      return;
+    }
+    this.draft = null;
+    await this.loadProfiles();
+    this.selectedId = saved.id;
     this.closeProfilesDrawer();
   }
 

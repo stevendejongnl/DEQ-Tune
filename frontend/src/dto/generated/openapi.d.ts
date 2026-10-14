@@ -256,6 +256,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/device/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Unit Profile
+         * @description Reads the tune the unit holds now and stores it as a custom profile.
+         *
+         *     A unit that a Pioneer app tuned keeps that tune in its settings blob. This
+         *     route turns the blob into a profile, so a person keeps that tune before
+         *     a push replaces it.
+         */
+        post: operations["save_unit_profile_api_device_profile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/device/eq-style": {
         parameters: {
             query?: never;
@@ -647,6 +671,14 @@ export interface components {
             factoryCancel: components["schemas"]["FactoryCancel"];
             faderBalance: components["schemas"]["FaderBalance"];
             timeAlignment: components["schemas"]["TimeAlignment"];
+        };
+        /**
+         * UnitProfileCreate
+         * @description The name for a profile read from the unit.
+         */
+        UnitProfileCreate: {
+            /** Name */
+            name: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -1058,6 +1090,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeviceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_unit_profile_api_device_profile_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitProfileCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileRead"];
                 };
             };
             /** @description Validation Error */

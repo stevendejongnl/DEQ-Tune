@@ -6,6 +6,7 @@ import type {
   ProfileCreateDto,
   ProfileDto,
   ProfileUpdateDto,
+  TuningDataDto,
 } from "../../dto/profile.dto.ts";
 import { FakeDeviceApi } from "./fake-device-api.ts";
 
@@ -19,6 +20,10 @@ import { FakeDeviceApi } from "./fake-device-api.ts";
  */
 export class FakeProfileApi implements ProfileApi, DeviceApi {
   readonly device = new FakeDeviceApi();
+
+  /** The tune the fake unit holds. `null` means no unit answers, so
+   * `saveUnitProfile` fails the way the backend's 503 does. */
+  unitTuning: TuningDataDto | null = null;
 
   private profiles: ProfileDto[];
   private nextId: number;
@@ -108,6 +113,24 @@ export class FakeProfileApi implements ProfileApi, DeviceApi {
   async deleteProfile(id: number): Promise<void> {
     this.requireProfile(id);
     this.profiles = this.profiles.filter((profile) => profile.id !== id);
+  }
+
+  async saveUnitProfile(name: string): Promise<ProfileDto> {
+    if (this.unitTuning === null) {
+      throw new Error("the unit is not connected");
+    }
+    const saved: ProfileDto = {
+      id: this.nextId++,
+      name,
+      source: "custom",
+      brand_name: null,
+      car_model: null,
+      speaker_type: null,
+      supported_processors: [],
+      data: this.unitTuning,
+    };
+    this.profiles = [...this.profiles, saved];
+    return saved;
   }
 
   async duplicateProfile(id: number): Promise<ProfileDto> {

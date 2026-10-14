@@ -87,6 +87,8 @@ export type UiStrings = {
   discardDraftConfirm: string;
   newProfile: string;
   newProfileName: string;
+  saveUnitTune: string;
+  unitTuneName: string;
   rename: string;
   renameLabel: string;
   audioTitle: string;

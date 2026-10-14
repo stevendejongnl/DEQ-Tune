@@ -80,5 +80,7 @@
   "zoneNameSubBass": "Sublaag",
   "bridgeUnreachable": "Bridge niet bereikbaar",
   "dismiss": "Sluiten",
-  "bridgeNoticeDismissHint": "Verbergt dit tot de bridge opnieuw start."
+  "bridgeNoticeDismissHint": "Verbergt dit tot de bridge opnieuw start.",
+  "saveUnitTune": "Tuning van unit bewaren",
+  "unitTuneName": "Tuning van unit"
 }

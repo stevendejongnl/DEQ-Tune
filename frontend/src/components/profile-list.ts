@@ -32,6 +32,8 @@ export class ProfileList extends LitElement {
   @property({ type: Array }) profiles: ProfileDto[] = [];
   @property({ type: Number }) selectedId: number | null = null;
   @property({ type: String }) locale: Locale = "en";
+  /** Only a connected unit has a tune to save. */
+  @property({ type: Boolean }) unitConnected = false;
 
   @state() private search = "";
   @state() private openMenuId: number | null = null;
@@ -70,13 +72,26 @@ export class ProfileList extends LitElement {
       <section class="group">
         <div class="group-head">
           <h3 class="group-label">${strings.myProfiles}</h3>
-          <button
-            type="button"
-            class="new-profile"
-            @click=${() => this.dispatchEvent(new CustomEvent("create-profile"))}
-          >
-            + ${strings.newProfile}
-          </button>
+          <div class="head-actions">
+            ${this.unitConnected
+              ? html`
+                  <button
+                    type="button"
+                    class="head-action save-unit-tune"
+                    @click=${() => this.dispatchEvent(new CustomEvent("save-unit-profile"))}
+                  >
+                    ${strings.saveUnitTune}
+                  </button>
+                `
+              : nothing}
+            <button
+              type="button"
+              class="head-action new-profile"
+              @click=${() => this.dispatchEvent(new CustomEvent("create-profile"))}
+            >
+              + ${strings.newProfile}
+            </button>
+          </div>
         </div>
         ${customProfiles.length === 0
           ? html`<p class="empty">${strings.duplicateHint}</p>`

@@ -48,11 +48,18 @@ export const profileListStyles = css`
   }
   .group-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 4px 8px;
   }
-  .new-profile {
+  .head-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .head-action {
+    white-space: nowrap;
     border: 0;
     background: transparent;
     color: var(--color-accent);
@@ -83,6 +90,7 @@ export const profileListStyles = css`
     outline: none;
   }
   .group-label {
+    white-space: nowrap;
     margin: 0;
     padding: 0 8px;
     font-size: 12px;

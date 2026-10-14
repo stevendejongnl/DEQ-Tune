@@ -29,6 +29,19 @@ describe("DeqApiClient", () => {
     expect(api.calls[0].init?.body).toBe(JSON.stringify({ name: "Renamed" }));
   });
 
+  it("posts the name when it saves the unit's tune", async () => {
+    const profile = sampleProfile({ id: 7, name: "Car tune", source: "custom" });
+    const api = createFakeFetch(() => jsonResponse(profile, 201));
+    const client = new DeqApiClient("/api", api.fetch);
+
+    const saved = await client.saveUnitProfile("Car tune");
+
+    expect(api.calls[0].url).toBe("/api/device/profile");
+    expect(api.calls[0].init?.method).toBe("POST");
+    expect(api.calls[0].init?.body).toBe(JSON.stringify({ name: "Car tune" }));
+    expect(saved).toEqual(profile);
+  });
+
   it("resolves to undefined on a 204 delete response", async () => {
     const api = createFakeFetch(() => new Response(null, { status: 204 }));
     const client = new DeqApiClient("/api", api.fetch);
