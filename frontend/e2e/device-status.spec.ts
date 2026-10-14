@@ -127,7 +127,6 @@ test("the connected state survives a reload, because the backend holds it", asyn
 test("an EQ from the library becomes the one that plays", async ({ page, request }) => {
   await openApp(page);
   await expect(page.locator(DEVICE_PILL)).toContainText(FAKE_UNIT_FIRMWARE);
-  await openFirstPreset(page);
 
   // The first tile is No EQ. The second is the first EQ of the library.
   const equalizerTile = page.locator("dsp-panel .tile").nth(1);

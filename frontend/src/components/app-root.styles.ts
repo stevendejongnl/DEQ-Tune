@@ -236,6 +236,64 @@ export const appRootStyles = css`
     gap: 16px;
     min-width: 0;
   }
+  .page-switch {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-card);
+
+    button {
+      height: 32px;
+      padding: 0 16px;
+      border: 0;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--color-muted-foreground);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+
+      &[aria-pressed="true"] {
+        background: var(--color-accent);
+        color: var(--color-on-accent);
+      }
+    }
+  }
+  .car-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    align-self: flex-start;
+    max-width: 100%;
+    padding: 8px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-card);
+    color: var(--color-foreground);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--color-accent);
+    }
+  }
+  .car-line-label {
+    color: var(--color-muted-foreground);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .car-line-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+  }
   .area-correction {
     grid-area: correction;
   }
@@ -318,7 +376,7 @@ export const appRootStyles = css`
     position: sticky;
     bottom: 0;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     height: 68px;
     flex-shrink: 0;
     background: var(--color-sidebar);
@@ -384,10 +442,14 @@ export const appRootStyles = css`
       grid-template-areas:
         "audio audio"
         "eq eq"
-        "correction correction"
-        "speakers style";
+        "style style";
       gap: 20px;
       align-items: start;
+    }
+    .panels.car {
+      grid-template-areas:
+        "speakers speakers"
+        "correction correction";
     }
   }
 
@@ -439,10 +501,13 @@ export const appRootStyles = css`
       grid-template-columns: minmax(0, 1fr) 360px;
       grid-template-areas:
         "audio audio"
-        "eq speakers"
-        "correction speakers"
+        "eq eq"
         "style style";
       gap: 24px;
+    }
+    .panels.car {
+      grid-template-columns: 360px minmax(0, 1fr);
+      grid-template-areas: "speakers correction";
     }
   }
 `;

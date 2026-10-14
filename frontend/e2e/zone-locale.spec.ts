@@ -1,12 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
-/** The zone names sit in the EQ editor, which needs a profile open. */
-async function openFirstProfile(page: Page): Promise<void> {
+/** The zone names sit in the EQ chart on the Sound page. */
+async function openSoundPage(page: Page): Promise<void> {
   await page.goto("/");
   await expect(page.locator("app-root")).toBeVisible();
-  // The presets live in the library until a person stars one.
-  await page.locator("profile-list .open-library").click();
-  await page.locator("profile-list .model-row .chip").first().click();
+  // The Sound page shows the EQ that plays at start, with no profile open.
   // The main EQ chart. The car profile's correction chart sits with the
   // speakers, so a bare "eq-editor" matches two.
   await expect(page.locator("equalizer-editor eq-editor")).toBeVisible();
@@ -15,7 +13,7 @@ async function openFirstProfile(page: Page): Promise<void> {
 async function openInLocale(page: Page, locale: string): Promise<void> {
   await page.goto("/");
   await page.evaluate((chosen) => localStorage.setItem("deq-tune-locale", chosen), locale);
-  await openFirstProfile(page);
+  await openSoundPage(page);
 }
 
 test("the zone names and hints follow the chosen locale", async ({ page }) => {

@@ -57,6 +57,12 @@ function queryFirstChip(element: AppRoot): HTMLButtonElement {
   return queryProfileList(element).shadowRoot!.querySelector(".chip") as HTMLButtonElement;
 }
 
+function queryPageButton(element: AppRoot, label: string): HTMLButtonElement {
+  return [...element.shadowRoot!.querySelectorAll(".page-switch button")].find(
+    (button) => button.textContent?.trim() === label,
+  ) as HTMLButtonElement;
+}
+
 function queryDrawer(element: AppRoot): HTMLElement {
   return element.shadowRoot!.querySelector(".drawer") as HTMLElement;
 }
@@ -209,10 +215,12 @@ describe("app-root", () => {
     expect(queryModelRows(element)).toHaveLength(1);
   });
 
-  it("shows a prompt to select a profile before one is chosen", async () => {
+  it("shows a prompt on the Car page before a profile is chosen", async () => {
     const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
 
-    expect(element.shadowRoot!.textContent).toContain("Select a profile");
+    await click(queryPageButton(element, "Car"), element);
+
+    expect(element.shadowRoot!.textContent).toContain("Pick a car profile");
   });
 
   it("shows the EQ editor for the selected profile", async () => {
@@ -344,20 +352,50 @@ describe("app-root", () => {
     expect(heading.querySelector(".profile-title")!.textContent).toContain("Mazda3");
   });
 
-  it("shows every panel at once outside the phone layout", async () => {
+  it("shows the sound on the Sound page, and opens a picked profile on the Car page", async () => {
     const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
-    await click(queryFirstChip(element), element);
 
     expect(element.shadowRoot!.querySelector(".tab-bar")).toBeNull();
-    expect(element.shadowRoot!.querySelector("eq-editor")).not.toBeNull();
-    expect(element.shadowRoot!.querySelector("speaker-panel")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector("audio-controls")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector("equalizer-editor")).not.toBeNull();
     expect(element.shadowRoot!.querySelector("dsp-panel")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector("speaker-panel")).toBeNull();
+
+    await click(queryFirstChip(element), element);
+
+    expect(queryPageButton(element, "Car").getAttribute("aria-pressed")).toBe("true");
+    expect(element.shadowRoot!.querySelector("speaker-panel")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector("eq-editor.car-correction")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector("equalizer-editor")).toBeNull();
+  });
+
+  it("opens the active car profile on the Car page when none is picked", async () => {
+    const api = new FakeProfileApi([starredPreset({ id: 1, name: "Dusty", source: "custom" })]);
+    await api.activateProfile(1);
+    const element = await mount(api);
+
+    await click(queryPageButton(element, "Car"), element);
+
+    expect(queryProfileList(element).selectedId).toBe(1);
+    expect(element.shadowRoot!.querySelector("speaker-panel")).not.toBeNull();
+  });
+
+  it("names the active car profile on the Sound page, and opens it there", async () => {
+    const api = new FakeProfileApi([starredPreset({ id: 1, name: "Dusty", source: "custom" })]);
+    await api.activateProfile(1);
+    const element = await mount(api);
+
+    const carLine = element.shadowRoot!.querySelector(".car-line") as HTMLButtonElement;
+    expect(carLine.textContent).toContain("Dusty");
+    await click(carLine, element);
+
+    expect(queryProfileList(element).selectedId).toBe(1);
+    expect(element.shadowRoot!.querySelector("speaker-panel")).not.toBeNull();
   });
 
   it("passes the EQ library and the live simulation ids to the panel", async () => {
     const api = withLibrary(new FakeProfileApi([starredPreset({ id: 1 })]));
     const element = await mount(api);
-    await click(queryFirstChip(element), element);
 
     const panel = element.shadowRoot!.querySelector("dsp-panel")!;
     // No EQ, then the two EQs of the library.
@@ -368,7 +406,6 @@ describe("app-root", () => {
   it("picks an EQ, and the panel marks it as the one that plays", async () => {
     const api = withLibrary(new FakeProfileApi([starredPreset({ id: 1 })]));
     const element = await mount(api);
-    await click(queryFirstChip(element), element);
     const panel = element.shadowRoot!.querySelector("dsp-panel")!;
 
     panel.dispatchEvent(new CustomEvent("activate-equalizer", { detail: { id: 2 } }));
@@ -383,7 +420,6 @@ describe("app-root", () => {
     const api = withLibrary(new FakeProfileApi([starredPreset({ id: 1 })]));
     await api.activateEqualizer(1);
     const element = await mount(api);
-    await click(queryFirstChip(element), element);
     const editor = element.shadowRoot!.querySelector("equalizer-editor")!;
     expect(editor.equalizer?.name).toBe("Super Bass");
 
@@ -408,7 +444,6 @@ describe("app-root", () => {
     const api = withLibrary(new FakeProfileApi([starredPreset({ id: 1 })]));
     await api.activateEqualizer(null);
     const element = await mount(api);
-    await click(queryFirstChip(element), element);
     const editor = element.shadowRoot!.querySelector("equalizer-editor")!;
     const gains = new Array(13).fill(0);
     gains[1] = 3;
@@ -427,7 +462,6 @@ describe("app-root", () => {
     const api = withLibrary(new FakeProfileApi([starredPreset({ id: 1 })]));
     await api.activateEqualizer(2);
     const element = await mount(api);
-    await click(queryFirstChip(element), element);
     const editor = element.shadowRoot!.querySelector("equalizer-editor")!;
 
     editor.dispatchEvent(
@@ -449,7 +483,6 @@ describe("app-root", () => {
   it("sends a live simulation choice to the unit", async () => {
     const api = new FakeProfileApi([starredPreset({ id: 1 })]);
     const element = await mount(api);
-    await click(queryFirstChip(element), element);
 
     element.shadowRoot!.querySelector("dsp-panel")!.dispatchEvent(
       new CustomEvent("live-simulation-change", { detail: { id: "CONCERT_HALL" } }),
@@ -467,8 +500,8 @@ describe("app-root", () => {
 
     expect(element.shadowRoot!.querySelector(".tab-bar")).not.toBeNull();
     expect(element.shadowRoot!.querySelector("equalizer-editor")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector("dsp-panel")).not.toBeNull();
     expect(element.shadowRoot!.querySelector("speaker-panel")).toBeNull();
-    expect(element.shadowRoot!.querySelector("dsp-panel")).toBeNull();
   });
 
   it("swaps the panel when another phone tab is pressed", async () => {
@@ -477,13 +510,13 @@ describe("app-root", () => {
     const eqTab = element.shadowRoot!.querySelectorAll(".tab")[1] as HTMLButtonElement;
     await click(eqTab, element);
 
-    const speakersTab = element.shadowRoot!.querySelectorAll(".tab")[2] as HTMLButtonElement;
-    await click(speakersTab, element);
+    const carTab = element.shadowRoot!.querySelectorAll(".tab")[2] as HTMLButtonElement;
+    await click(carTab, element);
 
-    expect(speakersTab.getAttribute("aria-pressed")).toBe("true");
+    expect(carTab.getAttribute("aria-pressed")).toBe("true");
     expect(element.shadowRoot!.querySelector("speaker-panel")).not.toBeNull();
     expect(element.shadowRoot!.querySelector("equalizer-editor")).toBeNull();
-    // The car's own correction curve sits with the speakers.
+    // The car's own correction curve sits on the Car tab.
     expect(element.shadowRoot!.querySelector("eq-editor.car-correction")).not.toBeNull();
   });
 

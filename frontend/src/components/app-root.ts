@@ -17,7 +17,11 @@ import { blankTuningData } from "../dto/blank-tuning.ts";
 import { equalizerGains, withEqualizerGain, withSpeakerField } from "../dto/tuning-data-edits.ts";
 import { browserLocaleStorage } from "../i18n/browser-locale-storage.ts";
 import { type Locale, type LocaleStorage, resolveInitialLocale, saveLocale } from "../i18n/locale.ts";
-import { localizedModelName, localizedSpeakerTypeLabel } from "../i18n/preset-names.ts";
+import {
+  localizedModelName,
+  localizedProfileName,
+  localizedSpeakerTypeLabel,
+} from "../i18n/preset-names.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import type { LiveSimulationId } from "../i18n/dsp-presets.ts";
 import { browserLayoutQuery, type AppLayout, type LayoutQuery } from "../layout-query.ts";
@@ -44,7 +48,11 @@ type ScheduleFunction = (action: () => void, delayMs: number) => unknown;
 type CancelFunction = (handle: unknown) => void;
 
 /** The four tabs of the phone layout's bottom tab bar. */
-type PhoneTab = "eq" | "speakers" | "style" | "audio";
+type PhoneTab = "audio" | "eq" | "car";
+
+/** Sound holds what plays: the audio, the EQ and its library. Car holds the
+ * car profile: the speakers, their timing and the car's own correction. */
+type AppPage = "sound" | "car";
 
 function resolveGlobalLanguages(): readonly string[] {
   return typeof navigator === "undefined" ? [] : navigator.languages;
@@ -145,6 +153,7 @@ export class AppRoot extends LitElement {
    * profile or an EQ band. See `audio-controls.ts` for why that question
    * had no answer before this panel existed. */
   @state() private phoneTab: PhoneTab = "audio";
+  @state() private page: AppPage = "sound";
   @state() private audioState: AudioStateDto | null = null;
   @state() private audioSourceNames: readonly string[] = [];
   @state() private audioBusy = false;
@@ -262,6 +271,7 @@ export class AppRoot extends LitElement {
                 `}
             ${this.isPhoneLayout ? this.renderPhoneProfileButton(strings) : nothing}
           </div>
+          ${this.isPhoneLayout ? nothing : this.renderPageSwitch(strings)}
           <div class="header-controls">
             ${this.isPhoneLayout
               ? nothing
@@ -277,9 +287,6 @@ export class AppRoot extends LitElement {
           </div>
         </header>
         <main>
-          ${this.selectedProfile === undefined
-            ? nothing
-            : this.renderHeadingRow(strings, this.selectedProfile)}
           ${this.isPhoneLayout ? this.renderPhonePanels(strings) : this.renderWidePanels(strings)}
         </main>
         ${this.isPhoneLayout ? this.renderSaveBar(strings) : nothing}
@@ -466,15 +473,72 @@ export class AppRoot extends LitElement {
     `;
   }
 
-  /** Tablet and desktop show every panel at once. The grid areas in
-   * `app-root.styles.ts` place them per layout. */
+  /** Tablet and desktop show one page at a time, with all of its panels.
+   * The grid areas in `app-root.styles.ts` place them per layout. */
   private renderWidePanels(strings: UiStrings): TemplateResult {
+    if (this.page === "car") {
+      return html`
+        ${this.renderCarHeading(strings)}
+        <div class="panels car">${this.renderSpeakerPanel()} ${this.renderCarCorrection(strings)}</div>
+      `;
+    }
     return html`
-      <div class="panels">
-        ${this.renderEqPanel(strings)} ${this.renderCarCorrection(strings)}
-        ${this.renderSpeakerPanel()} ${this.renderStylePanel()} ${this.renderAudioPanel()}
+      ${this.renderCarLine(strings)}
+      <div class="panels sound">
+        ${this.renderAudioPanel()} ${this.renderEqPanel()} ${this.renderStylePanel()}
       </div>
     `;
+  }
+
+  private renderPageSwitch(strings: UiStrings): TemplateResult {
+    const pages: ReadonlyArray<{ id: AppPage; label: string }> = [
+      { id: "sound", label: strings.pageSound },
+      { id: "car", label: strings.pageCar },
+    ];
+    return html`
+      <nav class="page-switch">
+        ${pages.map(
+          (page) => html`
+            <button
+              type="button"
+              aria-pressed=${this.page === page.id}
+              @click=${() => this.selectPage(page.id)}
+            >
+              ${page.label}
+            </button>
+          `,
+        )}
+      </nav>
+    `;
+  }
+
+  /** The selected profile's heading, or the prompt to pick one. */
+  private renderCarHeading(strings: UiStrings): TemplateResult {
+    const profile = this.selectedProfile;
+    return profile === undefined ? renderNoSelection(strings) : this.renderHeadingRow(strings, profile);
+  }
+
+  /** The Sound page names the car profile that plays, and opens it. */
+  private renderCarLine(strings: UiStrings): TemplateResult | typeof nothing {
+    const activeId = this.activeProfile?.profile_id ?? null;
+    const active = this.profiles.find((profile) => profile.id === activeId);
+    if (active === undefined) {
+      return nothing;
+    }
+    return html`
+      <button type="button" class="car-line" @click=${() => this.openCar(active.id)}>
+        <span class="car-line-label">${strings.pageCar}</span>
+        <span class="car-line-name">${localizedProfileName(active, this.locale)}</span>
+        <span aria-hidden="true">›</span>
+      </button>
+    `;
+  }
+
+  /** Shows a profile on the Car page, or the Car tab on the phone. */
+  private openCar(id: number): void {
+    this.selectProfile(id);
+    this.page = "car";
+    this.phoneTab = "car";
   }
 
   /** The phone shows one tab at a time. */
@@ -483,16 +547,16 @@ export class AppRoot extends LitElement {
   }
 
   private renderPhoneTabContent(strings: UiStrings): TemplateResult {
-    if (this.phoneTab === "speakers") {
-      return html`${this.renderSpeakerPanel()} ${this.renderCarCorrection(strings)}`;
-    }
-    if (this.phoneTab === "style") {
-      return this.renderStylePanel();
+    if (this.phoneTab === "car") {
+      return html`
+        ${this.renderCarHeading(strings)} ${this.renderSpeakerPanel()}
+        ${this.renderCarCorrection(strings)}
+      `;
     }
     if (this.phoneTab === "audio") {
       return this.renderAudioPanel();
     }
-    return this.renderEqPanel(strings);
+    return html`${this.renderCarLine(strings)} ${this.renderEqPanel()} ${this.renderStylePanel()}`;
   }
 
   /** Opening the audio tab reads at once, so it never shows the last tab's
@@ -502,14 +566,31 @@ export class AppRoot extends LitElement {
     if (tab === "audio") {
       void this.refreshAudioState();
     }
+    if (tab === "car") {
+      this.showActiveCarWhenNoneSelected();
+    }
+  }
+
+  private selectPage(page: AppPage): void {
+    this.page = page;
+    if (page === "car") {
+      this.showActiveCarWhenNoneSelected();
+    }
+  }
+
+  /** The Car page shows the active car profile until the person picks one. */
+  private showActiveCarWhenNoneSelected(): void {
+    const activeId = this.activeProfile?.profile_id ?? null;
+    if (this.selectedId === null && activeId !== null) {
+      this.selectedId = activeId;
+    }
   }
 
   private renderTabBar(strings: UiStrings): TemplateResult {
     const tabs: ReadonlyArray<{ id: PhoneTab; label: string }> = [
       { id: "audio", label: strings.audioTitle },
       { id: "eq", label: strings.tabEq },
-      { id: "speakers", label: strings.speakers },
-      { id: "style", label: strings.tabStyle },
+      { id: "car", label: strings.pageCar },
     ];
     return html`
       <nav class="tab-bar">
@@ -529,12 +610,10 @@ export class AppRoot extends LitElement {
     `;
   }
 
-  /** The EQ that plays, as the one curve to edit. The car profile's own
-   * correction curve sits with the speakers. */
-  private renderEqPanel(strings: UiStrings): TemplateResult {
-    if (this.selectedProfile === undefined) {
-      return html`<div class="area-eq">${renderNoSelection(strings)}</div>`;
-    }
+  /** The EQ that plays, as the one curve to edit. It does not depend on the
+   * selected profile: the EQ plays on top of whichever car profile is active.
+   * The car profile's own correction curve sits on the Car page. */
+  private renderEqPanel(): TemplateResult {
     return html`
       <equalizer-editor
         class="area-eq"
@@ -796,6 +875,8 @@ export class AppRoot extends LitElement {
     }
     this.draft = null;
     this.selectedId = id;
+    this.page = "car";
+    this.phoneTab = "car";
     this.closeProfilesDrawer();
   }
 

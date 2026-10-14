@@ -49,7 +49,7 @@
   "revertToFactory": "Terug naar fabriek",
   "saveAsMyProfile": "Opslaan als mijn profiel",
   "saveShort": "Opslaan",
-  "selectProfilePrompt": "Kies een profiel om de EQ ervan te bewerken.",
+  "selectProfilePrompt": "Kies een autoprofiel in de zijbalk om het te bekijken en te bewerken.",
   "shorterDelayLabel": "Kortere vertraging",
   "soundStyleSuffix": "· boven op het autoprofiel",
   "soundStyleTitle": "EQ",
@@ -105,5 +105,7 @@
   "carCorrectionTitle": "Autocorrectie",
   "noEqualizerHint": "Er speelt geen EQ boven op het autoprofiel. Sleep een band om je eigen EQ te beginnen.",
   "factoryEqualizerHint": "Pioneers eigen stijl. Sleep een band om je eigen kopie te maken, die dan speelt.",
-  "backLabel": "Terug"
+  "backLabel": "Terug",
+  "pageSound": "Geluid",
+  "pageCar": "Auto"
 }

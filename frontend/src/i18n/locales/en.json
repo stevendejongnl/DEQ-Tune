@@ -49,7 +49,7 @@
   "revertToFactory": "Revert to factory",
   "saveAsMyProfile": "Save as my profile",
   "saveShort": "Save as mine",
-  "selectProfilePrompt": "Select a profile to see and edit its EQ.",
+  "selectProfilePrompt": "Pick a car profile in the sidebar to see and edit it.",
   "shorterDelayLabel": "Shorter delay",
   "soundStyleSuffix": "· on top of the car profile",
   "soundStyleTitle": "EQ",
@@ -120,5 +120,7 @@
   "carCorrectionTitle": "Car correction",
   "noEqualizerHint": "No EQ plays on top of the car profile. Drag a band to start an EQ of your own.",
   "factoryEqualizerHint": "Pioneer's own style. Drag a band to make your own copy, which then plays.",
-  "backLabel": "Back"
+  "backLabel": "Back",
+  "pageSound": "Sound",
+  "pageCar": "Car"
 }

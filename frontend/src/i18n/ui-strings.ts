@@ -110,6 +110,8 @@ export type UiStrings = {
   newEqualizerName: string;
   carCorrectionTitle: string;
   backLabel: string;
+  pageSound: string;
+  pageCar: string;
   noEqualizerHint: string;
   factoryEqualizerHint: string;
   rename: string;
