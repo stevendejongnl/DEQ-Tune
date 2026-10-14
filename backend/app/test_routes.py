@@ -64,3 +64,28 @@ def test_duplicate_then_edit_and_delete(seeded_client):
     delete_resp = seeded_client.delete(f"/api/profiles/{copy['id']}")
     assert delete_resp.status_code == 204
     assert seeded_client.get(f"/api/profiles/{copy['id']}").status_code == 404
+
+
+def test_a_factory_preset_takes_a_star(seeded_client):
+    factory = seeded_client.get("/api/profiles").json()[0]
+    assert factory["favorite"] is False
+
+    response = seeded_client.put(f"/api/profiles/{factory['id']}/favorite", json={"favorite": True})
+
+    assert response.status_code == 200
+    assert seeded_client.get(f"/api/profiles/{factory['id']}").json()["favorite"] is True
+
+
+def test_a_star_leaves_the_tuning_alone(seeded_client):
+    factory = seeded_client.get("/api/profiles").json()[0]
+
+    starred = seeded_client.put(
+        f"/api/profiles/{factory['id']}/favorite", json={"favorite": True}
+    ).json()
+
+    assert starred["data"] == factory["data"]
+
+
+def test_starring_a_missing_profile_is_a_404(client):
+    response = client.put("/api/profiles/999999/favorite", json={"favorite": True})
+    assert response.status_code == 404

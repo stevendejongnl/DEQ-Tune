@@ -14,6 +14,7 @@ class ProfileRead(BaseModel):
     car_model: str | None
     speaker_type: str | None
     supported_processors: list[str]
+    favorite: bool
     data: TuningData
 
 
@@ -30,6 +31,10 @@ class UnitProfileCreate(BaseModel):
     """The name for a profile read from the unit."""
 
     name: str
+
+
+class FavoriteWrite(BaseModel):
+    favorite: bool
 
 
 class ProfileUpdate(BaseModel):

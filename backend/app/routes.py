@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import Profile
-from app.schemas import ProfileCreate, ProfileRead, ProfileUpdate
+from app.schemas import FavoriteWrite, ProfileCreate, ProfileRead, ProfileUpdate
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
@@ -57,6 +57,22 @@ def update_profile(
     if body.data is not None:
         profile.data = body.data.model_dump(mode="json")
 
+    session.add(profile)
+    session.commit()
+    session.refresh(profile)
+    return profile
+
+
+@router.put("/{profile_id}/favorite", response_model=ProfileRead)
+def set_favorite(
+    profile_id: int, body: FavoriteWrite, session: Session = Depends(get_session)
+) -> Profile:
+    """Stars or unstars one profile. A factory preset takes a star too: the
+    star is the person's choice, and it leaves the preset's tuning alone."""
+    profile = session.get(Profile, profile_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    profile.favorite = body.favorite
     session.add(profile)
     session.commit()
     session.refresh(profile)

@@ -194,6 +194,59 @@
         }
       }
     },
+    "/api/profiles/{profile_id}/favorite": {
+      "put": {
+        "tags": [
+          "profiles"
+        ],
+        "summary": "Set Favorite",
+        "description": "Stars or unstars one profile. A factory preset takes a star too: the\nstar is the person's choice, and it leaves the preset's tuning alone.",
+        "operationId": "set_favorite_api_profiles__profile_id__favorite_put",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FavoriteWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/profiles/{profile_id}/duplicate": {
       "post": {
         "tags": [
@@ -1076,6 +1129,19 @@
         ],
         "title": "FaderBalance"
       },
+      "FavoriteWrite": {
+        "properties": {
+          "favorite": {
+            "type": "boolean",
+            "title": "Favorite"
+          }
+        },
+        "type": "object",
+        "required": [
+          "favorite"
+        ],
+        "title": "FavoriteWrite"
+      },
       "Filter": {
         "properties": {
           "front": {
@@ -1313,6 +1379,10 @@
             "type": "array",
             "title": "Supported Processors"
           },
+          "favorite": {
+            "type": "boolean",
+            "title": "Favorite"
+          },
           "data": {
             "$ref": "#/components/schemas/TuningData"
           }
@@ -1326,6 +1396,7 @@
           "car_model",
           "speaker_type",
           "supported_processors",
+          "favorite",
           "data"
         ],
         "title": "ProfileRead"

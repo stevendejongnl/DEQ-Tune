@@ -14,6 +14,8 @@ class Profile(SQLModel, table=True):
     brand_name: str | None = None
     car_model: str | None = None
     speaker_type: str | None = None  # "general" | "carrozzeria" | None
+    # A starred preset shows in the sidebar. The rest stay in the library.
+    favorite: bool = Field(default=False)
     supported_processors: list[str] = Field(sa_column=Column(JSON), default_factory=list)
     data: dict = Field(sa_column=Column(JSON))
     """The `TuningData` blob (see eq_data.py), stored as-is."""
