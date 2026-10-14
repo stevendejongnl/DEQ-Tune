@@ -9,7 +9,13 @@ from sqlmodel import Session, select
 
 from app.deq_session import selected_band_gains_db
 from app.eq_data import TuningData
-from app.equalizers import FACTORY_EQUALIZERS, combine_curves, seed_factory_equalizers, with_equalizer
+from app.equalizers import (
+    FACTORY_EQUALIZERS,
+    combine_curves,
+    seed_factory_equalizers,
+    star_default_equalizers,
+    with_equalizer,
+)
 from app.models import Equalizer
 from app.seed import load_preset
 
@@ -95,3 +101,41 @@ def test_every_factory_eq_is_a_valid_curve():
     for name, gains in FACTORY_EQUALIZERS.items():
         assert len(gains) == 13, name
         assert all(abs(gain) <= 12 for gain in gains), name
+
+
+def test_the_regions_seven_styles_start_with_a_star(session: Session):
+    """The Pioneer app shows seven styles outside Brazil, India, Japan and
+    Mexico (`f/a$b`). The rest of the library starts without a star."""
+    seed_factory_equalizers(session)
+    starred = {
+        equalizer.name
+        for equalizer in session.exec(select(Equalizer).where(Equalizer.favorite)).all()
+    }
+    assert starred == {"Flat", "Super Bass", "Powerful", "Natural", "Vocal", "Vivid", "Dynamic"}
+
+
+def test_a_factory_eq_takes_a_star(client: TestClient, session: Session):
+    seed_factory_equalizers(session)
+    samba = next(eq for eq in client.get("/api/equalizers").json() if eq["name"] == "Samba")
+    assert samba["favorite"] is False
+
+    response = client.put(f"/api/equalizers/{samba['id']}/favorite", json={"favorite": True})
+
+    assert response.status_code == 200
+    assert response.json()["favorite"] is True
+    assert response.json()["gains"] == samba["gains"]
+
+
+def test_an_older_library_gets_the_regions_stars_once(session: Session):
+    """The column arrives with every row at 0. Startup then stars the
+    seven defaults, and leaves Samba alone."""
+    seed_factory_equalizers(session)
+    for equalizer in session.exec(select(Equalizer)).all():
+        equalizer.favorite = False
+        session.add(equalizer)
+    session.commit()
+
+    star_default_equalizers(session)
+
+    starred = {e.name for e in session.exec(select(Equalizer).where(Equalizer.favorite)).all()}
+    assert starred == {"Flat", "Super Bass", "Powerful", "Natural", "Vocal", "Vivid", "Dynamic"}

@@ -73,6 +73,7 @@ class EqualizerRead(BaseModel):
     id: int
     name: str
     source: str
+    favorite: bool
     gains: list[float]
 
 

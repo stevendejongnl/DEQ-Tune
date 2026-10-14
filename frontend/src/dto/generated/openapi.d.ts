@@ -500,6 +500,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/equalizers/{equalizer_id}/favorite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Favorite
+         * @description Stars or unstars one EQ. A factory EQ takes a star too: the star is
+         *     the person's choice, and it leaves the curve alone.
+         */
+        put: operations["set_favorite_api_equalizers__equalizer_id__favorite_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -733,6 +754,8 @@ export interface components {
             name: string;
             /** Source */
             source: string;
+            /** Favorite */
+            favorite: boolean;
             /** Gains */
             gains: number[];
         };
@@ -1742,6 +1765,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_favorite_api_equalizers__equalizer_id__favorite_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                equalizer_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FavoriteWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EqualizerRead"];
+                };
             };
             /** @description Validation Error */
             422: {

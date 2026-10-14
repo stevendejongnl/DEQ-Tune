@@ -13,7 +13,7 @@ from sqlmodel import Session
 from app.active_profile import active_profile
 from app.active_profile_routes import router as active_profile_router
 from app.equalizer_routes import router as equalizer_router
-from app.equalizers import seed_factory_equalizers
+from app.equalizers import seed_factory_equalizers, star_default_equalizers
 from app.bridge_routes import router as bridge_router
 from app.db import create_db_and_tables, engine
 from app.deq_device import device, link_keeper
@@ -26,10 +26,14 @@ DIST_DIR = Path(__file__).resolve().parents[2] / "dist"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    create_db_and_tables()
+    added_columns = create_db_and_tables()
     with Session(engine) as session:
         seed_factory_profiles(session)
         seed_factory_equalizers(session)
+        # A database from before the EQ star holds the factory EQs already,
+        # so the seed's stars never reach them.
+        if ("equalizer", "favorite") in added_columns:
+            star_default_equalizers(session)
     # Each new link gets the active profile before anything sees the unit
     # as connected.
     device.after_connect = active_profile.apply_after_connect

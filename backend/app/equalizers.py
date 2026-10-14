@@ -27,6 +27,11 @@ FLAT = [0.0] * EQUALIZER_BAND_COUNT
 # `MultiBandEqualizer::getBandEq` in `libPMGJni.so` copies a 13-band table per
 # preset. Run under an emulator on 2026-10-14, it gave these values. The
 # library also holds BLASTER1 to BLASTER5, which no picker shows.
+#
+# The Pioneer app shows a different set per region (`f/a$b`, by country
+# code). Brazil, India, Japan and Mexico get their own. Every other country
+# gets the seven in `STARRED_BY_DEFAULT`, so those start with a star. The
+# rest stay in the library.
 FACTORY_EQUALIZERS: dict[str, list[float]] = {
     "Flat": FLAT,
     "Super Bass": [8.0, 8.0, 6.0, 6.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0, 4.0, 2.0],
@@ -43,6 +48,9 @@ FACTORY_EQUALIZERS: dict[str, list[float]] = {
     "Dynamic": [6.0, 6.0, 6.0, 6.0, 6.0, 4.0, 4.0, 4.0, 6.0, 6.0, 8.0, 6.0, 4.0],
     "BANDA": [12.0, 12.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
 }
+
+
+STARRED_BY_DEFAULT = ("Flat", "Super Bass", "Powerful", "Natural", "Vocal", "Vivid", "Dynamic")
 
 
 def clamp_gain(gain_db: float) -> float:
@@ -75,6 +83,21 @@ def with_equalizer(tuning: TuningData, style_gains_db: list[float]) -> TuningDat
     return result
 
 
+def star_default_equalizers(session: Session) -> None:
+    """Stars the factory EQs in `STARRED_BY_DEFAULT`.
+
+    Startup calls it once, when it adds the star column to a database that
+    already holds the factory EQs. The seed stars a new EQ itself.
+    """
+    for equalizer in session.exec(
+        select(Equalizer).where(Equalizer.source == "factory")
+    ).all():
+        if equalizer.name in STARRED_BY_DEFAULT:
+            equalizer.favorite = True
+            session.add(equalizer)
+    session.commit()
+
+
 def seed_factory_equalizers(session: Session) -> int:
     """Inserts each factory EQ that the database lacks. Returns the count.
 
@@ -87,7 +110,14 @@ def seed_factory_equalizers(session: Session) -> int:
     for name, gains in FACTORY_EQUALIZERS.items():
         if name in existing:
             continue
-        session.add(Equalizer(name=name, source="factory", gains=list(gains)))
+        session.add(
+            Equalizer(
+                name=name,
+                source="factory",
+                gains=list(gains),
+                favorite=name in STARRED_BY_DEFAULT,
+            )
+        )
         inserted += 1
     if inserted:
         session.commit()

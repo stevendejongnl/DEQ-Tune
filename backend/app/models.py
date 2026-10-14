@@ -45,5 +45,8 @@ class Equalizer(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
     source: str = Field(default="custom")  # "factory" | "custom"
+    # A starred EQ shows in the EQ panel and the car app. The rest stay in
+    # the library. An EQ of the person's own shows either way.
+    favorite: bool = Field(default=False)
     gains: list[float] = Field(sa_column=Column(JSON))
     """13 gains in dB, 50 Hz to 12.5 kHz."""

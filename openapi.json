@@ -1032,6 +1032,59 @@
         }
       }
     },
+    "/api/equalizers/{equalizer_id}/favorite": {
+      "put": {
+        "tags": [
+          "equalizers"
+        ],
+        "summary": "Set Favorite",
+        "description": "Stars or unstars one EQ. A factory EQ takes a star too: the star is\nthe person's choice, and it leaves the curve alone.",
+        "operationId": "set_favorite_api_equalizers__equalizer_id__favorite_put",
+        "parameters": [
+          {
+            "name": "equalizer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Equalizer Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FavoriteWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EqualizerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -1548,6 +1601,10 @@
             "type": "string",
             "title": "Source"
           },
+          "favorite": {
+            "type": "boolean",
+            "title": "Favorite"
+          },
           "gains": {
             "items": {
               "type": "number"
@@ -1561,6 +1618,7 @@
           "id",
           "name",
           "source",
+          "favorite",
           "gains"
         ],
         "title": "EqualizerRead"

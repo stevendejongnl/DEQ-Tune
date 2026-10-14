@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 from app.active_profile import read_active_equalizer_id, write_active_equalizer_id
 from app.db import get_session
 from app.models import Equalizer
-from app.schemas import EqualizerCreate, EqualizerRead, EqualizerUpdate
+from app.schemas import EqualizerCreate, EqualizerRead, EqualizerUpdate, FavoriteWrite
 
 router = APIRouter(prefix="/equalizers", tags=["equalizers"])
 
@@ -51,6 +51,20 @@ def update_equalizer(
         equalizer.name = body.name
     if body.gains is not None:
         equalizer.gains = list(body.gains)
+    session.add(equalizer)
+    session.commit()
+    session.refresh(equalizer)
+    return equalizer
+
+
+@router.put("/{equalizer_id}/favorite", response_model=EqualizerRead)
+def set_favorite(
+    equalizer_id: int, body: FavoriteWrite, session: Session = Depends(get_session)
+) -> Equalizer:
+    """Stars or unstars one EQ. A factory EQ takes a star too: the star is
+    the person's choice, and it leaves the curve alone."""
+    equalizer = require_equalizer(session, equalizer_id)
+    equalizer.favorite = body.favorite
     session.add(equalizer)
     session.commit()
     session.refresh(equalizer)

@@ -57,3 +57,18 @@ def test_an_older_setting_table_gets_the_eq_and_source_columns():
     assert {"equalizer_id", "source_mode"} <= columns
     with engine.connect() as connection:
         assert connection.execute(text("SELECT profile_id FROM activeprofilesetting")).scalar_one() == 15
+
+
+def test_an_older_equalizer_table_gets_the_favorite_column():
+    engine = create_engine("sqlite://", poolclass=StaticPool)
+    with engine.begin() as connection:
+        connection.execute(text(
+            "CREATE TABLE equalizer (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL,"
+            " source VARCHAR NOT NULL, gains JSON)"
+        ))
+
+    added = create_db_and_tables(engine)
+
+    columns = {column["name"] for column in inspect(engine).get_columns("equalizer")}
+    assert "favorite" in columns
+    assert ("equalizer", "favorite") in added
