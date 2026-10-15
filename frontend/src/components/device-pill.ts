@@ -35,10 +35,19 @@ export class DevicePill extends LitElement {
   }
 
   override render() {
+    const strings = uiStrings(this.locale);
     return html`
       <span class="dot"></span>
-      ${this.showsLabel ? this.renderLabel(uiStrings(this.locale)) : nothing}
+      ${this.showsLabel ? this.renderLabel(strings) : nothing}
+      ${this.renderFreshness(strings)}
     `;
+  }
+
+  /** Whether the page is live from the Pi or the copy the browser cached.
+   * No bridge means no server answered, so the service worker served it. */
+  private renderFreshness(strings: UiStrings): TemplateResult {
+    const isCached = this.linkState === "no-bridge";
+    return html`<span class="freshness">${isCached ? strings.pageCached : strings.pageLive}</span>`;
   }
 
   private renderLabel(strings: UiStrings): TemplateResult {

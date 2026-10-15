@@ -6,7 +6,9 @@ import {
   type DeviceStatus,
 } from "./device-status.ts";
 import type { DevicePill } from "./device-pill.ts";
+import { FakeBridgeSystemApi } from "./testing/fake-bridge-system-api.ts";
 import { FakeDeviceApi } from "./testing/fake-device-api.ts";
+import { flushMicrotasks } from "../testing/flush-microtasks.ts";
 
 /** Holds the component's next scheduled read instead of running it.
  *
@@ -83,7 +85,20 @@ describe("device-status", () => {
   it("offers no connect button, because the backend connects itself", async () => {
     const element = await mount(new FakeDeviceApi());
 
-    expect(element.shadowRoot!.querySelector("button")).toBeNull();
+    const buttons = [...element.shadowRoot!.querySelectorAll("button")];
+    expect(buttons.map((button) => button.className)).toEqual(["open-system"]);
+  });
+
+  it("opens the system dialog when a person clicks the pill", async () => {
+    const element = await mount(new FakeDeviceApi().startConnected());
+    const systemApi = new FakeBridgeSystemApi();
+    element.systemApi = systemApi;
+    await element.updateComplete;
+
+    element.shadowRoot!.querySelector<HTMLButtonElement>(".open-system")!.click();
+    await flushMicrotasks();
+
+    expect(systemApi.readCount).toBe(1);
   });
 
   it("shows the unit as connected without being asked to connect", async () => {

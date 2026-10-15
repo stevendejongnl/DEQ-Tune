@@ -282,6 +282,7 @@ export class AppRoot extends LitElement {
             <bridge-notices .api=${this.api} .locale=${this.locale}></bridge-notices>
             <device-status
               .api=${this.api}
+              .systemApi=${this.api}
               .locale=${this.locale}
               .layout=${this.layout}
               @link-state=${(linkEvent: CustomEvent<{ linkState: LinkState }>) =>

@@ -18,11 +18,10 @@ from app.bridge_routes import router as bridge_router
 from app.db import create_db_and_tables, engine
 from app.deq_device import device, link_keeper
 from app.device_routes import router as device_router
+from app.paths import DIST_DIR
 from app.routes import router
 from app.seed import seed_factory_profiles
 from app.wifi_routes import router as wifi_router
-
-DIST_DIR = Path(__file__).resolve().parents[2] / "dist"
 
 
 @asynccontextmanager

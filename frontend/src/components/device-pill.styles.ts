@@ -6,13 +6,10 @@ export const devicePillStyles = css`
     align-items: center;
     gap: 8px;
     height: 40px;
-    padding: 0 6px 0 14px;
+    padding: 0 14px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-pill);
     background: var(--color-card);
-  }
-  :host([linkstate="connected"]) {
-    padding-right: 14px;
   }
   .dot {
     width: 8px;
@@ -29,6 +26,17 @@ export const devicePillStyles = css`
     font-size: 13px;
     color: var(--color-text-2);
     white-space: nowrap;
+  }
+  .freshness {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-muted-foreground);
+
+    :host([linkstate="no-bridge"]) & {
+      color: var(--color-accent);
+    }
   }
   .firmware {
     font-family: var(--font-mono);

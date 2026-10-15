@@ -17,9 +17,34 @@ function labelOf(element: DevicePill): string {
   return element.shadowRoot!.querySelector(".device-label")?.textContent?.trim() ?? "";
 }
 
+function freshnessOf(element: DevicePill): string {
+  return element.shadowRoot!.querySelector(".freshness")?.textContent?.trim() ?? "";
+}
+
 describe("device-pill", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
+  });
+
+  it("calls the page cached when no bridge answers", async () => {
+    const element = await mount({ linkState: "no-bridge" });
+
+    expect(freshnessOf(element)).toBe("cached");
+  });
+
+  it("calls the page live when the bridge answers, with or without the unit", async () => {
+    const unitDown = await mount({ linkState: "unit-down" });
+    const connected = await mount({ linkState: "connected" });
+
+    expect(freshnessOf(unitDown)).toBe("live");
+    expect(freshnessOf(connected)).toBe("live");
+  });
+
+  it("keeps the cached tag on a phone, where the label is gone", async () => {
+    const element = await mount({ linkState: "no-bridge", layout: "phone" });
+
+    expect(labelOf(element)).toBe("");
+    expect(freshnessOf(element)).toBe("cached");
   });
 
   it("names the bridge when the bridge is what cannot be reached", async () => {

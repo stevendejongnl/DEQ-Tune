@@ -12,7 +12,8 @@ from fastapi import APIRouter
 
 from app.bridge_health import read_bridge_health
 from app.bridge_notices import note_undervoltage, notice_log
-from app.schemas import BridgeNoticeRead, BridgeRead
+from app.bridge_system import read_bridge_system
+from app.schemas import BridgeNoticeRead, BridgeRead, BridgeSystemRead, NetworkInterfaceRead
 
 router = APIRouter(prefix="/bridge", tags=["bridge"])
 
@@ -33,3 +34,13 @@ def read_bridge() -> BridgeRead:
         uptime_seconds=health.uptime_seconds,
         notices=[BridgeNoticeRead(**vars(notice)) for notice in notice_log.notices()],
     )
+
+
+@router.get("/system", response_model=BridgeSystemRead)
+def read_system() -> BridgeSystemRead:
+    """Returns the bridge's memory, disk, network, load and build."""
+    system = read_bridge_system()
+    fields = vars(system) | {
+        "interfaces": [NetworkInterfaceRead(**vars(interface)) for interface in system.interfaces],
+    }
+    return BridgeSystemRead(**fields)

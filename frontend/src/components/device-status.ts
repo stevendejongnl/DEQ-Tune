@@ -1,10 +1,15 @@
 import { html, LitElement } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
-import type { DeviceApi } from "../api/client.ts";
+import { customElement, property, query, state } from "lit/decorators.js";
+import type { BridgeSystemApi, DeviceApi } from "../api/client.ts";
+import { BUILD_ID } from "../build-id.ts";
 import type { DeviceDto } from "../dto/profile.dto.ts";
 import type { Locale } from "../i18n/locale.ts";
 import type { AppLayout } from "../layout-query.ts";
+import { uiStrings } from "../i18n/ui-strings.ts";
 import "./device-pill.ts";
+import { deviceStatusStyles } from "./device-status.styles.ts";
+import "./system-dialog.ts";
+import type { SystemDialog } from "./system-dialog.ts";
 import { readLinkState, type LinkState } from "./link-state.ts";
 
 /** How often to ask again, in milliseconds.
@@ -34,12 +39,19 @@ export type CancelFunction = (handle: unknown) => void;
  * ignition, so a person has nothing useful to press. This component
  * reports and never asks.
  *
+ * A click on the pill opens `system-dialog`, with the Pi's machine
+ * statistics and where this page came from.
+ *
  * `api` and `scheduleFunction` are settable properties, so a test passes
  * hand-written fakes instead of stubbing anything.
  */
 @customElement("device-status")
 export class DeviceStatus extends LitElement {
+  static override styles = deviceStatusStyles;
+
   @property({ attribute: false }) api: DeviceApi | undefined;
+  @property({ attribute: false }) systemApi: BridgeSystemApi | undefined;
+  @property({ type: String }) pageBuild = BUILD_ID;
   @property({ type: String }) locale: Locale = "en";
   @property({ type: String }) layout: AppLayout = "desktop";
   @property({ attribute: false }) scheduleFunction: ScheduleFunction = (
@@ -51,6 +63,8 @@ export class DeviceStatus extends LitElement {
     clearTimeout(handle as ReturnType<typeof setTimeout>);
 
   @state() private device: DeviceDto | null = null;
+
+  @query("system-dialog") private systemDialog!: SystemDialog;
 
   private pollHandle: unknown;
 
@@ -69,13 +83,30 @@ export class DeviceStatus extends LitElement {
   }
 
   override render() {
+    const strings = uiStrings(this.locale);
     return html`
-      <device-pill
-        .linkState=${this.linkState}
-        .firmwareVersion=${this.device?.firmware_version ?? null}
+      <button
+        type="button"
+        class="open-system"
+        aria-haspopup="dialog"
+        aria-label=${strings.systemOpenLabel}
+        title=${strings.systemOpenLabel}
+        @click=${() => void this.systemDialog.show()}
+      >
+        <device-pill
+          .linkState=${this.linkState}
+          .firmwareVersion=${this.device?.firmware_version ?? null}
+          .locale=${this.locale}
+          .layout=${this.layout}
+        ></device-pill>
+      </button>
+      <system-dialog
+        .api=${this.systemApi}
         .locale=${this.locale}
-        .layout=${this.layout}
-      ></device-pill>
+        .pageBuild=${this.pageBuild}
+        .scheduleFunction=${this.scheduleFunction}
+        .cancelFunction=${this.cancelFunction}
+      ></system-dialog>
     `;
   }
 

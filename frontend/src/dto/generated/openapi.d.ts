@@ -392,6 +392,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bridge/system": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read System
+         * @description Returns the bridge's memory, disk, network, load and build.
+         */
+        get: operations["read_system_api_bridge_system_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/active-profile": {
         parameters: {
             query?: never;
@@ -747,6 +767,62 @@ export interface components {
              */
             notices: components["schemas"]["BridgeNoticeRead"][];
         };
+        /**
+         * BridgeSystemRead
+         * @description The bridge's machine statistics, for the app's system dialog.
+         *
+         *     Each field is `None` where the machine cannot tell. A laptop has no Pi
+         *     model and no `vcgencmd`. `frontend_build` is the build id of the frontend
+         *     that the bridge serves now. The app compares it with its own build id, and
+         *     so tells a cached page from the current one.
+         */
+        BridgeSystemRead: {
+            /** Hostname */
+            hostname?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Operating System */
+            operating_system?: string | null;
+            /** Kernel */
+            kernel?: string | null;
+            /** Architecture */
+            architecture?: string | null;
+            /** Python Version */
+            python_version?: string | null;
+            /** Uptime Seconds */
+            uptime_seconds?: number | null;
+            /** Load Average */
+            load_average?: number[] | null;
+            /** Cpu Count */
+            cpu_count?: number | null;
+            /** Cpu Temperature Celsius */
+            cpu_temperature_celsius?: number | null;
+            /** Cpu Frequency Mhz */
+            cpu_frequency_mhz?: number | null;
+            /** Throttled Flags */
+            throttled_flags?: string | null;
+            /** Memory Total Bytes */
+            memory_total_bytes?: number | null;
+            /** Memory Available Bytes */
+            memory_available_bytes?: number | null;
+            /** Swap Total Bytes */
+            swap_total_bytes?: number | null;
+            /** Swap Free Bytes */
+            swap_free_bytes?: number | null;
+            /** Backend Memory Bytes */
+            backend_memory_bytes?: number | null;
+            /** Disk Total Bytes */
+            disk_total_bytes?: number | null;
+            /** Disk Free Bytes */
+            disk_free_bytes?: number | null;
+            /** Frontend Build */
+            frontend_build?: string | null;
+            /**
+             * Interfaces
+             * @default []
+             */
+            interfaces: components["schemas"]["NetworkInterfaceRead"][];
+        };
         /** CancellingEq */
         CancellingEq: {
             /** L */
@@ -938,6 +1014,29 @@ export interface components {
         MuteWrite: {
             /** Muted */
             muted: boolean;
+        };
+        /**
+         * NetworkInterfaceRead
+         * @description One network interface of the bridge, without loopback.
+         */
+        NetworkInterfaceRead: {
+            /** Name */
+            name: string;
+            /** State */
+            state: string;
+            /** Mac Address */
+            mac_address?: string | null;
+            /**
+             * Addresses
+             * @default []
+             */
+            addresses: string[];
+            /** Received Bytes */
+            received_bytes?: number | null;
+            /** Sent Bytes */
+            sent_bytes?: number | null;
+            /** Signal Dbm */
+            signal_dbm?: number | null;
         };
         /** ProfileCreate */
         ProfileCreate: {
@@ -1682,6 +1781,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BridgeRead"];
+                };
+            };
+        };
+    };
+    read_system_api_bridge_system_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BridgeSystemRead"];
                 };
             };
         };

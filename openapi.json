@@ -737,6 +737,28 @@
         }
       }
     },
+    "/api/bridge/system": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Read System",
+        "description": "Returns the bridge's memory, disk, network, load and build.",
+        "operationId": "read_system_api_bridge_system_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BridgeSystemRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/active-profile": {
       "get": {
         "tags": [
@@ -1514,6 +1536,244 @@
         "title": "BridgeRead",
         "description": "What the app shows about the machine that holds the link.\n\nThis model describes the bridge, and not the DEQ. The two fail for\ndifferent reasons and ask different things of a person. A DEQ that is off\nis normal. A bridge that browns out has a fault in the wiring.\n\nThe undervoltage fields are `None` where the machine cannot tell. A laptop\nhas no `vcgencmd`, and `False` would be a claim it cannot make."
       },
+      "BridgeSystemRead": {
+        "properties": {
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hostname"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "operating_system": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operating System"
+          },
+          "kernel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kernel"
+          },
+          "architecture": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Architecture"
+          },
+          "python_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Python Version"
+          },
+          "uptime_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uptime Seconds"
+          },
+          "load_average": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load Average"
+          },
+          "cpu_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Count"
+          },
+          "cpu_temperature_celsius": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Temperature Celsius"
+          },
+          "cpu_frequency_mhz": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Frequency Mhz"
+          },
+          "throttled_flags": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Throttled Flags"
+          },
+          "memory_total_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Total Bytes"
+          },
+          "memory_available_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Available Bytes"
+          },
+          "swap_total_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swap Total Bytes"
+          },
+          "swap_free_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swap Free Bytes"
+          },
+          "backend_memory_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backend Memory Bytes"
+          },
+          "disk_total_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk Total Bytes"
+          },
+          "disk_free_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk Free Bytes"
+          },
+          "frontend_build": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frontend Build"
+          },
+          "interfaces": {
+            "items": {
+              "$ref": "#/components/schemas/NetworkInterfaceRead"
+            },
+            "type": "array",
+            "title": "Interfaces",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "BridgeSystemRead",
+        "description": "The bridge's machine statistics, for the app's system dialog.\n\nEach field is `None` where the machine cannot tell. A laptop has no Pi\nmodel and no `vcgencmd`. `frontend_build` is the build id of the frontend\nthat the bridge serves now. The app compares it with its own build id, and\nso tells a cached page from the current one."
+      },
       "CancellingEq": {
         "properties": {
           "L": {
@@ -2026,6 +2286,77 @@
           "muted"
         ],
         "title": "MuteWrite"
+      },
+      "NetworkInterfaceRead": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "mac_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mac Address"
+          },
+          "addresses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Addresses",
+            "default": []
+          },
+          "received_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received Bytes"
+          },
+          "sent_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent Bytes"
+          },
+          "signal_dbm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Dbm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "state"
+        ],
+        "title": "NetworkInterfaceRead",
+        "description": "One network interface of the bridge, without loopback."
       },
       "ProfileCreate": {
         "properties": {

@@ -152,6 +152,37 @@ export type UiStrings = {
   wifiRefused: string;
   wifiInvalid: string;
   wifiFailed: string;
+  pageLive: string;
+  pageCached: string;
+  pageOutdated: string;
+  systemOpenLabel: string;
+  systemTitle: string;
+  systemUnreachable: string;
+  systemPageSection: string;
+  systemPageState: string;
+  systemPageBuild: string;
+  systemServedBuild: string;
+  systemOutdatedHint: string;
+  systemReload: string;
+  systemMachineSection: string;
+  systemHostname: string;
+  systemModel: string;
+  systemOperatingSystem: string;
+  systemKernel: string;
+  systemPython: string;
+  systemUptime: string;
+  systemLoad: string;
+  systemCpu: string;
+  systemTemperature: string;
+  systemThrottled: string;
+  systemMemorySection: string;
+  systemRam: string;
+  systemSwap: string;
+  systemBackendMemory: string;
+  systemDisk: string;
+  systemNetworkSection: string;
+  systemNoInterfaces: string;
+  systemCores: string;
 };
 
 /** The source catalog. Every key the app reads must be here, so the compiler

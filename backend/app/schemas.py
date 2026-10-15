@@ -191,6 +191,51 @@ class BridgeRead(BaseModel):
     notices: list[BridgeNoticeRead] = []
 
 
+class NetworkInterfaceRead(BaseModel):
+    """One network interface of the bridge, without loopback."""
+
+    name: str
+    state: str
+    mac_address: str | None = None
+    addresses: list[str] = []
+    received_bytes: int | None = None
+    sent_bytes: int | None = None
+    # Only a wireless interface has a signal.
+    signal_dbm: float | None = None
+
+
+class BridgeSystemRead(BaseModel):
+    """The bridge's machine statistics, for the app's system dialog.
+
+    Each field is `None` where the machine cannot tell. A laptop has no Pi
+    model and no `vcgencmd`. `frontend_build` is the build id of the frontend
+    that the bridge serves now. The app compares it with its own build id, and
+    so tells a cached page from the current one.
+    """
+
+    hostname: str | None = None
+    model: str | None = None
+    operating_system: str | None = None
+    kernel: str | None = None
+    architecture: str | None = None
+    python_version: str | None = None
+    uptime_seconds: float | None = None
+    load_average: list[float] | None = None
+    cpu_count: int | None = None
+    cpu_temperature_celsius: float | None = None
+    cpu_frequency_mhz: float | None = None
+    throttled_flags: str | None = None
+    memory_total_bytes: int | None = None
+    memory_available_bytes: int | None = None
+    swap_total_bytes: int | None = None
+    swap_free_bytes: int | None = None
+    backend_memory_bytes: int | None = None
+    disk_total_bytes: int | None = None
+    disk_free_bytes: int | None = None
+    frontend_build: str | None = None
+    interfaces: list[NetworkInterfaceRead] = []
+
+
 class DeqEnumValueRead(BaseModel):
     """One value the unit accepts, as the Pioneer app declares it."""
 

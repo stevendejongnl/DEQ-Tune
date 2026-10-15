@@ -6,6 +6,7 @@ import type {
   AudioSourceWriteDto,
   AudioStateDto,
   BridgeDto,
+  BridgeSystemDto,
   DeviceDto,
   DeviceOptionsDto,
   EqualizerCreateDto,
@@ -118,6 +119,12 @@ export interface BridgeApi {
   readBridge(): Promise<BridgeDto>;
 }
 
+/** The bridge's machine statistics: memory, disk, network, load and the
+ * frontend build it serves. Only the system dialog reads them. */
+export interface BridgeSystemApi {
+  readBridgeSystem(): Promise<BridgeSystemDto>;
+}
+
 /** The Wi-Fi networks that the bridge joins.
  *
  * A save or a forget changes the saved networks only. The bridge joins a
@@ -132,7 +139,7 @@ export interface WifiApi {
   requestWifiJoin(): Promise<void>;
 }
 
-export class DeqApiClient implements ProfileApi, DeviceApi, EqualizerApi, BridgeApi, WifiApi {
+export class DeqApiClient implements ProfileApi, DeviceApi, EqualizerApi, BridgeApi, BridgeSystemApi, WifiApi {
   private baseUrl: string;
   private fetchImpl: FetchLike;
 
@@ -189,6 +196,10 @@ export class DeqApiClient implements ProfileApi, DeviceApi, EqualizerApi, Bridge
 
   async readBridge(): Promise<BridgeDto> {
     return typia.assert<BridgeDto>(await this.call("GET", "/bridge"));
+  }
+
+  async readBridgeSystem(): Promise<BridgeSystemDto> {
+    return typia.assert<BridgeSystemDto>(await this.call("GET", "/bridge/system"));
   }
 
   async readWifi(): Promise<WifiDto> {

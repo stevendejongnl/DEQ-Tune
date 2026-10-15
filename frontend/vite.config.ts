@@ -1,10 +1,42 @@
 import ttsc from "@ttsc/unplugin/vite";
 import { defineConfig } from "vitest/config";
 import { VitePWA } from "vite-plugin-pwa";
+import { execSync } from "node:child_process";
+import type { Plugin } from "vite";
+
+/** The commit and the minute of this build. A Docker build has no `.git`,
+ * so it has no commit either. */
+function makeBuildId(): string {
+  let commit = "nogit";
+  try {
+    commit = execSync("git rev-parse --short HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+  } catch {
+    // Keep "nogit".
+  }
+  return `${commit}-${new Date().toISOString().slice(0, 16)}`;
+}
+
+const BUILD_ID = makeBuildId();
+
+/** Writes the build id beside the page. The backend reads the file and
+ * reports it, and the app compares it with the id it was built with. A
+ * page whose id differs is a cached copy of an older build. */
+function buildIdFile(): Plugin {
+  return {
+    name: "deq-build-id",
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: "build-id.txt", source: `${BUILD_ID}\n` });
+    },
+  };
+}
 
 export default defineConfig({
+  define: {
+    __DEQ_BUILD_ID__: JSON.stringify(BUILD_ID),
+  },
   plugins: [
     ttsc(),
+    buildIdFile(),
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg"],
@@ -12,8 +44,8 @@ export default defineConfig({
         name: "DEQ Tune",
         short_name: "DEQ Tune",
         description: "Pioneer DEQ equalizer profiles, in the browser.",
-        theme_color: "#0e011a",
-        background_color: "#0e011a",
+        theme_color: "#12110f",
+        background_color: "#12110f",
         display: "standalone",
         start_url: "/",
         icons: [

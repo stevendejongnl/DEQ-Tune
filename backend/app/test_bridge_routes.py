@@ -59,3 +59,12 @@ def test_a_notice_is_still_there_on_the_next_request(bridge_client):
 
 def test_no_notices_when_nothing_has_gone_wrong(bridge_client):
     assert bridge_client.get("/api/bridge").json()["notices"] == []
+
+
+def test_the_system_statistics_answer_on_any_machine(bridge_client):
+    """CI is not a Pi either. The endpoint still has to answer."""
+    response = bridge_client.get("/api/bridge/system")
+
+    assert response.status_code == 200
+    assert "memory_total_bytes" in response.json()
+    assert isinstance(response.json()["interfaces"], list)

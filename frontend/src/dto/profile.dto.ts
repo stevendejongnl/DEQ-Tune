@@ -252,6 +252,47 @@ export interface BridgeDto {
   notices: BridgeNoticeDto[];
 }
 
+/** One network interface of the bridge, without loopback. Only a wireless
+ * interface has a signal. */
+export interface NetworkInterfaceDto {
+  name: string;
+  state: string;
+  mac_address: string | null;
+  addresses: string[];
+  received_bytes: number | null;
+  sent_bytes: number | null;
+  signal_dbm: number | null;
+}
+
+/** The bridge's machine statistics, for the system dialog.
+ *
+ * Each field is null where the machine cannot tell. `frontend_build` is the
+ * build id of the frontend that the bridge serves now.
+ */
+export interface BridgeSystemDto {
+  hostname: string | null;
+  model: string | null;
+  operating_system: string | null;
+  kernel: string | null;
+  architecture: string | null;
+  python_version: string | null;
+  uptime_seconds: number | null;
+  load_average: number[] | null;
+  cpu_count: number | null;
+  cpu_temperature_celsius: number | null;
+  cpu_frequency_mhz: number | null;
+  throttled_flags: string | null;
+  memory_total_bytes: number | null;
+  memory_available_bytes: number | null;
+  swap_total_bytes: number | null;
+  swap_free_bytes: number | null;
+  backend_memory_bytes: number | null;
+  disk_total_bytes: number | null;
+  disk_free_bytes: number | null;
+  frontend_build: string | null;
+  interfaces: NetworkInterfaceDto[];
+}
+
 /** A network that the bridge joins. `connected` is true while the bridge
  * uses it. */
 export interface SavedWifiNetworkDto {
