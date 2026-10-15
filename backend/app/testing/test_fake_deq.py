@@ -171,10 +171,13 @@ def test_the_fake_reproduces_the_real_units_mode_reply():
     answer.
 
     Captured in the car on 2026-10-08 at transaction id 11, when the backend
-    set THROUGH: MODE 4, volume -37 dB, mute SOUND_ON, not driving. The generic
-    echo rule answered with MODE alone, and no unit ever did that.
+    set THROUGH: MODE 4, volume -37 dB, mute 1, not driving. The generic echo
+    rule answered with MODE alone, and no unit ever did that.
+
+    The mute field is a boolean (`b/f/x` reads it with `b/g/a.b([B)Z`), so 1
+    means muted. The unit was muted then, and THROUGH still played the car.
     """
-    fake = FakeDeq(volume_db=REAL_UNIT_VOLUME_DB)
+    fake = FakeDeq(volume_db=REAL_UNIT_VOLUME_DB, muted=True)
     request = encode_frame(
         Message(
             direction=Direction.TO_DEVICE,
@@ -191,11 +194,12 @@ def test_the_fake_reproduces_the_real_units_mode_reply():
     )
 
 
-def test_the_fake_reproduces_the_real_units_answer_to_sound_off():
-    """The unit took SOUND_OFF with STATUS 0 and reported SOUND_ON anyway.
+def test_the_fake_reproduces_the_real_units_answer_to_a_mute():
+    """The unit took a mute write of 2 with STATUS 0 and answered 1.
 
-    Captured at transaction id 13. It is why 0x0f is no lever: the unit
-    accepts the command and ignores the value.
+    Captured at transaction id 13. The field is a boolean, so 1 means muted:
+    the write worked. This capture was read as "the unit ignores 0x0f" until
+    2026-10-15, when the APK showed the boolean.
     """
     fake = FakeDeq()
     request = encode_frame(
@@ -238,3 +242,20 @@ def test_the_fake_reproduces_the_real_units_volume_refusal():
     assert fake.receive_frame(1.0).hex() == read_capture(
         "20261008_volume_refusal_reply.hex"
     )
+
+
+def test_a_mute_write_of_0_plays_again():
+    fake = FakeDeq(muted=True)
+    request = encode_frame(
+        Message(
+            direction=Direction.TO_DEVICE,
+            command_id=0x0F,
+            transaction_id=(14).to_bytes(8, "little"),
+            body=(0).to_bytes(4, "little", signed=True),
+        )
+    )
+
+    fake.send_frame(request)
+    fake.receive_frame(1.0)
+
+    assert fake.muted is False

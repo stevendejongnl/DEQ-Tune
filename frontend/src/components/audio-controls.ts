@@ -22,13 +22,13 @@ function sourceLabel(strings: UiStrings, name: string): string {
   }
 }
 
-/** The unit declares two mute states, 1 (on) and 2 (off). A real unit has
- * answered 0, which is neither, so say that rather than showing "No". */
+/** The wire carries a boolean: 1 muted, 0 playing. Any other value is
+ * something no unit sent yet, so say that rather than showing "No". */
 function muteLabel(strings: UiStrings, state: AudioStateDto): string {
   if (state.muted) {
     return strings.audioMutedYes;
   }
-  if (state.mute_state_wire === 1) {
+  if (state.mute_state_wire === 0) {
     return strings.audioMutedNo;
   }
   return strings.audioMutedUnknown.replace("{wire}", String(state.mute_state_wire));

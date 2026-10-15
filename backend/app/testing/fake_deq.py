@@ -89,10 +89,9 @@ FAKE_VOLUME_DB = -27
 # names THROUGH.
 FAKE_MODE = 4
 
-# MUTE_STATE wire values, from `deq_enums.json`. The real unit reported
-# SOUND_ON and never moved off it, even when told SOUND_OFF.
-MUTE_STATE_SOUND_ON = 1
-MUTE_STATE_SOUND_OFF = 2
+# The mute write and read carry a boolean, as the app's `b/e/aa` writes it.
+MUTE_WIRE_PLAYING = 0
+MUTE_WIRE_MUTED = 1
 
 # Which commands still report their own field when they refuse.
 #
@@ -381,17 +380,17 @@ class FakeDeq:
         return self.volume_db.to_bytes(4, "little", signed=True)
 
     def accept_mute_state(self, request: Message) -> bytes:
-        """Takes a MUTE_STATE and reports what the unit now holds.
+        """Takes the mute boolean and reports what the unit now holds.
 
-        The real unit answered SOUND_OFF with STATUS 0 and then reported
-        SOUND_ON anyway: `20261008_mute_state_reply.hex`. So this method takes
-        the value, keeps its own state unchanged, and reports SOUND_ON. A unit
-        showed only that behaviour.
+        A real unit answered a write of 2 with STATUS 0 and the value 1
+        (`20261008_mute_state_reply.hex`). Any value other than 0 mutes, and
+        the reply carries the boolean.
         """
+        self.muted = int.from_bytes(request.body[0:4], "little", signed=True) != 0
         return self.mute_state_wire_value().to_bytes(4, "little", signed=True)
 
     def mute_state_wire_value(self) -> int:
-        return MUTE_STATE_SOUND_OFF if self.muted else MUTE_STATE_SOUND_ON
+        return MUTE_WIRE_MUTED if self.muted else MUTE_WIRE_PLAYING
 
     def echo_request_field(self, request: Message) -> bytes:
         """Echoes a small request's own field back, as the unit does.

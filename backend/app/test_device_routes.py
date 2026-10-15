@@ -184,10 +184,9 @@ def test_the_audio_state_reports_what_the_unit_holds(
     assert isinstance(body["volume_db"], int)
 
 
-def test_a_mute_value_the_app_does_not_declare_does_not_fail_the_read() -> None:
-    """A real unit answered the mute read with 0 on 2026-10-10. The enum
-    holds only -1, 1 and 2, and the lookup used to raise, which failed the
-    whole read and left the panel blank."""
+def test_a_mute_read_of_0_means_the_unit_plays() -> None:
+    """A real unit answered the mute read with 0 on 2026-10-10. The field is
+    a boolean, so 0 means it plays."""
 
     class Session:
         def read_mode(self) -> int:
@@ -370,3 +369,23 @@ def test_a_chosen_audio_source_is_kept_for_the_next_link(device_client: TestClie
     device_client.post("/api/device/audio-source", json={"name": "THROUGH"})
 
     assert device_client.get("/api/active-profile").json()["source_mode"] == "THROUGH"
+
+
+def test_mute_and_unmute_write_the_boolean_and_report_it(
+    device_client: TestClient, unit: DeqDevice
+) -> None:
+    """The wire carries 1 for muted and 0 for playing, as the app's `b/e/aa`
+    writes it. The enum values 2 and 1 would make "unmute" mute."""
+    device_client.post("/api/device/connect")
+
+    muted = device_client.post("/api/device/mute", json={"muted": True}).json()
+    playing = device_client.post("/api/device/mute", json={"muted": False}).json()
+
+    assert (muted["muted"], muted["mute_state_wire"]) == (True, 1)
+    assert (playing["muted"], playing["mute_state_wire"]) == (False, 0)
+
+
+def test_mute_without_a_unit_answers_503(device_client: TestClient) -> None:
+    device_client.post("/api/device/disconnect")
+
+    assert device_client.post("/api/device/mute", json={"muted": True}).status_code == 503

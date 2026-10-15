@@ -24,15 +24,20 @@ from app.schemas import (
     DeviceRead,
     EqStyleWrite,
     LiveSimulationWrite,
+    MuteWrite,
     VolumeWrite,
     device_options,
 )
-from app.deq_enums import AUDIO_SOURCE, MUTE_STATE
+from app.deq_enums import AUDIO_SOURCE
 from app.unit_tuning import tuning_from_configuration
 from app.active_profile import ActiveProfile, switch_source
 from app.active_profile_routes import get_active_profile
 
 router = APIRouter(prefix="/device", tags=["device"])
+
+# The mute read and write carry a boolean: 1 is muted, 0 plays. See
+# `DeqSession.set_mute_state`.
+MUTED_WIRE_VALUE = 1
 
 # 503, not 500: an unplugged unit is a normal state, and no bug.
 DEVICE_UNAVAILABLE_STATUS = 503
@@ -102,7 +107,7 @@ def _read_audio_state(session) -> AudioStateRead:
         source_mode=_wire_name(AUDIO_SOURCE, mode_wire),
         source_mode_wire=mode_wire,
         volume_db=volume_db,
-        muted=mute_wire == MUTE_STATE.by_name("SOUND_OFF").wire_value,
+        muted=mute_wire == MUTED_WIRE_VALUE,
         mute_state_wire=mute_wire,
         driving=driving_wire == 1,
     )
@@ -195,18 +200,15 @@ def _switch_source(session, name: str) -> AudioStateRead:
     return _read_audio_state(session)
 
 
-# This module has no mute endpoint, on purpose.
-#
-# A real unit ignores `SET_MUTE_STATE` (0x0f). It answered SOUND_OFF with
-# STATUS 0 and then reported SOUND_ON anyway. `20261008_mute_state_reply.hex`
-# holds that capture, and `FakeDeq.accept_mute_state` keeps its own state
-# unchanged for that reason. An endpoint built on it would acknowledge every
-# request and change nothing. That is worse than no endpoint.
-#
-# `GET /device/audio` still reports mute, because a read of it is useful even
-# when a write is not. If mute ever needs to work from here, the untried
-# candidates are SET_SPEAKER_MUTE_STATE (0x13) and SET_SYSTEM_MUTE_STATE
-# (0x1b). Both need a real unit to check them.
+@router.post("/mute", response_model=AudioStateRead)
+def set_mute(body: MuteWrite, unit: DeqDevice = Depends(get_device)) -> AudioStateRead:
+    """Mutes or unmutes the unit, and answers with what it now holds."""
+
+    def action(session) -> AudioStateRead:
+        session.set_mute_state(body.muted)
+        return _read_audio_state(session)
+
+    return run_on_unit(lambda: unit.run(action))
 
 @router.get("/options", response_model=DeviceOptionsRead)
 def read_device_options() -> DeviceOptionsRead:

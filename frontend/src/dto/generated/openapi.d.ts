@@ -244,6 +244,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/device/mute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Mute
+         * @description Mutes or unmutes the unit, and answers with what it now holds.
+         */
+        post: operations["set_mute_api_device_mute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/device/options": {
         parameters: {
             query?: never;
@@ -914,6 +934,11 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** MuteWrite */
+        MuteWrite: {
+            /** Muted */
+            muted: boolean;
+        };
         /** ProfileCreate */
         ProfileCreate: {
             /** Name */
@@ -1435,6 +1460,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AudioSourceWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioStateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_mute_api_device_mute_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MuteWrite"];
             };
         };
         responses: {

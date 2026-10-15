@@ -145,14 +145,18 @@ class AudioStateRead(BaseModel):
     source_mode_wire: int
     volume_db: int
     muted: bool
-    # What the unit said. `muted` is true only for SOUND_OFF (2). A real unit
-    # answered 0 once, which is neither state that the app declares.
+    # What the unit said: 1 muted, 0 playing. The wire carries a boolean, and
+    # not the MUTE_STATE enum.
     mute_state_wire: int
     driving: bool
 
 
 class VolumeWrite(BaseModel):
     volume_db: int
+
+
+class MuteWrite(BaseModel):
+    muted: bool
 
 
 class AudioSourceWrite(BaseModel):

@@ -36,7 +36,7 @@ const DEFAULT_AUDIO_STATE: AudioStateDto = {
   source_mode_wire: 4,
   volume_db: -20,
   muted: false,
-  mute_state_wire: 1,
+  mute_state_wire: 0,
   driving: false,
 };
 

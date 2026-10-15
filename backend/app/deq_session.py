@@ -38,7 +38,7 @@ from app.deq_blob import (
     decode_blob,
     encode_blob,
 )
-from app.deq_enums import AUDIO_SOURCE, EQ_STYLE, LIVE_SIMULATION, MUTE_STATE
+from app.deq_enums import AUDIO_SOURCE, EQ_STYLE, LIVE_SIMULATION
 from app.deq_dsp import (
     CROSSOVER_SLOT_COUNT,
     TIME_ALIGNMENT_SLOT_COUNT,
@@ -630,14 +630,17 @@ class DeqSession:
         self.exchange(COMMAND_SET_VOLUME, volume_db.to_bytes(4, "little", signed=True))
 
     def set_mute_state(self, muted: bool) -> None:
-        """Mutes or unmutes the unit.
+        """Mutes or unmutes the unit, with command 0x0f.
 
-        `deq_enums.json` names the values: SOUND_ON 1, SOUND_OFF 2. The
-        command is 0x0f, the write partner of the 0x10 this reads back
-        with `read_mute_state`.
+        The wire carries a boolean, not the MUTE_STATE enum: 1 mutes and 0
+        plays. The app's request builder `b/e/aa` turns SOUND_OFF into true
+        through `b/g/e$d.a` and writes it with `b/g/a.b(Z)`. The Pioneer app's
+        mute button sent 1 and then 0 on the tablet (2026-09-29).
+
+        An earlier version sent the enum values, 2 and 1. So its "unmute"
+        sent 1, which mutes.
         """
-        wire_value = MUTE_STATE.by_name("SOUND_OFF" if muted else "SOUND_ON").wire_value
-        self.exchange(COMMAND_SET_MUTE_STATE, wire_value.to_bytes(4, "little", signed=True))
+        self.exchange(COMMAND_SET_MUTE_STATE, int(muted).to_bytes(4, "little", signed=True))
 
     def read_mode(self) -> int:
         """Returns the source mode the unit holds, as a wire value.
@@ -654,9 +657,10 @@ class DeqSession:
         return self._read_one_signed_field(COMMAND_GET_VOLUME)
 
     def read_mute_state(self) -> int:
-        """Returns the mute state the unit holds, as a MUTE_STATE wire value.
+        """Returns what the unit says about mute: 1 muted, 0 playing.
 
-        `deq_enums.json` names them: SOUND_ON 1, SOUND_OFF 2.
+        The wire carries a boolean, as for the write. The app turns it into
+        its enum with `b/g/e$d.a(Z)`: true is SOUND_OFF.
         """
         return self._read_one_signed_field(COMMAND_GET_MUTE_STATE)
 

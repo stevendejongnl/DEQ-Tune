@@ -482,6 +482,48 @@
         }
       }
     },
+    "/api/device/mute": {
+      "post": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Set Mute",
+        "description": "Mutes or unmutes the unit, and answers with what it now holds.",
+        "operationId": "set_mute_api_device_mute_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MuteWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioStateRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/device/options": {
       "get": {
         "tags": [
@@ -1971,6 +2013,19 @@
         ],
         "title": "LiveSimulationWrite",
         "description": "Which built-in live-simulation mode to select on the unit."
+      },
+      "MuteWrite": {
+        "properties": {
+          "muted": {
+            "type": "boolean",
+            "title": "Muted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "muted"
+        ],
+        "title": "MuteWrite"
       },
       "ProfileCreate": {
         "properties": {
