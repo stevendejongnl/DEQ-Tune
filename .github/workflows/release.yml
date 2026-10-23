@@ -67,16 +67,18 @@ jobs:
         working-directory: backend
       - run: npm ci
         working-directory: frontend
-      # The apt step of this install hung for over ten minutes twice on
-      # 2026-10-23. Each try gets five minutes, and a hung try starts again.
+      # The apt step of `playwright install --with-deps` hung for over ten
+      # minutes on 2026-10-23, and a killed try left apt's lock held, so a
+      # retry failed at once. The runner image already carries Chrome's
+      # system libraries. So this installs the browser alone, checks that it
+      # starts, and runs the apt step only when it does not.
       - name: Install the browser for the end-to-end tests
         working-directory: frontend
         run: |
-          for attempt in 1 2 3; do
-            timeout 300 npx playwright install --with-deps chromium && exit 0
-            echo "install try ${attempt} failed or hung"
-          done
-          exit 1
+          timeout 300 npx playwright install chromium
+          if ! node -e "require('@playwright/test').chromium.launch().then((browser) => browser.close())"; then
+            sudo timeout 600 npx playwright install-deps chromium
+          fi
       - run: npx playwright test
         working-directory: frontend
       - if: failure()
