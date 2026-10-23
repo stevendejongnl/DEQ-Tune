@@ -42,6 +42,21 @@ class ManualSchedule {
   }
 }
 
+/** A unit whose first read stays out until the test releases it. */
+class HeldReadDeviceApi extends FakeDeviceApi {
+  private release: (() => void) | null = null;
+
+  override readDevice(): ReturnType<FakeDeviceApi["readDevice"]> {
+    return new Promise((resolve) => {
+      this.release = () => resolve(super.readDevice());
+    });
+  }
+
+  releaseRead(): void {
+    this.release?.();
+  }
+}
+
 async function mount(api: FakeDeviceApi, layout = "desktop"): Promise<DeviceStatus> {
   const element = document.createElement("device-status") as DeviceStatus;
   element.api = api;
@@ -174,6 +189,22 @@ describe("device-status polling", () => {
     await element.updateComplete;
 
     expect(element.linkState).toBe("connected");
+  });
+
+  it("stops polling when it leaves the page during a read", async () => {
+    const api = new HeldReadDeviceApi();
+    const schedule = new ManualSchedule();
+    const element = document.createElement("device-status") as DeviceStatus;
+    element.api = api;
+    element.scheduleFunction = schedule.schedule;
+    element.cancelFunction = schedule.cancel;
+    document.body.append(element);
+
+    element.remove();
+    api.releaseRead();
+    await flushMicrotasks();
+
+    expect(schedule.gaps).toEqual([]);
   });
 
   it("asks again after a short gap while the link is down", async () => {

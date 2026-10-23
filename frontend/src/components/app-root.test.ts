@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import "./app-root.ts";
 import { AUDIO_POLL_MS, type AppRoot } from "./app-root.ts";
 import { FakeProfileApi } from "./testing/fake-profile-api.ts";
@@ -93,6 +93,12 @@ class SlowSaveProfileApi extends FakeProfileApi {
     }
   }
 }
+
+// A mounted app-root keeps its header polling on real timers. Removing it
+// stops that, so no poll fires while the test environment shuts down.
+afterEach(() => {
+  document.body.replaceChildren();
+});
 
 describe("app-root", () => {
   it("opens with an empty list, and no uncaught error, when the Pi does not answer", async () => {

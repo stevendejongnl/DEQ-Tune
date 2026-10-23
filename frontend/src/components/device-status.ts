@@ -128,6 +128,11 @@ export class DeviceStatus extends LitElement {
   /** Reads once, tells the app, then asks again after the right gap. */
   private async readDeviceAndScheduleNext(): Promise<void> {
     await this.readDevice();
+    // The element can leave the page while the read is out. Polling must
+    // stop then, or each removed header keeps a timer alive forever.
+    if (!this.isConnected) {
+      return;
+    }
     this.dispatchEvent(
       new CustomEvent("link-state", {
         detail: { linkState: this.linkState, device: this.device },
