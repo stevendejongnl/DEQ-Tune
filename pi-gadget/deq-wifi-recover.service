@@ -1,0 +1,26 @@
+[Unit]
+# Gets the client Wi-Fi link back after NetworkManager has given up.
+#
+# deq-access-point.service runs once at boot and deliberately carries no
+# Restart=, so nothing on the Pi recovers a client link that drops later.
+# A Wi-Fi glitch on 2026-10-09 left the access point serving and the Pi
+# otherwise off the network until it was power cycled. The timer beside
+# this unit runs it every fifteen minutes; the script decides whether
+# there is anything to do, and does nothing at all in a car.
+Description=Recover the DEQ Pi client Wi-Fi link
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+# Not while a DEQ session holds the USB link. The script checks this too,
+# which is what actually enforces it; this only keeps systemd from
+# starting the two together.
+After=deq-accessory.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/deq-wifi-recover.sh
+
+# The script drops and raises the access point in its worst case, so two
+# copies must never run together. A run that waits for association can
+# take about a minute.
+TimeoutStartSec=180

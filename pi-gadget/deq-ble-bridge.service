@@ -1,0 +1,28 @@
+[Unit]
+# Carries the deq-tune REST API to the phone over Bluetooth Low Energy.
+#
+# The car's head unit does wireless Android Auto only, so the phone's
+# Wi-Fi is permanently held by projection and cannot also hold this Pi's
+# access point. Measured in the car on 2026-10-09. See the header of
+# deq_ble_bridge.py for the full reasoning and for why BLE rather than
+# SPP.
+#
+# This needs the backend it proxies to, but does not require it: a
+# request that arrives while the backend is down gets an answer saying
+# so, which is more useful to a car screen than a timeout.
+Description=DEQ Tune Bluetooth Low Energy bridge
+After=bluetooth.service deq-backend.service
+Wants=bluetooth.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/deq_ble_bridge.py
+
+# Unlike the access point and the gadget, this touches no USB and does
+# not reconfigure the radio, so restarting it cannot wedge a DEQ session.
+# It is safe to bring back automatically.
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

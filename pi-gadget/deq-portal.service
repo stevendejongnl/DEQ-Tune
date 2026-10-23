@@ -1,0 +1,47 @@
+[Unit]
+# Answers a phone's internet probe, so Android offers the portal page
+# instead of leaving the access point for mobile data.
+#
+# This must never be able to take the DEQ link down. It binds the access
+# point's own address, so it starts only once that address exists, and it
+# touches nothing the gadget or the backend owns.
+Description=DEQ Pi captive portal
+After=network.target deq-access-point.service
+Wants=deq-access-point.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/deq_portal.py
+
+# The portal binds 192.168.4.1, which exists only while the access point
+# is up. A restart that keeps trying is right here: the address appears a
+# moment after the access point does, and on a reboot this unit may win
+# the race against it.
+Restart=always
+RestartSec=5
+
+# Port 80 needs the capability, not the whole root account.
+#
+# The user is this service's own, created by `DynamicUser`, rather than
+# `nobody`. systemd warns about `nobody` because every service that
+# picks it shares one identity, so one of them being broken into reaches
+# the others.
+DynamicUser=yes
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
+# It serves one constant string. Nothing it does needs the filesystem,
+# another user's processes, or any privilege beyond that one port.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+MemoryMax=64M
+
+[Install]
+WantedBy=multi-user.target

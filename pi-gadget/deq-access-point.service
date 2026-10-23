@@ -1,0 +1,29 @@
+[Unit]
+# Brings the DEQ access point up at boot.
+#
+# A car has no home network in range, so the phone joins the Pi
+# directly. Nobody is there to start the access point by hand, so a boot
+# has to do it.
+#
+# `nmcli con up deq-tune-ap` alone cannot: `ap0` is a runtime interface
+# that a reboot destroys, and the access point has to be pinned to the
+# channel the client link uses. The script handles both.
+Description=DEQ Pi access point
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+# The script waits up to 30 seconds for a client link, so it is not
+# instant. It runs once and exits; `RemainAfterExit` keeps the unit
+# showing as active afterwards.
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/deq-access-point.sh
+
+# No Restart=. The script reconfigures the radio, and doing that while
+# `deq-accessory.service` holds the USB link has wedged the controller
+# before. A failed start must stay failed and be looked at, not retried
+# against a live DEQ session.
+
+[Install]
+WantedBy=multi-user.target

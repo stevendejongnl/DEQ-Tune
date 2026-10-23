@@ -1,0 +1,20 @@
+[Unit]
+# Records what the backend made of each DEQ session.
+#
+# `/api/device` is a live query, and the Pi takes power from the DEQ, so
+# the answer is gone once the car sleeps. This writes every change to a
+# plain file while the session runs. journald cannot serve here: this Pi
+# has no RTC, the clock jumps backwards at boot, and journald then throws
+# its persistent journal away.
+Description=DEQ session recorder
+After=network.target deq-backend.service
+Wants=deq-backend.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/deq-session-record.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

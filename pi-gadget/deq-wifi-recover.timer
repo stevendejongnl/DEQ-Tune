@@ -1,0 +1,22 @@
+[Unit]
+Description=Check the DEQ Pi client Wi-Fi link every fifteen minutes
+Documentation=file:/usr/local/bin/deq-wifi-recover.sh
+
+[Timer]
+# Five minutes after boot, then every fifteen. The boot delay leaves
+# deq-access-point.service time to finish its own thirty-second wait for
+# a client link, so the first run does not race it.
+OnBootSec=5min
+OnUnitActiveSec=15min
+
+# A missed run matters: the Pi being off the network is exactly the state
+# this exists to end, and that state survives a suspend.
+Persistent=true
+
+# The runs are not time critical and the scan costs radio time, so let
+# systemd spread them rather than firing on the exact minute.
+AccuracySec=1min
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,43 @@
+[Unit]
+# Serves the app and holds the DEQ session. The phone reaches this over
+# Wi-Fi, so it must start without a login, the same reason the gadget
+# service does.
+#
+# It does not depend on deq-accessory. The two are separate: the gadget
+# holds the USB link, and this serves the API. The backend connects to
+# the unit by itself and keeps retrying, so starting in either order is
+# fine.
+Description=DEQ Tune backend
+After=network.target
+
+[Service]
+Type=simple
+User=deq
+WorkingDirectory=/home/deq/deq-tune/backend
+
+# uv lives in the user's own directory, so systemd needs the full path.
+# `--no-sync` keeps a start from reaching the network: the Pi may be in a
+# car with no route out, and a service that waits for a package index
+# would never come up.
+Environment=PATH=/home/deq/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/home/deq/deq-tune/backend
+
+# The database sits outside the unpacked tree, so replacing the code does
+# not take the profiles with it.
+Environment=DEQ_DB_PATH=/home/deq/deq.db
+
+# The gadget owns /dev/usb_accessory, because two writers on one link
+# would interleave frames. It relays whole frames to this backend over
+# /run/deq-accessory.sock instead, and stops sending its own while this
+# backend is attached.
+Environment=DEQ_TRANSPORT=accessory
+
+ExecStart=/home/deq/.local/bin/uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8420
+Restart=on-failure
+RestartSec=5
+
+StandardOutput=append:/var/log/deq-backend.log
+StandardError=append:/var/log/deq-backend.log
+
+[Install]
+WantedBy=multi-user.target

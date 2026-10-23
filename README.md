@@ -11,6 +11,8 @@ backend/    FastAPI + SQLite. Serves and stores profiles, and drives the DEQ uni
 frontend/   Lit + TypeScript + Vite. The EQ editor, profile list, and device header. Also a PWA.
             `e2e/` holds the Playwright tests, which drive a real browser.
             `src/i18n/locales/` holds the UI text, one JSON file per language.
+pi-gadget/  The Raspberry Pi side: the USB gadget, its kernel drivers, the BLE bridge, the
+            access point and the systemd units. See `pi-gadget/README.md`.
 data/presets/  The bundled factory preset JSON files, extracted from the Pioneer APK.
 openapi.json   The backend's exported API schema. The frontend generates its DTOs from this file.
 conformance/   Shared test corpus: inputs plus the exact bytes the Pioneer app produces for them.

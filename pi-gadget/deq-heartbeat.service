@@ -1,0 +1,18 @@
+[Unit]
+# Says how far the Pi got before it stopped.
+#
+# The reboots on 2026-10-07 had no cause on record: no undervoltage, no
+# panic, no OOM, and journald throws its persistent journal away because
+# this Pi has no RTC and the clock jumps backwards at every boot. This
+# writes a plain file instead, so the next reboot leaves evidence.
+Description=DEQ Pi heartbeat
+After=local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/deq-heartbeat.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

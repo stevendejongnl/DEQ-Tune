@@ -1,0 +1,21 @@
+[Unit]
+# Brings up the accessory USB gadget at boot. The DEQ test happens in a
+# car, where the data port holds the DEQ and Wi-Fi may be the only way
+# in, so this must not need a login to start.
+Description=DEQ AOA USB accessory gadget
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -u /home/deq/deq_accessory.py
+Restart=on-failure
+RestartSec=5
+
+# journald on this image keeps falling back to volatile storage, so the
+# gadget writes its own log to disk. The car session must survive a
+# power-off: that is the whole point of running the test there.
+StandardOutput=append:/var/log/deq-aoa.log
+StandardError=append:/var/log/deq-aoa.log
+
+[Install]
+WantedBy=multi-user.target
