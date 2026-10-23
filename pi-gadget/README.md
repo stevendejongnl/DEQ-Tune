@@ -27,6 +27,7 @@ car, so the car app carries the REST API over BLE.
 | `deq-wifi-recover.sh`, `.service`, `.timer` | Brings a lost client link back | `/usr/local/bin/` |
 | `deq-heartbeat.sh`, `deq-session-record.sh` | Plain log files that outlive a brown-out | `/usr/local/bin/` |
 | `deq_updater.py`, `deq-updater.service`, `.timer` | Installs each new release by itself, every 30 minutes | `/usr/local/bin/` |
+| `deq-tune.avahi.service` | Announces the web app as `_deq-tune._tcp` on port 8420, so a phone finds the Pi by name | `/etc/avahi/services/deq-tune.service` |
 
 The Pi has no RTC, so journald throws its journal away when NTP sets the
 clock. The heartbeat writes `/var/log/deq-heartbeat.log` once a minute,

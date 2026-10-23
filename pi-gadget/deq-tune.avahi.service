@@ -1,0 +1,13 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<!-- Advertises the backend over mDNS, so the car app finds the Pi on any
+     Wi-Fi network by name and needs no IP address. Install it as
+     /etc/avahi/services/deq-tune.service. -->
+<service-group>
+  <name replace-wildcards="yes">DEQ Tune on %h</name>
+  <service>
+    <type>_deq-tune._tcp</type>
+    <port>8420</port>
+    <txt-record>path=/</txt-record>
+  </service>
+</service-group>
