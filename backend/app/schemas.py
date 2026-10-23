@@ -403,8 +403,19 @@ class UpdateSettingsWrite(BaseModel):
 
 
 class FrontendBundleRead(BaseModel):
-    """The web app that the bridge serves, as one base64 zip."""
+    """The web app that the bridge serves, as a base64 zip in parts.
+
+    `sha256` is the hash of the whole zip, after the parts are joined and
+    decoded.
+    """
 
     build: str
-    archive_base64: str
+    sha256: str
     file_count: int
+    part_count: int
+
+
+class FrontendPartRead(BaseModel):
+    build: str
+    index: int
+    data: str

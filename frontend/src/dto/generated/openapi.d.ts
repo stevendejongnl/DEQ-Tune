@@ -421,11 +421,32 @@ export interface paths {
         };
         /**
          * Read Frontend
-         * @description Returns the web app that the bridge serves, for the car app's copy.
+         * @description Describes the web app that the bridge serves, for the car app's copy.
          *
          *     See `frontend_bundle.py`. A backend with no build answers 404.
          */
         get: operations["read_frontend_api_bridge_frontend_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bridge/frontend/parts/{index}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Frontend Part
+         * @description Returns one part of the base64 zip. The reply names its build, so a
+         *     download that spans a release starts again.
+         */
+        get: operations["read_frontend_part_api_bridge_frontend_parts__index__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1055,15 +1076,29 @@ export interface components {
         };
         /**
          * FrontendBundleRead
-         * @description The web app that the bridge serves, as one base64 zip.
+         * @description The web app that the bridge serves, as a base64 zip in parts.
+         *
+         *     `sha256` is the hash of the whole zip, after the parts are joined and
+         *     decoded.
          */
         FrontendBundleRead: {
             /** Build */
             build: string;
-            /** Archive Base64 */
-            archive_base64: string;
+            /** Sha256 */
+            sha256: string;
             /** File Count */
             file_count: number;
+            /** Part Count */
+            part_count: number;
+        };
+        /** FrontendPartRead */
+        FrontendPartRead: {
+            /** Build */
+            build: string;
+            /** Index */
+            index: number;
+            /** Data */
+            data: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1977,6 +2012,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FrontendBundleRead"];
+                };
+            };
+        };
+    };
+    read_frontend_part_api_bridge_frontend_parts__index__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrontendPartRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

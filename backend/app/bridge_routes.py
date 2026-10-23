@@ -13,8 +13,8 @@ from fastapi import APIRouter, HTTPException
 from app.bridge_health import read_bridge_health
 from app.bridge_notices import note_undervoltage, notice_log
 from app.bridge_system import read_bridge_system
-from app.frontend_bundle import build_frontend_bundle
-from app.schemas import BridgeNoticeRead, BridgeRead, BridgeSystemRead, FrontendBundleRead, NetworkInterfaceRead
+from app.frontend_bundle import FrontendBundle, build_frontend_bundle
+from app.schemas import BridgeNoticeRead, BridgeRead, BridgeSystemRead, FrontendBundleRead, FrontendPartRead, NetworkInterfaceRead
 
 router = APIRouter(prefix="/bridge", tags=["bridge"])
 
@@ -49,11 +49,33 @@ def read_system() -> BridgeSystemRead:
 
 @router.get("/frontend", response_model=FrontendBundleRead)
 def read_frontend() -> FrontendBundleRead:
-    """Returns the web app that the bridge serves, for the car app's copy.
+    """Describes the web app that the bridge serves, for the car app's copy.
 
     See `frontend_bundle.py`. A backend with no build answers 404.
     """
+    bundle = require_bundle()
+    return FrontendBundleRead(
+        build=bundle.build,
+        sha256=bundle.sha256,
+        file_count=bundle.file_count,
+        part_count=bundle.part_count,
+    )
+
+
+@router.get("/frontend/parts/{index}", response_model=FrontendPartRead)
+def read_frontend_part(index: int) -> FrontendPartRead:
+    """Returns one part of the base64 zip. The reply names its build, so a
+    download that spans a release starts again."""
+    bundle = require_bundle()
+    try:
+        data = bundle.part(index)
+    except IndexError:
+        raise HTTPException(status_code=404, detail=f"no part {index}") from None
+    return FrontendPartRead(build=bundle.build, index=index, data=data)
+
+
+def require_bundle() -> FrontendBundle:
     bundle = build_frontend_bundle()
     if bundle is None:
         raise HTTPException(status_code=404, detail="this bridge serves no built web app")
-    return FrontendBundleRead(**vars(bundle))
+    return bundle

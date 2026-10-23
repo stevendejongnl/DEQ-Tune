@@ -765,7 +765,7 @@
           "bridge"
         ],
         "summary": "Read Frontend",
-        "description": "Returns the web app that the bridge serves, for the car app's copy.\n\nSee `frontend_bundle.py`. A backend with no build answers 404.",
+        "description": "Describes the web app that the bridge serves, for the car app's copy.\n\nSee `frontend_bundle.py`. A backend with no build answers 404.",
         "operationId": "read_frontend_api_bridge_frontend_get",
         "responses": {
           "200": {
@@ -774,6 +774,49 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FrontendBundleRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bridge/frontend/parts/{index}": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Read Frontend Part",
+        "description": "Returns one part of the base64 zip. The reply names its build, so a\ndownload that spans a release starts again.",
+        "operationId": "read_frontend_part_api_bridge_frontend_parts__index__get",
+        "parameters": [
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Index"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrontendPartRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -2321,23 +2364,51 @@
             "type": "string",
             "title": "Build"
           },
-          "archive_base64": {
+          "sha256": {
             "type": "string",
-            "title": "Archive Base64"
+            "title": "Sha256"
           },
           "file_count": {
             "type": "integer",
             "title": "File Count"
+          },
+          "part_count": {
+            "type": "integer",
+            "title": "Part Count"
           }
         },
         "type": "object",
         "required": [
           "build",
-          "archive_base64",
-          "file_count"
+          "sha256",
+          "file_count",
+          "part_count"
         ],
         "title": "FrontendBundleRead",
-        "description": "The web app that the bridge serves, as one base64 zip."
+        "description": "The web app that the bridge serves, as a base64 zip in parts.\n\n`sha256` is the hash of the whole zip, after the parts are joined and\ndecoded."
+      },
+      "FrontendPartRead": {
+        "properties": {
+          "build": {
+            "type": "string",
+            "title": "Build"
+          },
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "data": {
+            "type": "string",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "build",
+          "index",
+          "data"
+        ],
+        "title": "FrontendPartRead"
       },
       "HTTPValidationError": {
         "properties": {
