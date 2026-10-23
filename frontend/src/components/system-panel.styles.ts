@@ -1,32 +1,9 @@
 import { css } from "lit";
 
-export const systemDialogStyles = css`
+export const systemPanelStyles = css`
   :host {
-    display: contents;
-  }
-  dialog {
-    width: min(520px, calc(100vw - 32px));
-    max-height: calc(100dvh - 32px);
-    padding: 20px;
-    box-sizing: border-box;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    background: var(--color-background);
+    display: block;
     color: var(--color-foreground);
-
-    &::backdrop {
-      background: rgb(0 0 0 / 0.6);
-    }
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-  }
-  h2 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 18px;
   }
   h3 {
     margin: 0 0 8px;
@@ -145,13 +122,6 @@ export const systemDialogStyles = css`
     &:hover {
       border-color: var(--color-border-strong);
     }
-  }
-  .close {
-    width: 36px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    font-size: 20px;
   }
   .reload {
     margin-left: 8px;

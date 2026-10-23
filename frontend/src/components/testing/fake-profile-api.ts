@@ -1,4 +1,4 @@
-import type { DeviceApi, EqualizerApi, ProfileApi } from "../../api/client.ts";
+import type { DeviceApi, EqualizerApi, ProfileApi, UpdatesApi } from "../../api/client.ts";
 import type {
   ActiveProfileDto,
   AudioStateDto,
@@ -13,6 +13,7 @@ import type {
   TuningDataDto,
 } from "../../dto/profile.dto.ts";
 import { FakeDeviceApi } from "./fake-device-api.ts";
+import { FakeUpdatesApi } from "./fake-updates-api.ts";
 
 /**
  * An in-memory fixture for both halves of the API: real behaviour, no
@@ -22,8 +23,22 @@ import { FakeDeviceApi } from "./fake-device-api.ts";
  * holds a `FakeDeviceApi` and forwards the device calls to it. Read
  * `device` in a test to see what the app sent to the unit.
  */
-export class FakeProfileApi implements ProfileApi, DeviceApi, EqualizerApi {
+export class FakeProfileApi implements ProfileApi, DeviceApi, EqualizerApi, UpdatesApi {
   readonly device = new FakeDeviceApi();
+  /** The Pi's updater. It starts as a machine with no updater. */
+  readonly updates = new FakeUpdatesApi();
+
+  readUpdates(): ReturnType<UpdatesApi["readUpdates"]> {
+    return this.updates.readUpdates();
+  }
+
+  setAutomaticUpdates(automatic: boolean): ReturnType<UpdatesApi["setAutomaticUpdates"]> {
+    return this.updates.setAutomaticUpdates(automatic);
+  }
+
+  requestUpdate(): ReturnType<UpdatesApi["requestUpdate"]> {
+    return this.updates.requestUpdate();
+  }
 
   /** The tune the fake unit holds. `null` means no unit answers, so
    * `saveUnitProfile` fails the way the backend's 503 does. */

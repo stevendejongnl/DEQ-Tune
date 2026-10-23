@@ -43,6 +43,25 @@ export const appRootStyles = css`
     gap: 12px;
     min-width: 0;
   }
+  .open-settings {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-card);
+    color: var(--color-muted-foreground);
+    cursor: pointer;
+
+    &:hover,
+    &[aria-pressed="true"] {
+      border-color: var(--color-border-strong);
+      color: var(--color-accent);
+    }
+  }
   .header-divider {
     width: 1px;
     height: 24px;
@@ -81,12 +100,6 @@ export const appRootStyles = css`
     background: transparent;
     color: var(--color-foreground);
     text-align: left;
-  }
-  .sheet-locale {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding-bottom: 8px;
   }
   /* The phone header has too little room for the name next to the
      controls, so it shows the mark alone. */
@@ -379,7 +392,7 @@ export const appRootStyles = css`
     position: sticky;
     bottom: 0;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     height: 68px;
     flex-shrink: 0;
     background: var(--color-sidebar);

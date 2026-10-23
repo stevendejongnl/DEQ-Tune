@@ -59,6 +59,12 @@ It asks GitHub for the latest release, and writes what it found to
   `/home/deq/deq-update-request` asks for one update anyway.
 - With no internet, as in the car, a run changes nothing.
 
+The web app's settings page shows this state and writes the settings and
+request files. Its Update button also starts the updater at once, through
+one sudoers rule: `deq ALL=(root) NOPASSWD: /usr/bin/systemctl start
+--no-block deq-updater.service`. Without the rule, the request waits for the
+next timer run.
+
 The release workflow builds the tarball and attaches it with its
 checksum. The updater updates the backend tree, the web app and the
 gadget. It does not update the systemd units or the files in

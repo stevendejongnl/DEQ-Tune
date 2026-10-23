@@ -6,7 +6,6 @@ import {
   type DeviceStatus,
 } from "./device-status.ts";
 import type { DevicePill } from "./device-pill.ts";
-import { FakeBridgeSystemApi } from "./testing/fake-bridge-system-api.ts";
 import { FakeDeviceApi } from "./testing/fake-device-api.ts";
 import { flushMicrotasks } from "../testing/flush-microtasks.ts";
 
@@ -104,16 +103,14 @@ describe("device-status", () => {
     expect(buttons.map((button) => button.className)).toEqual(["open-system"]);
   });
 
-  it("opens the system dialog when a person clicks the pill", async () => {
+  it("asks for the system section when a person clicks the pill", async () => {
     const element = await mount(new FakeDeviceApi().startConnected());
-    const systemApi = new FakeBridgeSystemApi();
-    element.systemApi = systemApi;
-    await element.updateComplete;
+    const requests: Event[] = [];
+    element.addEventListener("open-system", (openEvent) => requests.push(openEvent));
 
     element.shadowRoot!.querySelector<HTMLButtonElement>(".open-system")!.click();
-    await flushMicrotasks();
 
-    expect(systemApi.readCount).toBe(1);
+    expect(requests).toHaveLength(1);
   });
 
   it("shows the unit as connected without being asked to connect", async () => {

@@ -19,6 +19,8 @@ import type {
   ProfileDto,
   ProfileUpdateDto,
   UnitProfileCreateDto,
+  UpdateSettingsWriteDto,
+  UpdatesDto,
   VolumeWriteDto,
   WifiDto,
   WifiForgetWriteDto,
@@ -139,7 +141,17 @@ export interface WifiApi {
   requestWifiJoin(): Promise<void>;
 }
 
-export class DeqApiClient implements ProfileApi, DeviceApi, EqualizerApi, BridgeApi, BridgeSystemApi, WifiApi {
+/** The Pi's release updater. `requestUpdate` asks for one update now, also
+ * while automatic updates are off. A 503 means the machine has no updater. */
+export interface UpdatesApi {
+  readUpdates(): Promise<UpdatesDto>;
+  setAutomaticUpdates(automatic: boolean): Promise<UpdatesDto>;
+  requestUpdate(): Promise<void>;
+}
+
+export class DeqApiClient
+  implements ProfileApi, DeviceApi, EqualizerApi, BridgeApi, BridgeSystemApi, WifiApi, UpdatesApi
+{
   private baseUrl: string;
   private fetchImpl: FetchLike;
 
@@ -218,6 +230,19 @@ export class DeqApiClient implements ProfileApi, DeviceApi, EqualizerApi, Bridge
 
   async requestWifiJoin(): Promise<void> {
     await this.call("POST", "/wifi/join");
+  }
+
+  async readUpdates(): Promise<UpdatesDto> {
+    return typia.assert<UpdatesDto>(await this.call("GET", "/updates"));
+  }
+
+  async setAutomaticUpdates(automatic: boolean): Promise<UpdatesDto> {
+    const validBody = typia.assert<UpdateSettingsWriteDto>({ automatic });
+    return typia.assert<UpdatesDto>(await this.call("PUT", "/updates/settings", validBody));
+  }
+
+  async requestUpdate(): Promise<void> {
+    await this.call("POST", "/updates/request");
   }
 
   async connectDevice(): Promise<DeviceDto> {

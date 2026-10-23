@@ -1,5 +1,5 @@
 import { html, LitElement, nothing, type TemplateResult } from "lit";
-import { customElement, property, query, state } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import { ApiError, type WifiApi } from "../api/client.ts";
 import type { SavedWifiNetworkDto, WifiDto } from "../dto/profile.dto.ts";
 import type { Locale } from "../i18n/locale.ts";
@@ -44,26 +44,14 @@ export function wifiErrorMessage(strings: UiStrings, caughtError: unknown): stri
   return strings.wifiFailed;
 }
 
-function renderWifiIcon(): TemplateResult {
-  return html`
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      stroke-width="2" stroke-linecap="round" aria-hidden="true">
-      <path d="M2 8.5a15 15 0 0 1 20 0" />
-      <path d="M5 12a10 10 0 0 1 14 0" />
-      <path d="M8.5 15.5a5 5 0 0 1 7 0" />
-      <circle cx="12" cy="19" r="1" fill="currentColor" />
-    </svg>
-  `;
-}
-
 /**
  * Lets a person manage the Wi-Fi networks that the Pi joins, with no
  * terminal.
  *
- * It renders a button. The button opens a dialog with the saved networks
- * and a form to add one. `app-root` places it in the header, or in the
- * profiles sheet on a phone. It depends on a `WifiApi`, and on a confirm
- * function that a test can answer.
+ * It renders the saved networks and a form to add one, as a section of the
+ * settings page. It reads the networks each time it comes onto the page,
+ * because the Pi can join or leave one meanwhile. It depends on a
+ * `WifiApi`, and on a confirm function that a test can answer.
  *
  * A save joins nothing at once. The Pi joins a saved network on its own,
  * and "Join now" asks it to try at once.
@@ -83,26 +71,17 @@ export class WifiSettings extends LitElement {
   @state() private ssid = "";
   @state() private password = "";
 
-  @query("dialog") private dialog!: HTMLDialogElement;
+  override connectedCallback(): void {
+    super.connectedCallback();
+    void this.load();
+  }
 
   override render() {
     const strings = uiStrings(this.locale);
     return html`
-      <button type="button" class="open" aria-label=${strings.wifiOpenLabel} title=${strings.wifiOpenLabel}
-        @click=${() => this.open()}>
-        ${renderWifiIcon()}
-      </button>
-      <dialog aria-labelledby="wifi-title" @close=${() => (this.message = "")}>
-        <header>
-          <h2 id="wifi-title">${strings.wifiTitle}</h2>
-          <button type="button" class="close" aria-label=${strings.closeLabel} @click=${() => this.dialog.close()}>
-            ×
-          </button>
-        </header>
-        <p class="intro">${strings.wifiIntro}</p>
-        ${this.renderSaved(strings)} ${this.renderAddForm(strings)}
-        ${this.message ? html`<p class="message" role="status">${this.message}</p>` : nothing}
-      </dialog>
+      <p class="intro">${strings.wifiIntro}</p>
+      ${this.renderSaved(strings)} ${this.renderAddForm(strings)}
+      ${this.message ? html`<p class="message" role="status">${this.message}</p>` : nothing}
     `;
   }
 
@@ -171,10 +150,8 @@ export class WifiSettings extends LitElement {
     `;
   }
 
-  /** Opens the dialog and reads the networks fresh, because the Pi can
-   * join or leave one while the dialog is closed. */
-  async open(): Promise<void> {
-    this.dialog.showModal?.();
+  /** Reads the networks fresh. */
+  async load(): Promise<void> {
     await this.run((api) => api.readWifi());
   }
 

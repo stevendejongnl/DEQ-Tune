@@ -629,6 +629,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Updates */
+        get: operations["read_updates_api_updates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/updates/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Write Settings */
+        put: operations["write_settings_api_updates_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/updates/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Update */
+        post: operations["request_update_api_updates_request_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1131,6 +1182,75 @@ export interface components {
         UnitProfileCreate: {
             /** Name */
             name: string;
+        };
+        /** UpdateHistoryRead */
+        UpdateHistoryRead: {
+            /** From Version */
+            from_version: string;
+            /** To Version */
+            to_version: string;
+            /** At */
+            at: string;
+        };
+        /** UpdateSettingsWrite */
+        UpdateSettingsWrite: {
+            /** Automatic */
+            automatic: boolean;
+        };
+        /**
+         * UpdatesRead
+         * @description What the Pi's release updater last found.
+         *
+         *     `supported` is false on a machine with no updater, such as a laptop.
+         *     Then every other field keeps its default.
+         */
+        UpdatesRead: {
+            /** Supported */
+            supported: boolean;
+            /** Installed */
+            installed?: string | null;
+            /** Latest */
+            latest?: string | null;
+            /**
+             * Automatic
+             * @default true
+             */
+            automatic: boolean;
+            /**
+             * Update Available
+             * @default false
+             */
+            update_available: boolean;
+            /**
+             * Gadget Pending
+             * @default false
+             */
+            gadget_pending: boolean;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /**
+             * Release Url
+             * @default
+             */
+            release_url: string;
+            /**
+             * Checked At
+             * @default
+             */
+            checked_at: string;
+            /**
+             * Last Result
+             * @default
+             */
+            last_result: string;
+            /**
+             * History
+             * @default []
+             */
+            history: components["schemas"]["UpdateHistoryRead"][];
         };
         /** ValidationError */
         ValidationError: {
@@ -2194,6 +2314,79 @@ export interface operations {
         };
     };
     join_network_api_wifi_join_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    read_updates_api_updates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdatesRead"];
+                };
+            };
+        };
+    };
+    write_settings_api_updates_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSettingsWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdatesRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_update_api_updates_request_post: {
         parameters: {
             query?: never;
             header?: never;

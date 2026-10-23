@@ -22,6 +22,7 @@ from app.paths import DIST_DIR
 from app.routes import router
 from app.seed import seed_factory_profiles
 from app.wifi_routes import router as wifi_router
+from app.update_routes import router as update_router
 
 
 @asynccontextmanager
@@ -62,6 +63,7 @@ app.include_router(bridge_router, prefix="/api")
 app.include_router(active_profile_router, prefix="/api")
 app.include_router(equalizer_router, prefix="/api")
 app.include_router(wifi_router, prefix="/api")
+app.include_router(update_router, prefix="/api")
 
 
 @app.get("/health")

@@ -5,6 +5,7 @@ import {
   type DeviceApi,
   type EqualizerApi,
   type ProfileApi,
+  type UpdatesApi,
 } from "../api/client.ts";
 import type {
   ActiveProfileDto,
@@ -36,7 +37,11 @@ import "./dsp-panel.ts";
 import "./audio-controls.ts";
 import "./profile-activation.ts";
 import "./equalizer-editor.ts";
-import "./wifi-settings.ts";
+import "./settings-page.ts";
+import type { SettingsSection } from "./settings-page.ts";
+import "./notification-dock.ts";
+import { UpdatesController } from "./updates-controller.ts";
+import { releaseHighlight } from "../release-notes.ts";
 import { EqualizerLibraryController } from "./equalizer-library-controller.ts";
 import type { LinkState } from "./link-state.ts";
 import { appRootStyles } from "./app-root.styles.ts";
@@ -53,7 +58,7 @@ type PhoneTab = "audio" | "eq" | "car";
 
 /** Sound holds what plays: the audio, the EQ and its library. Car holds the
  * car profile: the speakers, their timing and the car's own correction. */
-type AppPage = "sound" | "car";
+type AppPage = "sound" | "car" | "settings";
 
 function resolveGlobalLanguages(): readonly string[] {
   return typeof navigator === "undefined" ? [] : navigator.languages;
@@ -75,6 +80,16 @@ function renderWordmarkIcon(): TemplateResult {
         stroke-linecap="round"
         stroke-linejoin="round"
       />
+    </svg>
+  `;
+}
+
+function renderGearIcon(): TemplateResult {
+  return html`
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   `;
 }
@@ -123,7 +138,7 @@ function editBadgeText(strings: UiStrings, editCount: number): string {
 export class AppRoot extends LitElement {
   static override styles = appRootStyles;
 
-  @property({ attribute: false }) api: ProfileApi & DeviceApi & EqualizerApi = new DeqApiClient();
+  @property({ attribute: false }) api: ProfileApi & DeviceApi & EqualizerApi & UpdatesApi = new DeqApiClient();
   @property({ attribute: false }) localeStorage: LocaleStorage = browserLocaleStorage;
   @property({ attribute: false }) browserLanguages: readonly string[] = resolveGlobalLanguages();
   @property({ attribute: false }) layoutQuery: LayoutQuery = browserLayoutQuery;
@@ -146,6 +161,14 @@ export class AppRoot extends LitElement {
     reloadActive: () => this.loadActiveProfile(),
     newEqualizerName: () => uiStrings(this.locale).newEqualizerName,
   });
+  /** The Pi's release updater, for the settings page and the dock. */
+  private readonly updatesController = new UpdatesController(this, {
+    api: () => this.api,
+    storage: () => this.localeStorage,
+    scheduleFunction: () => this.scheduleFunction,
+    cancelFunction: () => this.cancelFunction,
+  });
+  @state() private settingsSection: SettingsSection = "updates";
   @state() private liveSimulation: LiveSimulationId | null = null;
   @state() private profilesDrawerOpen = false;
   @state() private layout: AppLayout = "desktop";
@@ -275,29 +298,86 @@ export class AppRoot extends LitElement {
           </div>
           ${this.isPhoneLayout ? nothing : this.renderPageSwitch(strings)}
           <div class="header-controls">
-            ${this.isPhoneLayout
-              ? nothing
-              : html`${this.renderWifiSettings()}${this.renderLocaleSwitcher()}<span
-                    class="header-divider"
-                  ></span>`}
+            ${this.isPhoneLayout ? nothing : html`${this.renderSettingsButton(strings)}<span class="header-divider"></span>`}
             <bridge-notices .api=${this.api} .locale=${this.locale}></bridge-notices>
             <device-status
               .api=${this.api}
-              .systemApi=${this.api}
               .locale=${this.locale}
               .layout=${this.layout}
               @link-state=${(linkEvent: CustomEvent<{ linkState: LinkState }>) =>
                 this.onLinkState(linkEvent.detail.linkState)}
+              @open-system=${() => this.openSettings("system")}
             ></device-status>
           </div>
         </header>
-        <main>
-          ${this.isPhoneLayout ? this.renderPhonePanels(strings) : this.renderWidePanels(strings)}
-        </main>
+        <main>${this.renderMain(strings)}</main>
         ${this.isPhoneLayout ? this.renderSaveBar(strings) : nothing}
         ${this.isPhoneLayout ? this.renderTabBar(strings) : nothing}
       </div>
+      ${this.renderNotificationDock()}
     `;
+  }
+
+  /** Picks what the main area shows: the settings page, or the panels. */
+  private renderMain(strings: UiStrings): TemplateResult {
+    if (this.page === "settings") {
+      return this.renderSettingsPage();
+    }
+    return this.isPhoneLayout ? this.renderPhonePanels(strings) : this.renderWidePanels(strings);
+  }
+
+  private renderSettingsButton(strings: UiStrings): TemplateResult {
+    return html`
+      <button type="button" class="open-settings" aria-label=${strings.settingsOpenLabel}
+        title=${strings.settingsOpenLabel} aria-pressed=${this.page === "settings"}
+        @click=${() => this.openSettings(this.settingsSection)}>
+        ${renderGearIcon()}
+      </button>
+    `;
+  }
+
+  private renderSettingsPage(): TemplateResult {
+    return html`
+      <settings-page
+        .api=${this.api}
+        .locale=${this.locale}
+        .section=${this.settingsSection}
+        .updates=${this.updatesController.updates}
+        .requestState=${this.updatesController.requestState}
+        @section-change=${(sectionEvent: CustomEvent<{ section: SettingsSection }>) =>
+          (this.settingsSection = sectionEvent.detail.section)}
+        @locale-change=${(localeChangeEvent: CustomEvent<{ locale: Locale }>) =>
+          this.changeLocale(localeChangeEvent.detail.locale)}
+        @automatic-change=${(automaticEvent: CustomEvent<{ automatic: boolean }>) =>
+          this.updatesController.setAutomatic(automaticEvent.detail.automatic)}
+        @request-update=${() => this.updatesController.requestUpdate()}
+      ></settings-page>
+    `;
+  }
+
+  /** The bottom-left notes: what is new, and a release that waits. */
+  private renderNotificationDock(): TemplateResult {
+    const updates = this.updatesController.updates;
+    return html`
+      <notification-dock
+        .locale=${this.locale}
+        .whatsNewVersion=${this.updatesController.whatsNewVersion}
+        .highlight=${releaseHighlight(updates?.notes ?? "")}
+        .releaseUrl=${updates?.release_url ?? ""}
+        .availableVersion=${this.updatesController.availableVersion}
+        @whats-new-dismissed=${(dismissEvent: CustomEvent<{ version: string }>) =>
+          this.updatesController.dismissWhatsNew(dismissEvent.detail.version)}
+        @update-postponed=${(postponeEvent: CustomEvent<{ version: string }>) =>
+          this.updatesController.postpone(postponeEvent.detail.version)}
+        @update-requested=${() => this.updatesController.requestUpdate()}
+      ></notification-dock>
+    `;
+  }
+
+  private openSettings(section: SettingsSection): void {
+    this.settingsSection = section;
+    this.page = "settings";
+    this.closeProfilesDrawer();
   }
 
   private renderProfilesDrawer(strings: UiStrings): TemplateResult {
@@ -318,9 +398,6 @@ export class AppRoot extends LitElement {
             ×
           </button>
         </div>
-        ${this.isPhoneLayout
-          ? html`<div class="sheet-locale">${this.renderLocaleSwitcher()}${this.renderWifiSettings()}</div>`
-          : nothing}
         <profile-list
           .profiles=${this.profiles}
           .selectedId=${this.selectedId}
@@ -466,24 +543,6 @@ export class AppRoot extends LitElement {
     `;
   }
 
-  /** The phone header has no room for the language control, so the
-   * phone layout puts it in the profiles sheet instead. */
-  private renderLocaleSwitcher(): TemplateResult {
-    return html`
-      <locale-switcher
-        .locale=${this.locale}
-        @locale-change=${(localeChangeEvent: CustomEvent<{ locale: Locale }>) =>
-          this.changeLocale(localeChangeEvent.detail.locale)}
-      ></locale-switcher>
-    `;
-  }
-
-  /** The Pi's Wi-Fi networks. It sits beside the language control, in the
-   * header or in the phone's profiles sheet. */
-  private renderWifiSettings(): TemplateResult {
-    return html`<wifi-settings .api=${this.api} .locale=${this.locale}></wifi-settings>`;
-  }
-
     /** Tablet and desktop show one page at a time, with all of its panels.
    * The grid areas in `app-root.styles.ts` place them per layout. */
   private renderWidePanels(strings: UiStrings): TemplateResult {
@@ -574,6 +633,9 @@ export class AppRoot extends LitElement {
    * absence for a full poll interval. */
   private selectPhoneTab(tab: PhoneTab): void {
     this.phoneTab = tab;
+    if (this.page === "settings") {
+      this.page = tab === "car" ? "car" : "sound";
+    }
     if (tab === "audio") {
       void this.refreshAudioState();
     }
@@ -610,13 +672,17 @@ export class AppRoot extends LitElement {
             <button
               type="button"
               class="tab"
-              aria-pressed=${this.phoneTab === tab.id}
+              aria-pressed=${this.page !== "settings" && this.phoneTab === tab.id}
               @click=${() => this.selectPhoneTab(tab.id)}
             >
               ${tab.label}
             </button>
           `,
         )}
+        <button type="button" class="tab" aria-pressed=${this.page === "settings"}
+          @click=${() => this.openSettings(this.settingsSection)}>
+          ${strings.settingsTitle}
+        </button>
       </nav>
     `;
   }

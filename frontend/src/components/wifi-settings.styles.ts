@@ -24,54 +24,16 @@ export const wifiSettingsStyles = css`
       cursor: default;
     }
   }
-  .open {
-    display: grid;
-    place-items: center;
-    width: 36px;
-    padding: 0;
-    color: var(--color-muted-foreground);
-
-    &:hover {
-      color: var(--color-foreground);
-    }
-  }
-  dialog {
-    width: min(440px, calc(100vw - 32px));
-    max-height: calc(100dvh - 32px);
-    padding: 20px;
-    box-sizing: border-box;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    background: var(--color-background);
-    color: var(--color-foreground);
-
-    &::backdrop {
-      background: rgb(0 0 0 / 0.6);
-    }
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-  }
-  h2 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 18px;
-  }
   h3 {
     margin: 0;
     font-size: 14px;
     color: var(--color-text-2);
   }
-  .close {
-    width: 36px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    font-size: 20px;
+  .intro {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-muted-foreground);
   }
-  .intro,
   .empty,
   .hint {
     margin: 8px 0 0;

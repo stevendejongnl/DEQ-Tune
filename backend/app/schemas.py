@@ -367,3 +367,33 @@ class WifiNetworkWrite(BaseModel):
 
 class WifiForgetWrite(BaseModel):
     ssid: str
+
+
+class UpdateHistoryRead(BaseModel):
+    from_version: str
+    to_version: str
+    at: str
+
+
+class UpdatesRead(BaseModel):
+    """What the Pi's release updater last found.
+
+    `supported` is false on a machine with no updater, such as a laptop.
+    Then every other field keeps its default.
+    """
+
+    supported: bool
+    installed: str | None = None
+    latest: str | None = None
+    automatic: bool = True
+    update_available: bool = False
+    gadget_pending: bool = False
+    notes: str = ""
+    release_url: str = ""
+    checked_at: str = ""
+    last_result: str = ""
+    history: list[UpdateHistoryRead] = []
+
+
+class UpdateSettingsWrite(BaseModel):
+    automatic: bool

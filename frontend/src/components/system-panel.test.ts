@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import "./system-dialog.ts";
-import { REFRESH_WHILE_OPEN_MS, type SystemDialog } from "./system-dialog.ts";
+import "./system-panel.ts";
+import { REFRESH_WHILE_OPEN_MS, type SystemPanel } from "./system-panel.ts";
 import { FakeBridgeSystemApi, sampleBridgeSystem } from "./testing/fake-bridge-system-api.ts";
 import { flushMicrotasks } from "../testing/flush-microtasks.ts";
 
-/** Holds the dialog's next refresh instead of running it. A test fires it. */
+/** Holds the panel's next refresh instead of running it. A test fires it. */
 class ManualSchedule {
   gaps: number[] = [];
   private pending: (() => void) | null = null;
@@ -30,28 +30,28 @@ class ManualSchedule {
   }
 }
 
-type Mounted = { element: SystemDialog; api: FakeBridgeSystemApi; schedule: ManualSchedule; reloads: number[] };
+type Mounted = { element: SystemPanel; api: FakeBridgeSystemApi; schedule: ManualSchedule; reloads: number[] };
 
 async function mountOpen(api = new FakeBridgeSystemApi(), pageBuild = "test-build"): Promise<Mounted> {
   const schedule = new ManualSchedule();
   const reloads: number[] = [];
-  const element = document.createElement("system-dialog") as SystemDialog;
+  const element = document.createElement("system-panel") as SystemPanel;
   element.api = api;
   element.pageBuild = pageBuild;
   element.scheduleFunction = schedule.schedule;
   element.cancelFunction = schedule.cancel;
   element.reloadFunction = () => reloads.push(1);
   document.body.append(element);
-  await element.show();
+  await flushMicrotasks();
   await element.updateComplete;
   return { element, api, schedule, reloads };
 }
 
-function textOf(element: SystemDialog): string {
-  return element.shadowRoot!.querySelector("dialog")!.textContent!.replace(/\s+/g, " ");
+function textOf(element: SystemPanel): string {
+  return element.shadowRoot!.textContent!.replace(/\s+/g, " ");
 }
 
-describe("system-dialog", () => {
+describe("system-panel", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
   });
@@ -106,10 +106,10 @@ describe("system-dialog", () => {
     expect(schedule.gaps).toEqual([REFRESH_WHILE_OPEN_MS, REFRESH_WHILE_OPEN_MS]);
   });
 
-  it("stops reading once it is closed", async () => {
+  it("stops reading once it leaves the page", async () => {
     const { element, schedule } = await mountOpen();
 
-    element.close();
+    element.remove();
 
     expect(schedule.isScheduled).toBe(false);
   });

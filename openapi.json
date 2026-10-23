@@ -1271,6 +1271,87 @@
         }
       }
     },
+    "/api/updates": {
+      "get": {
+        "tags": [
+          "updates"
+        ],
+        "summary": "Read Updates",
+        "operationId": "read_updates_api_updates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdatesRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/updates/settings": {
+      "put": {
+        "tags": [
+          "updates"
+        ],
+        "summary": "Write Settings",
+        "operationId": "write_settings_api_updates_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdatesRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/updates/request": {
+      "post": {
+        "tags": [
+          "updates"
+        ],
+        "summary": "Request Update",
+        "operationId": "request_update_api_updates_request_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -2638,6 +2719,121 @@
         ],
         "title": "UnitProfileCreate",
         "description": "The name for a profile read from the unit."
+      },
+      "UpdateHistoryRead": {
+        "properties": {
+          "from_version": {
+            "type": "string",
+            "title": "From Version"
+          },
+          "to_version": {
+            "type": "string",
+            "title": "To Version"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "from_version",
+          "to_version",
+          "at"
+        ],
+        "title": "UpdateHistoryRead"
+      },
+      "UpdateSettingsWrite": {
+        "properties": {
+          "automatic": {
+            "type": "boolean",
+            "title": "Automatic"
+          }
+        },
+        "type": "object",
+        "required": [
+          "automatic"
+        ],
+        "title": "UpdateSettingsWrite"
+      },
+      "UpdatesRead": {
+        "properties": {
+          "supported": {
+            "type": "boolean",
+            "title": "Supported"
+          },
+          "installed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installed"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest"
+          },
+          "automatic": {
+            "type": "boolean",
+            "title": "Automatic",
+            "default": true
+          },
+          "update_available": {
+            "type": "boolean",
+            "title": "Update Available",
+            "default": false
+          },
+          "gadget_pending": {
+            "type": "boolean",
+            "title": "Gadget Pending",
+            "default": false
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes",
+            "default": ""
+          },
+          "release_url": {
+            "type": "string",
+            "title": "Release Url",
+            "default": ""
+          },
+          "checked_at": {
+            "type": "string",
+            "title": "Checked At",
+            "default": ""
+          },
+          "last_result": {
+            "type": "string",
+            "title": "Last Result",
+            "default": ""
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/UpdateHistoryRead"
+            },
+            "type": "array",
+            "title": "History",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "supported"
+        ],
+        "title": "UpdatesRead",
+        "description": "What the Pi's release updater last found.\n\n`supported` is false on a machine with no updater, such as a laptop.\nThen every other field keeps its default."
       },
       "ValidationError": {
         "properties": {

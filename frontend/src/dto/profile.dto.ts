@@ -321,3 +321,29 @@ export interface WifiNetworkWriteDto {
 export interface WifiForgetWriteDto {
   ssid: string;
 }
+
+export interface UpdateHistoryDto {
+  from_version: string;
+  to_version: string;
+  at: string;
+}
+
+/** What the Pi's release updater last found. `supported` is false on a
+ * machine with no updater, such as a laptop. */
+export interface UpdatesDto {
+  supported: boolean;
+  installed: string | null;
+  latest: string | null;
+  automatic: boolean;
+  update_available: boolean;
+  gadget_pending: boolean;
+  notes: string;
+  release_url: string;
+  checked_at: string;
+  last_result: string;
+  history: UpdateHistoryDto[];
+}
+
+export interface UpdateSettingsWriteDto {
+  automatic: boolean;
+}

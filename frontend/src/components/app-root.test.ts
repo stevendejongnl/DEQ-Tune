@@ -306,8 +306,13 @@ describe("app-root", () => {
     await flushMicrotasks();
     await element.updateComplete;
 
-    const select = element.shadowRoot!
-      .querySelector("locale-switcher")!
+    element.shadowRoot!.querySelector<HTMLButtonElement>(".open-settings")!.click();
+    await element.updateComplete;
+    const settings = element.shadowRoot!.querySelector("settings-page")!;
+    settings.section = "language";
+    await settings.updateComplete;
+    const select = settings
+      .shadowRoot!.querySelector("locale-switcher")!
       .shadowRoot!.querySelector("select") as HTMLSelectElement;
     select.value = "de";
     select.dispatchEvent(new Event("change"));
@@ -650,18 +655,39 @@ describe("app-root", () => {
     expect(saveBar.querySelector(".primary")).not.toBeNull();
   });
 
-  it("keeps the language control in the header outside the phone layout", async () => {
+  it("opens the settings page from the header's gear button", async () => {
     const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
 
-    expect(element.shadowRoot!.querySelector("header locale-switcher")).not.toBeNull();
-    expect(element.shadowRoot!.querySelector(".drawer locale-switcher")).toBeNull();
+    element.shadowRoot!.querySelector<HTMLButtonElement>(".open-settings")!.click();
+    await element.updateComplete;
+
+    expect(element.shadowRoot!.querySelector("main settings-page")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector("header locale-switcher")).toBeNull();
   });
 
-  it("moves the language control into the sheet in the phone layout", async () => {
-    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]), "phone");
+  it("opens the system section when the status pill asks for it", async () => {
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
 
-    expect(element.shadowRoot!.querySelector("header locale-switcher")).toBeNull();
-    expect(element.shadowRoot!.querySelector(".drawer locale-switcher")).not.toBeNull();
+    element.shadowRoot!.querySelector("device-status")!.dispatchEvent(
+      new CustomEvent("open-system", { bubbles: true, composed: true }),
+    );
+    await element.updateComplete;
+
+    expect(element.shadowRoot!.querySelector("settings-page")!.section).toBe("system");
+  });
+
+  it("opens settings from the phone's tab bar, and leaves it for another tab", async () => {
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]), "phone");
+    const tabs = [...element.shadowRoot!.querySelectorAll<HTMLButtonElement>(".tab-bar .tab")];
+    expect(tabs.map((tab) => tab.textContent!.trim())).toEqual(["Audio", "EQ", "Car", "Settings"]);
+    tabs[3].click();
+    await element.updateComplete;
+    expect(element.shadowRoot!.querySelector("settings-page")).not.toBeNull();
+
+    element.shadowRoot!.querySelector<HTMLButtonElement>(".tab-bar .tab")!.click();
+    await element.updateComplete;
+
+    expect(element.shadowRoot!.querySelector("settings-page")).toBeNull();
   });
 
   it("moves to the phone layout when the viewport becomes narrow", async () => {
@@ -692,16 +718,24 @@ describe("app-root", () => {
   });
   describe("audio panel and the unit link", () => {
     /** Holds the one waiting timer, so a test fires it instead of sleeping. */
+    /** Holds the audio poll. The same seam also carries the updates
+     * refresh, which `updates-controller.test.ts` covers, so this schedule
+     * lets that one go by. */
     class ManualSchedule {
       pending: (() => void) | null = null;
       delayMs: number | null = null;
       schedule = (action: () => void, delayMs: number): unknown => {
+        if (delayMs !== AUDIO_POLL_MS) {
+          return 0;
+        }
         this.pending = action;
         this.delayMs = delayMs;
         return 1;
       };
-      cancel = (): void => {
-        this.pending = null;
+      cancel = (handle: unknown): void => {
+        if (handle === 1) {
+          this.pending = null;
+        }
       };
       async fire(element: AppRoot): Promise<void> {
         const action = this.pending;

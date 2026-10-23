@@ -23,7 +23,7 @@ async function mountOpen(api: FakeWifiApi, answers: boolean[] = []): Promise<Wif
   element.confirmFunction = () => answers.shift() ?? false;
   document.body.append(element);
   await element.updateComplete;
-  await element.open();
+  await element.load();
   await element.updateComplete;
   return element;
 }

@@ -1,5 +1,5 @@
 import { html, LitElement, nothing, type TemplateResult } from "lit";
-import { customElement, property, query, state } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import type { BridgeSystemApi } from "../api/client.ts";
 import type { BridgeSystemDto, NetworkInterfaceDto } from "../dto/profile.dto.ts";
 import type { Locale } from "../i18n/locale.ts";
@@ -7,9 +7,10 @@ import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import { readPageFreshness, type PageFreshness } from "../page-freshness.ts";
 import { formatBytes, formatDuration, usedPercent } from "../system-format.ts";
 import type { CancelFunction, ScheduleFunction } from "./device-status.ts";
-import { systemDialogStyles } from "./system-dialog.styles.ts";
+import { systemPanelStyles } from "./system-panel.styles.ts";
 
-/** How often the open dialog reads the statistics again, in milliseconds. */
+/** How often the panel reads the statistics again while it is on the page,
+ * in milliseconds. */
 export const REFRESH_WHILE_OPEN_MS = 2000;
 
 const UNKNOWN = "–";
@@ -38,15 +39,15 @@ function interfaceDetails(networkInterface: NetworkInterfaceDto): string {
 /**
  * Shows the Pi's machine statistics, and where this page came from.
  *
- * `device-status` places it beside the status pill and calls `show()` when
- * a person clicks the pill. While it is open, it reads `/api/bridge/system`
- * again every `REFRESH_WHILE_OPEN_MS`. It depends on a `BridgeSystemApi`,
- * on a way to schedule the next read, and on a reload function. A test
- * passes its own of each.
+ * It is the System section of the settings page. A click on the status
+ * pill opens that section. While the panel is on the page, it reads
+ * `/api/bridge/system` again every `REFRESH_WHILE_OPEN_MS`. It depends on
+ * a `BridgeSystemApi`, on a way to schedule the next read, and on a
+ * reload function. A test passes its own of each.
  */
-@customElement("system-dialog")
-export class SystemDialog extends LitElement {
-  static override styles = systemDialogStyles;
+@customElement("system-panel")
+export class SystemPanel extends LitElement {
+  static override styles = systemPanelStyles;
 
   @property({ attribute: false }) api: BridgeSystemApi | undefined;
   @property({ type: String }) locale: Locale = "en";
@@ -61,35 +62,15 @@ export class SystemDialog extends LitElement {
   @state() private system: BridgeSystemDto | null = null;
   @state() private hasRead = false;
 
-  @query("dialog") private dialog!: HTMLDialogElement;
-
   private refreshHandle: unknown;
-
-  /** Kept apart from `dialog.open`, which jsdom does not implement. */
-  private isOpen = false;
 
   get freshness(): PageFreshness {
     return readPageFreshness(this.system, this.pageBuild);
   }
 
-  async show(): Promise<void> {
-    await this.updateComplete;
-    if (!this.isOpen) {
-      this.isOpen = true;
-      this.dialog.showModal?.();
-    }
-    await this.readAndScheduleNext();
-  }
-
-  close(): void {
-    this.dialog.close?.();
-    this.onClosed();
-  }
-
-  /** The close button, Escape and `close()` all end here. */
-  private onClosed(): void {
-    this.isOpen = false;
-    this.stopRefresh();
+  override connectedCallback(): void {
+    super.connectedCallback();
+    void this.readAndScheduleNext();
   }
 
   override disconnectedCallback(): void {
@@ -100,15 +81,7 @@ export class SystemDialog extends LitElement {
   override render() {
     const strings = uiStrings(this.locale);
     return html`
-      <dialog aria-labelledby="system-title" @close=${() => this.onClosed()}>
-        <header>
-          <h2 id="system-title">${strings.systemTitle}</h2>
-          <button type="button" class="close" aria-label=${strings.closeLabel} @click=${() => this.close()}>
-            ×
-          </button>
-        </header>
-        ${this.renderPage(strings)} ${this.system === null ? nothing : this.renderSystem(strings, this.system)}
-      </dialog>
+      ${this.renderPage(strings)} ${this.system === null ? nothing : this.renderSystem(strings, this.system)}
     `;
   }
 
@@ -232,7 +205,7 @@ export class SystemDialog extends LitElement {
   private async readAndScheduleNext(): Promise<void> {
     await this.read();
     this.stopRefresh();
-    if (!this.isOpen) {
+    if (!this.isConnected) {
       return;
     }
     this.refreshHandle = this.scheduleFunction(() => {
@@ -245,5 +218,11 @@ export class SystemDialog extends LitElement {
       this.cancelFunction(this.refreshHandle);
       this.refreshHandle = undefined;
     }
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "system-panel": SystemPanel;
   }
 }
