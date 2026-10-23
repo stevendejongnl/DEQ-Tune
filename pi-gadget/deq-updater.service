@@ -1,0 +1,13 @@
+[Unit]
+# Installs each new deq-tune release. See deq_updater.py.
+Description=Install the latest deq-tune release
+After=network-online.target deq-backend.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Root: the run swaps /home/deq/deq-tune, restarts services, and copies the
+# gadget. It runs `uv sync` as the user deq.
+ExecStart=/usr/bin/python3 /usr/local/bin/deq_updater.py
+# A download and a `uv sync` on a Pi Zero 2 W take minutes.
+TimeoutStartSec=20min

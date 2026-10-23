@@ -84,6 +84,7 @@ Either `make test`, or run each side by hand:
 
 ```bash
 cd backend && uv run pytest
+cd backend && uv run pytest ../pi-gadget   # the Pi updater
 cd frontend && npm test
 ```
 

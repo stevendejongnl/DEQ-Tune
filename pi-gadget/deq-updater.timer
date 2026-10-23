@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for a new deq-tune release every 30 minutes
+
+[Timer]
+# Late enough after boot for the client Wi-Fi link and the backend.
+OnBootSec=5min
+OnUnitActiveSec=30min
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

@@ -71,7 +71,7 @@ console:
 test: test-backend test-frontend
 
 test-backend:
-	cd backend && uv run pytest
+	cd backend && uv run pytest && uv run pytest ../pi-gadget
 
 test-frontend:
 	cd frontend && npm test

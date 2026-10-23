@@ -26,6 +26,7 @@ car, so the car app carries the REST API over BLE.
 | `deq_wifi_networks.py` | The root helper behind the web app's Wi-Fi dialog | `/usr/local/bin/deq-wifi-networks` |
 | `deq-wifi-recover.sh`, `.service`, `.timer` | Brings a lost client link back | `/usr/local/bin/` |
 | `deq-heartbeat.sh`, `deq-session-record.sh` | Plain log files that outlive a brown-out | `/usr/local/bin/` |
+| `deq_updater.py`, `deq-updater.service`, `.timer` | Installs each new release by itself, every 30 minutes | `/usr/local/bin/` |
 
 The Pi has no RTC, so journald throws its journal away when NTP sets the
 clock. The heartbeat writes `/var/log/deq-heartbeat.log` once a minute,
@@ -35,6 +36,30 @@ and the session recorder writes each change of `/api/device` to
 The backend service runs `uv run --no-sync`, because the car has no route
 to the internet. The database is `/home/deq/deq.db`, outside the code
 tree, so a new backend keeps the profiles.
+
+## Updates
+
+`deq_updater.py` runs from `deq-updater.timer` every 30 minutes, as root.
+It asks GitHub for the latest release, and writes what it found to
+`/home/deq/deq-update-state.json`.
+
+- With automatic updates on (the default), it downloads
+  `deq-tune-<version>.tar.gz`, checks its SHA-256, unpacks it into
+  `/home/deq/deq-tune.next`, and runs `uv sync --frozen` there as `deq`.
+  Then it swaps the trees, keeps the old one as `/home/deq/deq-tune.prev`,
+  restarts the backend, and waits up to 60 seconds for `/health`. A backend
+  that does not answer gets the old tree back.
+- It installs a changed gadget only while no DEQ session is live. Until
+  then the state file says `gadget_pending`.
+- `{"automatic": false}` in `/home/deq/deq-update-settings.json` switches
+  automatic updates off. A run then only reports the new version. The file
+  `/home/deq/deq-update-request` asks for one update anyway.
+- With no internet, as in the car, a run changes nothing.
+
+The release workflow builds the tarball and attaches it with its
+checksum. The updater updates the backend tree, the web app and the
+gadget. It does not update the systemd units or the files in
+`/usr/local/bin/`.
 
 ## What a reimplementation must get right
 

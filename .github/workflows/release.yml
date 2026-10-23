@@ -20,6 +20,8 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - run: uv sync
       - run: uv run pytest
+      # The Pi updater lives in pi-gadget/ and uses the standard library only.
+      - run: uv run pytest ../pi-gadget
 
   test-frontend:
     runs-on: ubuntu-latest
@@ -119,3 +121,42 @@ jobs:
           docker build -t "${IMAGE}:${VERSION}" -t "${IMAGE}:latest" .
           docker push "${IMAGE}:${VERSION}"
           docker push "${IMAGE}:latest"
+
+  # The Pi installs each release from this tarball. See pi-gadget/deq_updater.py.
+  bundle:
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build the frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Pack and attach the release tarball
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          stage="$(mktemp -d)/deq-tune"
+          mkdir -p "${stage}/backend"
+          cp -r backend/app backend/scripts backend/pyproject.toml backend/uv.lock "${stage}/backend/"
+          cp -r data conformance pi-gadget openapi.json "${stage}/"
+          cp -r frontend/dist "${stage}/dist"
+          echo "${VERSION}" > "${stage}/VERSION"
+          find "${stage}" -name '__pycache__' -prune -exec rm -rf {} +
+          name="deq-tune-${VERSION}.tar.gz"
+          tar -czf "${name}" -C "$(dirname "${stage}")" deq-tune
+          sha256sum "${name}" > "${name}.sha256"
+          gh release upload "v${VERSION}" "${name}" "${name}.sha256"
