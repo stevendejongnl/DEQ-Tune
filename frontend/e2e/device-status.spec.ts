@@ -93,7 +93,9 @@ test("the header shows the unit and its firmware version without a click", async
 
   await expect(page.locator(DEVICE_PILL)).toContainText("DEQ connected");
   await expect(page.locator(DEVICE_PILL)).toContainText(FAKE_UNIT_FIRMWARE);
-  await expect(page.locator("device-status button")).toHaveCount(0);
+  // The backend connects by itself, so the header has no connect button.
+  // Its one button opens the Pi's system dialog.
+  await expect(page.getByRole("button", { name: /connect/i })).toHaveCount(0);
 });
 
 test("the backend connects again by itself after the link drops", async ({ request }) => {
