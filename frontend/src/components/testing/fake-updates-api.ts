@@ -14,6 +14,7 @@ export const NO_UPDATER: UpdatesDto = {
   checked_at: "",
   last_result: "",
   history: [],
+  frontend_build: null,
 };
 
 /** A Pi that the updater just moved from 1.15.0 to 1.16.0. */
@@ -30,6 +31,7 @@ export function updatedPi(overrides: Partial<UpdatesDto> = {}): UpdatesDto {
     checked_at: "2026-10-23T14:07:18+00:00",
     last_result: "updated from 1.15.0 to 1.16.0",
     history: [{ from_version: "1.15.0", to_version: "1.16.0", at: "2026-10-23T14:07:18+00:00" }],
+    frontend_build: null,
     ...overrides,
   };
 }

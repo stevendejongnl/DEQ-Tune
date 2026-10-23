@@ -8,12 +8,13 @@ and without this the app shows only the symptom.
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.bridge_health import read_bridge_health
 from app.bridge_notices import note_undervoltage, notice_log
 from app.bridge_system import read_bridge_system
-from app.schemas import BridgeNoticeRead, BridgeRead, BridgeSystemRead, NetworkInterfaceRead
+from app.frontend_bundle import build_frontend_bundle
+from app.schemas import BridgeNoticeRead, BridgeRead, BridgeSystemRead, FrontendBundleRead, NetworkInterfaceRead
 
 router = APIRouter(prefix="/bridge", tags=["bridge"])
 
@@ -44,3 +45,15 @@ def read_system() -> BridgeSystemRead:
         "interfaces": [NetworkInterfaceRead(**vars(interface)) for interface in system.interfaces],
     }
     return BridgeSystemRead(**fields)
+
+
+@router.get("/frontend", response_model=FrontendBundleRead)
+def read_frontend() -> FrontendBundleRead:
+    """Returns the web app that the bridge serves, for the car app's copy.
+
+    See `frontend_bundle.py`. A backend with no build answers 404.
+    """
+    bundle = build_frontend_bundle()
+    if bundle is None:
+        raise HTTPException(status_code=404, detail="this bridge serves no built web app")
+    return FrontendBundleRead(**vars(bundle))

@@ -56,12 +56,26 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // The backend API is live data (users edit profiles). Never serve it from cache.
-        navigateFallbackDenylist: [/^\/api\//],
+        // The page comes from the bridge whenever it answers, and from the
+        // cache only when it does not. A precached index.html would win over
+        // the network, and a person would see the old build after each
+        // update. So the page stays out of the precache, and a navigation
+        // asks the network first. The hashed files under /assets stay
+        // precached, because a file there never changes under its name.
+        globIgnores: ["**/index.html"],
+        navigateFallback: null,
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
+            // The backend API is live data (users edit profiles). Never serve it from cache.
             urlPattern: /^\/api\//,
             handler: "NetworkOnly",
+          },
+          {
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: { cacheName: "deq-tune-page", networkTimeoutSeconds: 4 },
           },
         ],
       },

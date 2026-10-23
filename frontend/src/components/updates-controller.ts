@@ -12,6 +12,10 @@ export const UPDATES_REFRESH_MS = 10 * 60 * 1000;
 export const SEEN_VERSION_KEY = "deq-tune.seen-version";
 /** The release whose "update available" note the person put off. */
 export const POSTPONED_VERSION_KEY = "deq-tune.postponed-version";
+/** The bridge build that this browser last reloaded for. A second reload
+ * for the same build would loop, for example in a car app whose own copy
+ * is still older. */
+export const RELOADED_FOR_KEY = "deq-tune.reloaded-for-build";
 
 export type UpdateRequestState = "idle" | "busy" | "requested" | "failed" | "unsupported";
 
@@ -21,6 +25,11 @@ export interface UpdatesHooks {
   storage(): LocaleStorage;
   scheduleFunction(): ScheduleFunction;
   cancelFunction(): CancelFunction;
+  /** The build id of the page on screen. */
+  pageBuild(): string;
+  /** True while the person has edits that a reload would lose. */
+  hasUnsavedEdits(): boolean;
+  reload(): void;
 }
 
 /**
@@ -30,8 +39,13 @@ export interface UpdatesHooks {
  * app-root creates it with hooks. The settings page and the notification
  * dock read `updates`, `whatsNewVersion` and `availableVersion`, and their
  * events end in `setAutomatic`, `requestUpdate`, `dismissWhatsNew` and
- * `postpone`. It depends on the updates API, on browser storage for the two
+ * `postpone`. It depends on the updates API, on browser storage for the
  * remembered versions, and on a scheduler that a test replaces.
+ *
+ * It also keeps the page current. When the bridge serves another build than
+ * the one on screen, the page reloads, so a person never works in an old
+ * copy while the bridge answers. It waits while there are unsaved edits,
+ * and reloads once per build at most.
  */
 export class UpdatesController implements ReactiveController {
   updates: UpdatesDto | null = null;
@@ -49,9 +63,11 @@ export class UpdatesController implements ReactiveController {
 
   hostConnected(): void {
     void this.loadAndScheduleNext();
+    globalThis.document?.addEventListener("visibilitychange", this.onVisibilityChange);
   }
 
   hostDisconnected(): void {
+    globalThis.document?.removeEventListener("visibilitychange", this.onVisibilityChange);
     if (this.refreshHandle !== undefined) {
       this.hooks.cancelFunction()(this.refreshHandle);
       this.refreshHandle = undefined;
@@ -84,7 +100,29 @@ export class UpdatesController implements ReactiveController {
       // The Pi is out of reach. The last answer stays on screen.
     }
     this.host.requestUpdate();
+    this.reloadWhenOutdated();
   }
+
+  /** Reloads into the build that the bridge serves, when it differs. */
+  reloadWhenOutdated(): void {
+    const served = this.updates?.frontend_build ?? null;
+    if (served === null || served === this.hooks.pageBuild() || this.hooks.hasUnsavedEdits()) {
+      return;
+    }
+    const storage = this.hooks.storage();
+    if (storage.getItem(RELOADED_FOR_KEY) === served) {
+      return;
+    }
+    storage.setItem(RELOADED_FOR_KEY, served);
+    this.hooks.reload();
+  }
+
+  /** A phone that comes back to the app may have missed a release. */
+  private onVisibilityChange = (): void => {
+    if (globalThis.document?.visibilityState === "visible") {
+      void this.load();
+    }
+  };
 
   async setAutomatic(automatic: boolean): Promise<void> {
     try {

@@ -393,7 +393,18 @@ class UpdatesRead(BaseModel):
     checked_at: str = ""
     last_result: str = ""
     history: list[UpdateHistoryRead] = []
+    # The build id of the web app that the bridge serves now. A page with
+    # another id is an older copy, and reloads.
+    frontend_build: str | None = None
 
 
 class UpdateSettingsWrite(BaseModel):
     automatic: bool
+
+
+class FrontendBundleRead(BaseModel):
+    """The web app that the bridge serves, as one base64 zip."""
+
+    build: str
+    archive_base64: str
+    file_count: int

@@ -71,6 +71,16 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+# The page and the files beside it must come fresh from the bridge whenever
+# it answers. Only `/assets` keeps a long cache, because each file there has
+# its content hash in its name.
+NO_CACHE = {"Cache-Control": "no-cache"}
+
+
+def revalidate_headers(path: Path) -> dict[str, str]:
+    return NO_CACHE if path.suffix in {".html", ".txt", ".js", ".webmanifest"} else {}
+
+
 def register_frontend_routes(app: FastAPI, dist_dir: Path) -> None:
     """Serves the built frontend from `dist_dir`, once it exists. The Docker
     image builds it there. Local dev serves the frontend from Vite instead, so
@@ -84,8 +94,8 @@ def register_frontend_routes(app: FastAPI, dist_dir: Path) -> None:
     async def single_page_app(full_path: str) -> FileResponse:
         candidate = (dist_dir / full_path).resolve()
         if candidate.is_relative_to(dist_dir.resolve()) and candidate.is_file():
-            return FileResponse(candidate)
-        return FileResponse(dist_dir / "index.html")
+            return FileResponse(candidate, headers=revalidate_headers(candidate))
+        return FileResponse(dist_dir / "index.html", headers=NO_CACHE)
 
 
 register_frontend_routes(app, DIST_DIR)

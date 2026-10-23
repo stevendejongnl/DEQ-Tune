@@ -759,6 +759,28 @@
         }
       }
     },
+    "/api/bridge/frontend": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Read Frontend",
+        "description": "Returns the web app that the bridge serves, for the car app's copy.\n\nSee `frontend_bundle.py`. A backend with no build answers 404.",
+        "operationId": "read_frontend_api_bridge_frontend_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrontendBundleRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/active-profile": {
       "get": {
         "tags": [
@@ -2293,6 +2315,30 @@
         ],
         "title": "FoundationEq"
       },
+      "FrontendBundleRead": {
+        "properties": {
+          "build": {
+            "type": "string",
+            "title": "Build"
+          },
+          "archive_base64": {
+            "type": "string",
+            "title": "Archive Base64"
+          },
+          "file_count": {
+            "type": "integer",
+            "title": "File Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "build",
+          "archive_base64",
+          "file_count"
+        ],
+        "title": "FrontendBundleRead",
+        "description": "The web app that the bridge serves, as one base64 zip."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2826,6 +2872,17 @@
             "type": "array",
             "title": "History",
             "default": []
+          },
+          "frontend_build": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frontend Build"
           }
         },
         "type": "object",

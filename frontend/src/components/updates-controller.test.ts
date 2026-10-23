@@ -3,7 +3,16 @@ import { ApiError } from "../api/client.ts";
 import { createFakeLocaleStorage } from "../i18n/testing/fake-locale-storage.ts";
 import type { LocaleStorage } from "../i18n/locale.ts";
 import { FakeUpdatesApi, updatedPi } from "./testing/fake-updates-api.ts";
-import { POSTPONED_VERSION_KEY, SEEN_VERSION_KEY, UPDATES_REFRESH_MS, UpdatesController } from "./updates-controller.ts";
+import {
+  POSTPONED_VERSION_KEY,
+  RELOADED_FOR_KEY,
+  SEEN_VERSION_KEY,
+  UPDATES_REFRESH_MS,
+  UpdatesController,
+} from "./updates-controller.ts";
+
+const PAGE_BUILD = "eed7fb4-2026-10-23T16:00";
+const NEWER_BUILD = "8e77c24-2026-10-23T17:26";
 
 /** A host that counts the re-renders the controller asks for. */
 class FakeHost {
@@ -18,8 +27,13 @@ class FakeHost {
   }
 }
 
-function makeController(api: FakeUpdatesApi, storage: LocaleStorage = createFakeLocaleStorage({})) {
+function makeController(
+  api: FakeUpdatesApi,
+  storage: LocaleStorage = createFakeLocaleStorage({}),
+  editing = { unsaved: false },
+) {
   const gaps: number[] = [];
+  const reloads: number[] = [];
   const controller = new UpdatesController(new FakeHost(), {
     api: () => api,
     storage: () => storage,
@@ -28,8 +42,11 @@ function makeController(api: FakeUpdatesApi, storage: LocaleStorage = createFake
       return gaps.length;
     },
     cancelFunction: () => () => {},
+    pageBuild: () => PAGE_BUILD,
+    hasUnsavedEdits: () => editing.unsaved,
+    reload: () => reloads.push(1),
   });
-  return { controller, gaps, storage };
+  return { controller, gaps, storage, reloads };
 }
 
 describe("UpdatesController", () => {
@@ -103,5 +120,36 @@ describe("UpdatesController", () => {
     api.failWith = new ApiError(503, "no updater");
     await controller.requestUpdate();
     expect(controller.requestState).toBe("unsupported");
+  });
+
+  it("reloads into the build the bridge serves, once", async () => {
+    const { controller, reloads, storage } = makeController(new FakeUpdatesApi(updatedPi({ frontend_build: NEWER_BUILD })));
+
+    await controller.load();
+    await controller.load();
+
+    expect(reloads).toHaveLength(1);
+    expect(storage.getItem(RELOADED_FOR_KEY)).toBe(NEWER_BUILD);
+  });
+
+  it("does not reload while the page is the bridge's own build", async () => {
+    const { controller, reloads } = makeController(new FakeUpdatesApi(updatedPi({ frontend_build: PAGE_BUILD })));
+
+    await controller.load();
+
+    expect(reloads).toHaveLength(0);
+  });
+
+  it("waits with the reload while edits are unsaved", async () => {
+    const editing = { unsaved: true };
+    const api = new FakeUpdatesApi(updatedPi({ frontend_build: NEWER_BUILD }));
+    const { controller, reloads } = makeController(api, createFakeLocaleStorage({}), editing);
+
+    await controller.load();
+    expect(reloads).toHaveLength(0);
+
+    editing.unsaved = false;
+    await controller.load();
+    expect(reloads).toHaveLength(1);
   });
 });

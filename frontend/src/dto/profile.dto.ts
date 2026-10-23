@@ -342,6 +342,8 @@ export interface UpdatesDto {
   checked_at: string;
   last_result: string;
   history: UpdateHistoryDto[];
+  /** The build id of the web app that the bridge serves now, or null. */
+  frontend_build: string | null;
 }
 
 export interface UpdateSettingsWriteDto {

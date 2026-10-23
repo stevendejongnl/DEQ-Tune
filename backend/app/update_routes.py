@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from app.frontend_bundle import read_frontend_build
 from app.schemas import UpdateHistoryRead, UpdatesRead, UpdateSettingsWrite
 from app.updates import ReleaseUpdates, UpdateStatus, get_release_updates
 
@@ -35,5 +36,8 @@ def require_updater(updates: ReleaseUpdates) -> None:
 
 
 def updates_read(status: UpdateStatus) -> UpdatesRead:
-    fields = vars(status) | {"history": [UpdateHistoryRead(**vars(entry)) for entry in status.history]}
+    fields = vars(status) | {
+        "history": [UpdateHistoryRead(**vars(entry)) for entry in status.history],
+        "frontend_build": read_frontend_build(),
+    }
     return UpdatesRead(**fields)

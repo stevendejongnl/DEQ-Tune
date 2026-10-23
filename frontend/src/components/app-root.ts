@@ -42,6 +42,7 @@ import type { SettingsSection } from "./settings-page.ts";
 import "./notification-dock.ts";
 import { UpdatesController } from "./updates-controller.ts";
 import { releaseHighlight } from "../release-notes.ts";
+import { BUILD_ID } from "../build-id.ts";
 import { EqualizerLibraryController } from "./equalizer-library-controller.ts";
 import type { LinkState } from "./link-state.ts";
 import { appRootStyles } from "./app-root.styles.ts";
@@ -147,6 +148,9 @@ export class AppRoot extends LitElement {
     setTimeout(action, delayMs);
   @property({ attribute: false }) cancelFunction: CancelFunction = (handle) =>
     clearTimeout(handle as ReturnType<typeof setTimeout>);
+  /** The build of this page, and how it reloads. A test replaces both. */
+  @property({ type: String }) pageBuild = BUILD_ID;
+  @property({ attribute: false }) reloadFunction: () => void = () => window.location.reload();
 
   @state() private profiles: ProfileDto[] = [];
   @state() private selectedId: number | null = null;
@@ -167,6 +171,9 @@ export class AppRoot extends LitElement {
     storage: () => this.localeStorage,
     scheduleFunction: () => this.scheduleFunction,
     cancelFunction: () => this.cancelFunction,
+    pageBuild: () => this.pageBuild,
+    hasUnsavedEdits: () => this.draft !== null,
+    reload: () => this.reloadFunction(),
   });
   @state() private settingsSection: SettingsSection = "updates";
   @state() private liveSimulation: LiveSimulationId | null = null;
@@ -798,7 +805,12 @@ export class AppRoot extends LitElement {
    * away: a volume shown for a unit that is not there is a stale number
    * nobody should act on. */
   private onLinkState(linkState: LinkState): void {
+    const bridgeCameBack = !this.bridgeReachable && linkState !== "no-bridge";
     this.bridgeReachable = linkState !== "no-bridge";
+    if (bridgeCameBack) {
+      // The page may have opened from the cache while the bridge was away.
+      void this.updatesController.load();
+    }
     const connected = linkState === "connected";
     if (connected === this.unitConnected) {
       return;

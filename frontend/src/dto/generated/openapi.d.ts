@@ -412,6 +412,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bridge/frontend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Frontend
+         * @description Returns the web app that the bridge serves, for the car app's copy.
+         *
+         *     See `frontend_bundle.py`. A backend with no build answers 404.
+         */
+        get: operations["read_frontend_api_bridge_frontend_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/active-profile": {
         parameters: {
             query?: never;
@@ -1031,6 +1053,18 @@ export interface components {
                 [key: string]: components["schemas"]["ChannelBank"];
             };
         };
+        /**
+         * FrontendBundleRead
+         * @description The web app that the bridge serves, as one base64 zip.
+         */
+        FrontendBundleRead: {
+            /** Build */
+            build: string;
+            /** Archive Base64 */
+            archive_base64: string;
+            /** File Count */
+            file_count: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1251,6 +1285,8 @@ export interface components {
              * @default []
              */
             history: components["schemas"]["UpdateHistoryRead"][];
+            /** Frontend Build */
+            frontend_build?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1921,6 +1957,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BridgeSystemRead"];
+                };
+            };
+        };
+    };
+    read_frontend_api_bridge_frontend_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrontendBundleRead"];
                 };
             };
         };
