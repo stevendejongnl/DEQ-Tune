@@ -10,9 +10,14 @@
 3. When automatic updates are on and the release is newer, it downloads
    the release tarball, checks its SHA-256, and unpacks it into a staging
    tree. It runs `uv sync` there, as the user `deq`, while the Pi still
-   has internet.
-4. It swaps the staging tree in, keeps the running tree as the rollback
-   copy, restarts the backend, and waits for `/health`. A backend that does
+   has internet. That fills uv's cache and proves that every dependency
+   resolves.
+4. It swaps the staging tree in and keeps the running tree as the
+   rollback copy. Then it builds `.venv` again in the live tree, offline,
+   from uv's cache. A virtualenv records its own absolute path in its
+   scripts, so the one built in staging fails after the rename: the
+   backend then failed with "Failed to spawn: uvicorn" on 2026-10-23.
+   It restarts the backend and waits for `/health`. A backend that does
    not answer gets the rollback copy back.
 5. It updates the gadget only while no DEQ session is live. A restart of
    the gadget during a session wedges the USB controller. A backend restart
@@ -230,15 +235,14 @@ class System:
         with urllib.request.urlopen(url, timeout=NETWORK_TIMEOUT_SECONDS * 6) as response:
             return response.read()
 
-    def sync_dependencies(self, tree: Path) -> None:
-        subprocess.run(
-            ["chown", "-R", "deq:deq", str(tree)], check=True
-        )
-        subprocess.run(
-            ["runuser", "-u", "deq", "--", str(UV), "sync", "--frozen"],
-            cwd=tree / "backend",
-            check=True,
-        )
+    def sync_dependencies(self, tree: Path, offline: bool = False) -> None:
+        """Builds `backend/.venv` as the user deq. Offline uses uv's cache only."""
+        subprocess.run(["chown", "-R", "deq:deq", str(tree)], check=True)
+        shutil.rmtree(tree / "backend" / ".venv", ignore_errors=True)
+        command = ["runuser", "-u", "deq", "--", str(UV), "sync", "--frozen"]
+        if offline:
+            command.append("--offline")
+        subprocess.run(command, cwd=tree / "backend", check=True)
 
     def restart(self, service: str) -> None:
         subprocess.run(["systemctl", "restart", service], check=True)
@@ -324,8 +328,15 @@ class Updater:
             return
         from_version = state.installed
         swap_trees(self.paths.staging, self.paths.live, self.paths.previous)
-        self.system.restart(BACKEND_SERVICE)
-        if not self.system.backend_healthy():
+        try:
+            self.system.sync_dependencies(self.paths.live, offline=True)
+            started = True
+        except (OSError, subprocess.CalledProcessError):
+            started = False
+        if started:
+            self.system.restart(BACKEND_SERVICE)
+            started = self.system.backend_healthy()
+        if not started:
             restore_previous(self.paths.live, self.paths.previous)
             self.system.restart(BACKEND_SERVICE)
             state.last_result = f"{release.version} did not start, so {from_version} is back"

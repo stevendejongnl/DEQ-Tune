@@ -45,9 +45,12 @@ It asks GitHub for the latest release, and writes what it found to
 
 - With automatic updates on (the default), it downloads
   `deq-tune-<version>.tar.gz`, checks its SHA-256, unpacks it into
-  `/home/deq/deq-tune.next`, and runs `uv sync --frozen` there as `deq`.
-  Then it swaps the trees, keeps the old one as `/home/deq/deq-tune.prev`,
-  restarts the backend, and waits up to 60 seconds for `/health`. A backend
+  `/home/deq/deq-tune.next`, and runs `uv sync --frozen` there as `deq`,
+  which fills uv's cache. Then it swaps the trees, keeps the old one as
+  `/home/deq/deq-tune.prev`, builds `.venv` again in the live tree from the
+  cache (`--offline`), restarts the backend, and waits up to 60 seconds
+  for `/health`. A virtualenv records its absolute path in its scripts, so
+  one built in the staging tree fails after the rename. A backend
   that does not answer gets the old tree back.
 - It installs a changed gadget only while no DEQ session is live. Until
   then the state file says `gadget_pending`.

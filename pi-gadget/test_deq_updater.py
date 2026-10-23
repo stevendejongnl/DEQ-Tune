@@ -64,13 +64,21 @@ def github_release(version: str) -> dict:
 class FakeSystem:
     """A Pi that serves one release and records what the updater did."""
 
-    def __init__(self, release: dict | None, tarball: bytes, healthy: bool = True, session_live: bool = False):
+    def __init__(
+        self,
+        release: dict | None,
+        tarball: bytes,
+        healthy: bool = True,
+        session_live: bool = False,
+        offline_sync_fails: bool = False,
+    ):
+        self.offline_sync_fails = offline_sync_fails
         self.release = release
         self.tarball = tarball
         self.healthy = healthy
         self.live_session = session_live
         self.restarts: list[str] = []
-        self.synced: list[Path] = []
+        self.synced: list[tuple[Path, bool]] = []
         self.gadget_installs: list[bytes] = []
         self.installed_gadget: Path | None = None
 
@@ -84,8 +92,10 @@ class FakeSystem:
             return f"{hashlib.sha256(self.tarball).hexdigest()}  deq-tune.tar.gz\n".encode()
         return self.tarball
 
-    def sync_dependencies(self, tree: Path) -> None:
-        self.synced.append(tree)
+    def sync_dependencies(self, tree: Path, offline: bool = False) -> None:
+        if offline and self.offline_sync_fails:
+            raise OSError("uv cache is missing a wheel")
+        self.synced.append((tree, offline))
 
     def restart(self, service: str) -> None:
         self.restarts.append(service)
@@ -170,7 +180,9 @@ def test_an_automatic_update_swaps_the_trees_and_restarts_the_backend(paths):
 
     assert (paths.live / "VERSION").read_text().strip() == NEW_VERSION
     assert (paths.previous / "VERSION").read_text().strip() == OLD_VERSION
-    assert system.synced == [paths.staging]
+    # Staging proves the download. The live tree gets its own .venv, because
+    # a virtualenv records its absolute path in its scripts.
+    assert system.synced == [(paths.staging, False), (paths.live, True)]
     assert system.restarts[0] == "deq-backend"
     assert state.installed == NEW_VERSION
     assert state.history[0] == {"from": OLD_VERSION, "to": NEW_VERSION, "at": system.now()}
@@ -185,6 +197,16 @@ def test_a_backend_that_does_not_start_gets_the_old_tree_back(paths):
     assert (paths.live / "VERSION").read_text().strip() == OLD_VERSION
     assert system.restarts == ["deq-backend", "deq-backend"]
     assert state.installed == OLD_VERSION
+    assert "did not start" in state.last_result
+
+
+def test_a_failed_offline_sync_after_the_swap_gets_the_old_tree_back(paths):
+    system = FakeSystem(github_release(NEW_VERSION), build_tarball(NEW_VERSION), offline_sync_fails=True)
+
+    state = make_updater(system, paths).run_once()
+
+    assert (paths.live / "VERSION").read_text().strip() == OLD_VERSION
+    assert system.restarts == ["deq-backend"]
     assert "did not start" in state.last_result
 
 
