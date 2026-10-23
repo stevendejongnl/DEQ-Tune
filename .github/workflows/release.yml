@@ -45,6 +45,8 @@ jobs:
 
   test-e2e:
     runs-on: ubuntu-latest
+    # A run that hangs blocks every release behind it, so it fails instead.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -65,8 +67,16 @@ jobs:
         working-directory: backend
       - run: npm ci
         working-directory: frontend
-      - run: npx playwright install --with-deps chromium
+      # The apt step of this install hung for over ten minutes twice on
+      # 2026-10-23. Each try gets five minutes, and a hung try starts again.
+      - name: Install the browser for the end-to-end tests
         working-directory: frontend
+        run: |
+          for attempt in 1 2 3; do
+            timeout 300 npx playwright install --with-deps chromium && exit 0
+            echo "install try ${attempt} failed or hung"
+          done
+          exit 1
       - run: npx playwright test
         working-directory: frontend
       - if: failure()
