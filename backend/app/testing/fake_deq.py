@@ -49,8 +49,10 @@ from app.deq_session import (
     COMMAND_SYSTEM_ERROR_FLAGS,
     COMMAND_DEVICE_IDENTITY,
     COMMAND_FIRMWARE_VERSION,
+    COMMAND_READ_CONFIGURATION_TABLE,
     COMMAND_READ_USER_CONFIGURATION,
     COMMAND_SYNC,
+    CONFIG_ID_LEVELS,
     COMMAND_WRITE_COEFFICIENTS,
     COMMAND_WRITE_USER_CONFIGURATION,
     CONFIGURATION_PAYLOAD_BYTES,
@@ -89,6 +91,13 @@ FAKE_VOLUME_DB = -27
 # names THROUGH.
 FAKE_MODE = 4
 
+# The level block (0x05 CONFIG_ID 0) the car's unit returned to `0x06` on
+# 2026-10-08, in `20261008_level_configuration_reply.hex`. Front -2 dB, rear
+# +2 dB, subwoofer +10 dB, fader 4 towards the front.
+FAKE_LEVEL_CONFIGURATION = bytes.fromhex(
+    "160002f2" "fefe02020a00" "00fc" "0000" "000000000000" "10003e00ec000000"
+)
+
 # The mute write and read carry a boolean, as the app's `b/e/aa` writes it.
 MUTE_WIRE_PLAYING = 0
 MUTE_WIRE_MUTED = 1
@@ -125,6 +134,9 @@ class FakeDeq:
     serial: str = FAKE_SERIAL
     # Set this to stop answering, so a test can see a timeout.
     answers: bool = True
+
+    # The level block that `0x06` CONFIG_ID 0 returns.
+    level_configuration: bytes = FAKE_LEVEL_CONFIGURATION
 
     # The live state the unit reports in its sync reply.
     volume_db: int = FAKE_VOLUME_DB
@@ -269,6 +281,8 @@ class FakeDeq:
             return self.accept_configuration(request)
         if request.command_id == COMMAND_WRITE_COEFFICIENTS:
             return self.acknowledge_coefficients(request)
+        if request.command_id == COMMAND_READ_CONFIGURATION_TABLE:
+            return self.build_configuration_table(request)
         if request.command_id == COMMAND_SYSTEM_ERROR_FLAGS:
             return self.error_flags.to_bytes(4, "little")
         if request.command_id == COMMAND_CRASH_REPORT:
@@ -334,6 +348,19 @@ class FakeDeq:
         """
         self.configuration = decode_blob(request.body[:STANDARD_BLOB_BYTES])
         return b""
+
+    def build_configuration_table(self, request: Message) -> bytes:
+        """Answers `0x06` with the CONFIG_ID it read and then the block.
+
+        Only the level block (CONFIG_ID 0) has a captured reply. Any other
+        CONFIG_ID gets the plain echo, as before.
+
+        A write of CONFIG_ID 0 does not change what this returns. Nobody
+        measured whether the real unit's reply follows a write.
+        """
+        if int.from_bytes(request.body[:4], "little") != CONFIG_ID_LEVELS:
+            return self.echo_request_field(request)
+        return request.body[:4] + self.level_configuration
 
     def acknowledge_coefficients(self, request: Message) -> bytes:
         """Answers a coefficient write with its CONFIG_ID and nothing else.

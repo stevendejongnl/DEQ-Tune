@@ -41,16 +41,20 @@ from app.deq_blob import (
 from app.deq_enums import AUDIO_SOURCE, EQ_STYLE, LIVE_SIMULATION
 from app.deq_dsp import (
     CROSSOVER_SLOT_COUNT,
+    LEVEL_BLOCK_BYTES,
     TIME_ALIGNMENT_SLOT_COUNT,
     WIDE_BAND_COUNT,
     FilterSlope,
+    SpeakerLevel,
     build_crossover_payload,
     build_equalizer_payload,
+    build_level_payload,
     build_time_alignment_payload,
     convert_wide_bands_to_equalizer_bands,
     crossover_slot_settings,
 )
 from app.deq_protocol import (
+    CONFIG_ID_BYTES,
     TRANSACTION_ID_BYTES,
     Direction,
     Message,
@@ -123,6 +127,7 @@ COMMAND_SYNC = COMMAND_CONNECT
 # answer. The dispatch in `b/e/ab` maps each id to the field enum that declares
 # its CONFIGURATION size. The sizes settle the mapping.
 #
+#   id 0  -> af$a$l, 0x1c = 28 bytes, the levels
 #   id 10 -> af$a$g, 0x20 = 32 bytes, two 16-byte time-alignment blocks
 #   id 11 -> af$a$e, 0xb8 = 184 bytes, the standard crossover
 #   id 12 -> af$a$f, 0x1a8 = 424 bytes, the network crossover
@@ -130,6 +135,7 @@ COMMAND_SYNC = COMMAND_CONNECT
 #
 # The 2080 and the two crossover sizes match `conformance/flows.json` byte for
 # byte. So a test checks the mapping, and nobody assumes it.
+CONFIG_ID_LEVELS = 0
 CONFIG_ID_TIME_ALIGNMENT = 10
 CONFIG_ID_CROSSOVER_STANDARD = 11
 CONFIG_ID_CROSSOVER_NETWORK = 12
@@ -478,14 +484,58 @@ class DeqSession:
     def write_tuning(self, tuning: TuningData, layout: str = "standard") -> None:
         """Sends one profile's whole DSP state to the unit.
 
-        Three blocks of command 0x05, each under its own CONFIG_ID: the
-        equalizer, the time alignment, and the crossover. `deq_dsp` builds
-        every one of them. This method only says which CONFIG_ID carries which,
-        and in what order.
+        Four blocks of command 0x05, each under its own CONFIG_ID: the
+        levels, the equalizer, the time alignment, and the crossover.
+        `deq_dsp` builds every one of them. This method only says which
+        CONFIG_ID carries which, and in what order. The levels go first, as
+        in the app's own full push.
+
+        The app sends a fifth block, CONFIG_ID 9. It holds RearSWEnabled and
+        three zeros. The app sends it only when the speaker mode changes
+        between STANDARD and NETWORK. A profile push never changes that mode,
+        so this method does not send it.
         """
+        self.write_levels(tuning)
         self.write_equalizer(tuning)
         self.write_time_alignment(tuning)
         self.write_crossover(tuning, layout)
+
+    def read_level_configuration(self) -> bytes:
+        """Returns the level block that the unit holds now, 28 bytes.
+
+        `0x06` answers with STATUS, the CONFIG_ID it read, and then the
+        block.
+        """
+        reply = self.exchange(
+            COMMAND_READ_CONFIGURATION_TABLE,
+            build_get_opal_configuration_body(CONFIG_ID_LEVELS),
+        )
+        block_offset = STATUS_BYTES + CONFIG_ID_BYTES
+        block = reply.body[block_offset:block_offset + LEVEL_BLOCK_BYTES]
+        if len(block) != LEVEL_BLOCK_BYTES:
+            raise SessionError(
+                f"the unit returned a level block of {len(block)} bytes, "
+                f"not {LEVEL_BLOCK_BYTES}"
+            )
+        return block
+
+    def write_levels(self, tuning: TuningData) -> None:
+        """Sends the speaker levels, the fader and the balance.
+
+        The block also holds a level per source mode and a subwoofer level.
+        A profile has no value for them, so they come from the unit. The car's
+        unit held a subwoofer level of +10 dB on 2026-10-08. A block built
+        from zeros would turn it off.
+        """
+        self.write_coefficients(
+            CONFIG_ID_LEVELS,
+            build_level_payload(
+                self.read_level_configuration(),
+                profile_speaker_levels(tuning),
+                fader=int(tuning.faderBalance.fader),
+                balance=int(tuning.faderBalance.balance),
+            ),
+        )
 
     def write_equalizer(self, tuning: TuningData) -> None:
         """Sends the 13 band gains, cancelled curve first."""
@@ -777,6 +827,14 @@ def speaker_distances_mm(tuning: TuningData) -> list[int]:
     while len(distances_mm) < TIME_ALIGNMENT_SLOT_COUNT:
         distances_mm.append(max(distances_mm))
     return distances_mm
+
+
+def profile_speaker_levels(tuning: TuningData) -> dict[str, SpeakerLevel]:
+    """Returns the level of each speaker that the profile names."""
+    return {
+        name: SpeakerLevel(level_db=speaker.levelDB, extended_db=speaker.levelDBExtended)
+        for name, speaker in tuning.speakers.items()
+    }
 
 
 def crossover_slot_inputs(tuning: TuningData) -> tuple[list[int], list[FilterSlope]]:

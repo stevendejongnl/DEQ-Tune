@@ -104,7 +104,7 @@ def test_the_unit_gets_the_active_profile_when_it_connects(engine, keeper, unit,
 
     unit.connect()
 
-    assert units.pushes_on_last_link() == 3
+    assert units.pushes_on_last_link() == 4
     assert keeper.state().status == "applied"
 
 
@@ -115,7 +115,7 @@ def test_a_profile_activated_while_connected_goes_on_at_once(engine, keeper, uni
     state = keeper.activate(profile_id)
 
     assert state.status == "applied"
-    assert units.pushes_on_last_link() == 3
+    assert units.pushes_on_last_link() == 4
 
 
 def test_every_new_link_gets_the_profile_again(engine, keeper, unit, units):
@@ -126,7 +126,7 @@ def test_every_new_link_gets_the_profile_again(engine, keeper, unit, units):
     unit.connect()
 
     assert len(units.links) == 2
-    assert units.pushes_on_last_link() == 3
+    assert units.pushes_on_last_link() == 4
     assert keeper.state().status == "applied"
 
 

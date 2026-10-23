@@ -587,6 +587,129 @@ def build_time_alignment_payload(
     )
 
 
+# The level block, command 0x05 CONFIG_ID 0. `b/e/ab` builds it in Java, not in
+# the library. It is 28 bytes, one signed byte per value:
+#
+#   0..3    a level per source mode: Car, SP, MIX, SP OTHER
+#   4..9    a level per speaker slot, in LEVEL_SPEAKER_SLOTS order
+#   10..11  the fader, as a front and a rear attenuation
+#   12..13  the balance, as a left and a right attenuation
+#   14..19  an extended level per speaker slot
+#   20..27  constants: uint16 16, uint16 62, -20, three zeros
+#
+# A real unit answered `0x06` CONFIG_ID 0 with exactly this layout on
+# 2026-10-08. Its front speakers read -2 dB, its rear +2 dB and its
+# subwoofer +10 dB, which the settings blob also holds.
+LEVEL_BLOCK_BYTES = 28
+LEVEL_SPEAKER_OFFSET = 4
+LEVEL_FADER_OFFSET = 10
+LEVEL_BALANCE_OFFSET = 12
+LEVEL_EXTENDED_OFFSET = 14
+
+# The speaker slots of the level block. `ab$2` maps the app's speaker enum onto
+# them: FRONT and HIGH share a slot, REAR and MID share a slot. "SW" is the
+# subwoofer, and "SW_REAR" the app's REAR_R_SW. A profile names only the
+# first four.
+LEVEL_SPEAKER_SLOTS = ("FL", "FR", "RL", "RR", "SW", "SW_REAR")
+
+# `service/f.c(F)` keeps a speaker level between these two values. It keeps
+# -128 as it is, because -128 switches the speaker off.
+SPEAKER_LEVEL_OFF = -128
+SPEAKER_LEVEL_MIN_DB = -24
+SPEAKER_LEVEL_MAX_DB = 10
+
+# `service/f.a(I[B[B)` keeps a fader or a balance step between -15 and 15. An
+# attenuation of 15 steps or more becomes -128, which silences that side.
+ATTENUATION_LIMIT_STEPS = 15
+ATTENUATION_SILENT = -128
+
+
+def _to_signed_byte(value: int) -> int:
+    """Wraps an integer the way Java's `int-to-byte` does."""
+    return (value + 128) % 256 - 128
+
+
+def speaker_level_byte(level_db: float) -> int:
+    """Returns one speaker level as the level block holds it.
+
+    The app clamps the level and then truncates it towards zero. So a profile
+    level of -1.5 dB reaches the unit as -1 dB.
+    """
+    if level_db == SPEAKER_LEVEL_OFF:
+        return SPEAKER_LEVEL_OFF
+    clamped = min(max(level_db, SPEAKER_LEVEL_MIN_DB), SPEAKER_LEVEL_MAX_DB)
+    return int(clamped)
+
+
+def attenuation_pair(steps: int) -> tuple[int, int]:
+    """Returns the two attenuations one fader value gives.
+
+    A positive value attenuates the second side, and a negative value
+    attenuates the first side. The other side stays at 0.
+    """
+    clamped = min(max(steps, -ATTENUATION_LIMIT_STEPS), ATTENUATION_LIMIT_STEPS)
+    first, second = (0, -clamped) if clamped > 0 else (clamped, 0)
+    return tuple(
+        ATTENUATION_SILENT if side <= -ATTENUATION_LIMIT_STEPS else side
+        for side in (first, second)
+    )
+
+
+def fader_bytes(fader: int) -> tuple[int, int]:
+    """Returns the front and the rear attenuation of a fader value."""
+    return attenuation_pair(fader)
+
+
+def balance_bytes(balance: int) -> tuple[int, int]:
+    """Returns the left and the right attenuation of a balance value.
+
+    `service/f.b(I[B[B)` negates the value first. Then it does what the fader
+    does.
+    """
+    return attenuation_pair(-balance)
+
+
+@dataclass(frozen=True)
+class SpeakerLevel:
+    """One speaker's level and extended level, in dB."""
+
+    level_db: float
+    extended_db: float
+
+
+def build_level_payload(
+    unit_block: bytes,
+    speaker_levels: dict[str, SpeakerLevel],
+    fader: int,
+    balance: int,
+) -> bytes:
+    """Returns the body of command 0x05 CONFIG_ID 0.
+
+    `unit_block` is the block the unit holds now. The new block keeps each
+    value that the arguments do not name: the source-mode levels, the
+    constants, and every speaker slot that `speaker_levels` leaves out. The
+    app does the same. It reads the source-mode levels from the unit, and it
+    sends only the speakers of the profile in hand.
+    """
+    if len(unit_block) != LEVEL_BLOCK_BYTES:
+        raise ValueError(
+            f"a level block holds {LEVEL_BLOCK_BYTES} bytes, not {len(unit_block)}"
+        )
+    unknown_slots = set(speaker_levels) - set(LEVEL_SPEAKER_SLOTS)
+    if unknown_slots:
+        raise ValueError(f"the level block has no slot for {sorted(unknown_slots)}")
+    values = list(struct.unpack(f"<{LEVEL_BLOCK_BYTES}b", unit_block))
+    for slot, name in enumerate(LEVEL_SPEAKER_SLOTS):
+        if name not in speaker_levels:
+            continue
+        speaker = speaker_levels[name]
+        values[LEVEL_SPEAKER_OFFSET + slot] = speaker_level_byte(speaker.level_db)
+        values[LEVEL_EXTENDED_OFFSET + slot] = _to_signed_byte(int(speaker.extended_db))
+    values[LEVEL_FADER_OFFSET:LEVEL_FADER_OFFSET + 2] = fader_bytes(fader)
+    values[LEVEL_BALANCE_OFFSET:LEVEL_BALANCE_OFFSET + 2] = balance_bytes(balance)
+    return struct.pack(f"<{LEVEL_BLOCK_BYTES}b", *values)
+
+
 class Rounding(str, Enum):
     """How a coefficient reaches its stored integer.
 

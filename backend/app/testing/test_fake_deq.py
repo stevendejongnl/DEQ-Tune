@@ -259,3 +259,25 @@ def test_a_mute_write_of_0_plays_again():
     fake.receive_frame(1.0)
 
     assert fake.muted is False
+
+
+def test_the_fake_reproduces_the_real_units_level_block():
+    """`0x06` CONFIG_ID 0 returns the level block after the CONFIG_ID.
+
+    Captured at transaction id 10 of the car's cold start on 2026-10-08.
+    """
+    fake = FakeDeq()
+    request = encode_frame(
+        Message(
+            direction=Direction.TO_DEVICE,
+            command_id=0x06,
+            transaction_id=(10).to_bytes(8, "little"),
+            body=(0).to_bytes(4, "little"),
+        )
+    )
+
+    fake.send_frame(request)
+
+    assert fake.receive_frame(1.0).hex() == read_capture(
+        "20261008_level_configuration_reply.hex"
+    )

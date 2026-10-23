@@ -14,6 +14,7 @@ from app.deq_blob import (
 )
 from app.deq_dsp import (
     WIDE_BAND_COUNT,
+    speaker_level_byte,
     FilterSlope,
     build_crossover_payload,
     build_equalizer_payload,
@@ -32,6 +33,7 @@ from app.deq_session import (
     CONFIG_ID_CROSSOVER_NETWORK,
     CONFIG_ID_CROSSOVER_STANDARD,
     CONFIG_ID_EQUALIZER,
+    CONFIG_ID_LEVELS,
     CONFIG_ID_TIME_ALIGNMENT,
     STARTUP_STEPS,
     DeqSession,
@@ -201,7 +203,7 @@ def test_volume_sends_a_signed_value():
     assert fake.exchanges[0].request.body == bytes.fromhex("f2ffffff")
 
 
-def test_write_tuning_sends_three_blocks_under_the_right_config_ids():
+def test_write_tuning_sends_four_blocks_under_the_right_config_ids():
     """Each CONFIG_ID's payload size has to match the width the APK's own
     field enum declares for it, or the unit refuses the frame."""
     fake = FakeDeq()
@@ -215,6 +217,7 @@ def test_write_tuning_sends_three_blocks_under_the_right_config_ids():
         for one in coefficient_writes
     ]
     assert sent == [
+        (CONFIG_ID_LEVELS, 48),
         (CONFIG_ID_EQUALIZER, 2100),
         (CONFIG_ID_TIME_ALIGNMENT, 52),
         (CONFIG_ID_CROSSOVER_STANDARD, 204),
@@ -254,6 +257,30 @@ def test_a_push_keeps_the_crossover_slots_a_profile_does_not_speak_for():
         ),
     )
     assert crossover_write.request.body[4:] == expected
+
+
+def test_a_push_sends_the_profiles_levels_and_keeps_the_units_subwoofer():
+    """A profile names four speakers. The car's unit holds +10 dB on its
+    subwoofer and a level per source mode, and a push keeps both."""
+    fake = FakeDeq()
+    tuning = load_factory_tuning()
+
+    DeqSession(fake).write_tuning(tuning)
+
+    level_write = [
+        one
+        for one in fake.exchanges
+        if one.request.command_id == 0x05
+        and int.from_bytes(one.request.body[:4], "little") == CONFIG_ID_LEVELS
+    ][-1]
+    block = level_write.request.body[4:]
+    assert block[:4] == fake.level_configuration[:4]
+    assert list(block[4:8]) == [
+        speaker_level_byte(tuning.speakers[name].levelDB) & 0xFF
+        for name in ("FL", "FR", "RL", "RR")
+    ]
+    assert block[8] == 10
+    assert block[20:] == fake.level_configuration[20:]
 
 
 def test_a_push_still_sends_the_profiles_own_high_pass_filters():

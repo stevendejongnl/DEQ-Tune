@@ -145,7 +145,7 @@ test("an EQ from the library becomes the one that plays", async ({ page, request
   await request.put("/api/active-profile/equalizer", { data: { equalizer_id: null } });
 });
 
-test("pushing a profile sends the three coefficient blocks", async ({ request }) => {
+test("pushing a profile sends the four coefficient blocks", async ({ request }) => {
   const profiles = await (await request.get("/api/profiles")).json();
   const response = await request.post(`/api/device/tuning/${profiles[0].id}`);
 

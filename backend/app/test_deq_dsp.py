@@ -14,7 +14,15 @@ from pathlib import Path
 import pytest
 
 from app.deq_dsp import (
+    ATTENUATION_SILENT,
     CROSSOVER_CUTOFFS_HZ,
+    LEVEL_BLOCK_BYTES,
+    SPEAKER_LEVEL_OFF,
+    SpeakerLevel,
+    balance_bytes,
+    build_level_payload,
+    fader_bytes,
+    speaker_level_byte,
     EQUALIZER_BAND_CENTRES_HZ,
     EQUALIZER_BAND_COUNT,
     Q27_UNITY,
@@ -289,3 +297,129 @@ def test_the_high_crossover_range_is_its_own_series() -> None:
     for position in (0, 2, 3, 4, 5, 6, 8, 9, 10):
         assert (crossover_cutoff_hz(position, True)
                 == crossover_cutoff_hz(position, False) * 50)
+
+
+# The level block the car's unit returned on 2026-10-08.
+UNIT_LEVEL_BLOCK = bytes.fromhex(
+    "160002f2" "fefe02020a00" "00fc" "0000" "000000000000" "10003e00ec000000"
+)
+
+
+@pytest.mark.parametrize(
+    ("level_db", "expected"),
+    [(0.0, 0), (-2.0, -2), (-1.5, -1), (2.7, 2), (-30.0, -24), (12.0, 10), (-128.0, SPEAKER_LEVEL_OFF)],
+)
+def test_a_speaker_level_is_clamped_and_truncated(level_db, expected):
+    """`service/f.c(F)` clamps to -24..10 dB and truncates towards zero."""
+    assert speaker_level_byte(level_db) == expected
+
+
+@pytest.mark.parametrize(
+    ("fader", "expected"),
+    [(0, (0, 0)), (4, (0, -4)), (-4, (-4, 0)), (14, (0, -14)), (15, (0, ATTENUATION_SILENT)), (-20, (ATTENUATION_SILENT, 0))],
+)
+def test_a_fader_attenuates_one_side(fader, expected):
+    assert fader_bytes(fader) == expected
+
+
+def test_a_balance_attenuates_the_other_side_than_the_fader():
+    """`service/f.b(I[B[B)` negates the value before it splits it."""
+    assert balance_bytes(4) == (-4, 0)
+    assert balance_bytes(-4) == (0, -4)
+
+
+def test_the_unit_block_decodes_to_the_levels_the_blob_holds():
+    """The car's fader of 4 gives the 00 fc that the unit returned."""
+    assert fader_bytes(4) == (0, -4)
+    unchanged = build_level_payload(
+        UNIT_LEVEL_BLOCK,
+        {
+            "FL": SpeakerLevel(-2, 0),
+            "FR": SpeakerLevel(-2, 0),
+            "RL": SpeakerLevel(2, 0),
+            "RR": SpeakerLevel(2, 0),
+        },
+        fader=4,
+        balance=0,
+    )
+    assert unchanged == UNIT_LEVEL_BLOCK
+
+
+def test_a_level_block_keeps_what_the_profile_does_not_name():
+    """The source-mode levels, the subwoofer and the constants stay."""
+    payload = build_level_payload(
+        UNIT_LEVEL_BLOCK,
+        {
+            "FL": SpeakerLevel(-1.5, 0),
+            "FR": SpeakerLevel(0, 0),
+            "RL": SpeakerLevel(-4.5, 1),
+            "RR": SpeakerLevel(-3.5, 0),
+        },
+        fader=0,
+        balance=0,
+    )
+    assert len(payload) == LEVEL_BLOCK_BYTES
+    assert payload == bytes.fromhex(
+        "160002f2" "ff00fcfd0a00" "0000" "0000" "000001000000" "10003e00ec000000"
+    )
+
+
+def test_a_level_block_refuses_a_speaker_it_has_no_slot_for():
+    with pytest.raises(ValueError, match="no slot"):
+        build_level_payload(UNIT_LEVEL_BLOCK, {"C": SpeakerLevel(0, 0)}, fader=0, balance=0)
+
+
+def test_a_level_block_refuses_a_unit_block_of_the_wrong_size():
+    with pytest.raises(ValueError, match="28 bytes"):
+        build_level_payload(UNIT_LEVEL_BLOCK[:20], {}, fader=0, balance=0)
+
+
+# Level blocks that the app's own `b/e/ab` built in the emulator on
+# 2026-10-23, from the car's source levels. `probe_level_block.js` in the
+# outer repo's Frida scratch made them. Each case names all six slots, so
+# the unit block plays no part in the speaker bytes.
+APP_LEVEL_BLOCKS = [
+    (
+        "the car's own speakers",
+        {"FL": (-2, 0), "FR": (-2, 0), "RL": (2, 0), "RR": (2, 0), "SW": (10, 0), "SW_REAR": (0, 0)},
+        4,
+        0,
+        "160002f2fefe02020a0000fc000000000000000010003e00ec000000",
+    ),
+    (
+        "the Duster profile",
+        {"FL": (-1.5, 0), "FR": (0, 0), "RL": (-4.5, 1), "RR": (-3.5, 0), "SW": (0, 0), "SW_REAR": (0, 0)},
+        0,
+        0,
+        "160002f2ff00fcfd00000000000000000100000010003e00ec000000",
+    ),
+    (
+        "clamps, the off value and truncation",
+        {"FL": (-30, -3), "FR": (12, 5), "RL": (-128, 0), "RR": (2.7, -1.9), "SW": (-9.9, 2), "SW_REAR": (4, 6)},
+        -20,
+        7,
+        "160002f2e80a8002f7048000f900fd0500ff020610003e00ec000000",
+    ),
+    (
+        "both sides silenced",
+        {"FL": (0, 0), "FR": (0, 0), "RL": (0, 0), "RR": (0, 0), "SW": (0, 0), "SW_REAR": (0, 0)},
+        15,
+        -15,
+        "160002f20000000000000080008000000000000010003e00ec000000",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("speakers", "fader", "balance", "expected_hex"),
+    [case[1:] for case in APP_LEVEL_BLOCKS],
+    ids=[case[0] for case in APP_LEVEL_BLOCKS],
+)
+def test_a_level_block_matches_the_apps_own_builder(speakers, fader, balance, expected_hex):
+    payload = build_level_payload(
+        UNIT_LEVEL_BLOCK,
+        {name: SpeakerLevel(*levels) for name, levels in speakers.items()},
+        fader=fader,
+        balance=balance,
+    )
+    assert payload.hex() == expected_hex

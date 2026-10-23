@@ -99,7 +99,7 @@ def test_the_options_leave_out_the_unknown_sentinel(device_client: TestClient) -
     assert 0 not in [value["wire_value"] for value in body["live_simulations"]]
 
 
-def test_pushing_a_profile_sends_three_blocks(device_client: TestClient, unit: DeqDevice) -> None:
+def test_pushing_a_profile_sends_four_blocks(device_client: TestClient, unit: DeqDevice) -> None:
     device_client.post("/api/device/connect")
     profile_id = device_client.get("/api/profiles").json()[0]["id"]
 
@@ -107,7 +107,7 @@ def test_pushing_a_profile_sends_three_blocks(device_client: TestClient, unit: D
 
     transport = unit.require_session().transport
     coefficient_writes = [one for one in transport.exchanges if one.request.command_id == 0x05]
-    assert len(coefficient_writes) == 3
+    assert len(coefficient_writes) == 4
 
 
 def test_pushing_a_profile_that_does_not_exist_is_a_404(device_client: TestClient) -> None:
