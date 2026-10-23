@@ -110,6 +110,7 @@
   "pageCar": "Auto",
   "audioTitle": "Audio",
   "audioNotConnected": "De unit is niet verbonden, dus er valt niets te lezen.",
+  "audioBridgeUnreachable": "De Pi antwoordt niet, dus er valt niets te lezen.",
   "audioNotRead": "De unit wordt gelezen…",
   "audioSourceLabel": "Bron",
   "audioVolumeLabel": "Volume",

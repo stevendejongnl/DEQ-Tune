@@ -119,6 +119,7 @@ export type UiStrings = {
   audioTitle: string;
   audioNotRead: string;
   audioNotConnected: string;
+  audioBridgeUnreachable: string;
   audioSourceLabel: string;
   audioVolumeLabel: string;
   audioMutedLabel: string;

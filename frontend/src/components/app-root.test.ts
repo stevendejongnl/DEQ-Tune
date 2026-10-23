@@ -95,6 +95,15 @@ class SlowSaveProfileApi extends FakeProfileApi {
 }
 
 describe("app-root", () => {
+  it("opens with an empty list, and no uncaught error, when the Pi does not answer", async () => {
+    const api = new FakeProfileApi([starredPreset({ id: 1 })]);
+    api.profilesUnreachable = true;
+
+    const element = await mount(api);
+
+    expect(queryModelRows(element)).toHaveLength(0);
+  });
+
   it("keeps showing the newest gain while older saves are still out", async () => {
     const api = new SlowSaveProfileApi([starredPreset({ id: 1, name: "Mine", source: "custom" })]);
     const element = await mount(api);
@@ -736,6 +745,17 @@ describe("app-root", () => {
       expect(queryAudioControls(element).shadowRoot!.querySelector(".unread")!.textContent).toContain(
         "not connected",
       );
+    });
+
+    it("says that the Pi does not answer, and not that the unit is down", async () => {
+      const api = new FakeProfileApi([starredPreset({ id: 1 })]);
+      api.device.unreachable = true;
+
+      const element = await mountWithSchedule(api, new ManualSchedule());
+
+      const unread = queryAudioControls(element).shadowRoot!.querySelector(".unread")!.textContent!;
+      expect(unread).toContain("The Pi does not answer");
+      expect(unread).not.toContain("not connected");
     });
 
     it("reads when the unit comes up, then again on every tick", async () => {

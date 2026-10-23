@@ -29,6 +29,10 @@ export class FakeProfileApi implements ProfileApi, DeviceApi, EqualizerApi {
    * `saveUnitProfile` fails the way the backend's 503 does. */
   unitTuning: TuningDataDto | null = null;
 
+  /** Set to make the profile list reject, the way `fetch` does when the
+   * bridge is out of reach. */
+  profilesUnreachable = false;
+
   private profiles: ProfileDto[];
   private nextId: number;
 
@@ -147,6 +151,9 @@ export class FakeProfileApi implements ProfileApi, DeviceApi, EqualizerApi {
   }
 
   async listProfiles(): Promise<ProfileDto[]> {
+    if (this.profilesUnreachable) {
+      throw new TypeError("Did not find the deq-tune bridge nearby");
+    }
     return this.profiles;
   }
 

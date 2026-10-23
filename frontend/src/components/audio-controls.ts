@@ -68,6 +68,9 @@ export class AudioControls extends LitElement {
   /** False while the unit is not linked. The controls cannot reach it
    * then, so each one is off and the panel says why. */
   @property({ type: Boolean }) connected = false;
+  /** False while the Pi itself does not answer. The unit may still be up,
+   * so the panel must not say that the unit is down. */
+  @property({ type: Boolean }) bridgeReachable = true;
 
   /** True while a finger or pointer holds the volume slider. */
   private holdingSlider = false;
@@ -99,9 +102,14 @@ export class AudioControls extends LitElement {
   }
 
   private renderUnread(strings: ReturnType<typeof uiStrings>): TemplateResult {
-    return html`<p class="unread">
-      ${this.connected ? strings.audioNotRead : strings.audioNotConnected}
-    </p>`;
+    return html`<p class="unread">${this.unreadReason(strings)}</p>`;
+  }
+
+  private unreadReason(strings: UiStrings): string {
+    if (this.connected) {
+      return strings.audioNotRead;
+    }
+    return this.bridgeReachable ? strings.audioNotConnected : strings.audioBridgeUnreachable;
   }
 
   private renderState(strings: ReturnType<typeof uiStrings>): TemplateResult {

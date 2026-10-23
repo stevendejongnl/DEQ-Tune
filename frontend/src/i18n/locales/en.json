@@ -83,6 +83,7 @@
   "bridgeNoticeDismissHint": "Hides this until the bridge restarts.",
   "audioTitle": "Audio",
   "audioNotConnected": "The unit is not connected, so there is nothing to read.",
+  "audioBridgeUnreachable": "The Pi does not answer, so there is nothing to read.",
   "audioNotRead": "Reading the unit…",
   "audioSourceLabel": "Source",
   "audioVolumeLabel": "Volume",

@@ -160,6 +160,7 @@ export class AppRoot extends LitElement {
   @state() private audioBusy = false;
   /** Whether the DEQ link is up, as `device-status` last polled it. */
   @state() private unitConnected = false;
+  @state() private bridgeReachable = true;
   /** Which profile the unit plays, as the backend reports it. `null` until
    * the first read answers. */
   @state() private activeProfile: ActiveProfileDto | null = null;
@@ -193,8 +194,8 @@ export class AppRoot extends LitElement {
     this.unsubscribeLayout = this.layoutQuery.subscribe((layout) => {
       this.layout = layout;
     });
-    this.loadProfiles();
-    this.loadDeviceOptions();
+    void this.loadInitialProfiles();
+    void this.loadDeviceOptions();
     void this.loadActiveProfile();
     void this.equalizerLibrary.load();
     window.addEventListener("keydown", this.onKeydown);
@@ -716,6 +717,7 @@ export class AppRoot extends LitElement {
           .sourceNames=${this.audioSourceNames}
           .busy=${this.audioBusy}
           .connected=${this.unitConnected}
+          .bridgeReachable=${this.bridgeReachable}
           @volume-change=${(volumeChangeEvent: CustomEvent<{ volumeDb: number }>) =>
             this.changeVolume(volumeChangeEvent.detail.volumeDb)}
           @audio-source-change=${(sourceChangeEvent: CustomEvent<{ name: string }>) =>
@@ -730,6 +732,7 @@ export class AppRoot extends LitElement {
    * away: a volume shown for a unit that is not there is a stale number
    * nobody should act on. */
   private onLinkState(linkState: LinkState): void {
+    this.bridgeReachable = linkState !== "no-bridge";
     const connected = linkState === "connected";
     if (connected === this.unitConnected) {
       return;
@@ -873,6 +876,18 @@ export class AppRoot extends LitElement {
 
   private async loadProfiles(): Promise<void> {
     this.profiles = await this.api.listProfiles();
+  }
+
+  /** The first read of the list, when the page opens. A backend out of reach
+   * leaves the list empty until the next page load, and the header says
+   * why. Without the catch, the failed read was an uncaught rejection in
+   * the console. */
+  private async loadInitialProfiles(): Promise<void> {
+    try {
+      await this.loadProfiles();
+    } catch {
+      // The list stays empty.
+    }
   }
 
   private selectProfile(id: number): void {
