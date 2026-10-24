@@ -1,0 +1,13 @@
+# The ESP32-S3-WROOM-1-N16R8 module: 16 MB flash.
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="16MB"
+
+# The log goes to UART0, the board's COM port. The secondary console
+# (USB-Serial/JTAG) stays off: it shares the PHY with the USB-OTG port,
+# which belongs to the DEQ.
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+
+# One vendor interface: the ADB interface before START, the accessory after.
+CONFIG_TINYUSB_VENDOR_COUNT=1
+CONFIG_TINYUSB_DEBUG_LEVEL=0

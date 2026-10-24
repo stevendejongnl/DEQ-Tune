@@ -15,6 +15,8 @@ frontend/   Lit + TypeScript + Vite. The EQ editor, profile list, and device hea
             `src/i18n/locales/` holds the UI text, one JSON file per language.
 pi-gadget/  The Raspberry Pi side: the USB gadget, its kernel drivers, the BLE bridge, the
             access point and the systemd units. See `pi-gadget/README.md`.
+esp-gadget/ A link probe for an ESP32-S3 in the Pi's place, a cheaper board. It
+            proves the USB link only. See `esp-gadget/README.md`.
 data/presets/  The bundled factory preset JSON files, extracted from the Pioneer APK.
 openapi.json   The backend's exported API schema. The frontend generates its DTOs from this file.
 conformance/   Shared test corpus: inputs plus the exact bytes the Pioneer app produces for them.

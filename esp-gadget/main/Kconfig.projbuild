@@ -1,0 +1,8 @@
+menu "DEQ probe"
+    config PROBE_LED_GPIO
+        int "GPIO of the board's RGB LED (WS2812)"
+        default 48
+        help
+            ESP32-S3-DevKitC-1 v1.0 wires its RGB LED to GPIO 48, v1.1 to
+            GPIO 38. The probe runs without the LED when this is wrong.
+endmenu
