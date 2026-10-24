@@ -224,6 +224,47 @@ describe("eq-editor", () => {
     expect(gains).toHaveLength(0);
   });
 
+  it("lets a touch swipe over the chart scroll, and moves no band", async () => {
+    const element = await mount([...FLAT], [...FLAT], "phone");
+    const gains = collectGains(element);
+    const frame = queryChartFrame(element);
+    const touch = { pointerId: 1, pointerType: "touch", bubbles: true, clientX: phoneBandCentreX(4) };
+
+    frame.dispatchEvent(new PointerEvent("pointerdown", { ...touch, clientY: 110 }));
+    frame.dispatchEvent(new PointerEvent("pointermove", { ...touch, clientY: 16 }));
+    frame.dispatchEvent(new PointerEvent("pointerup", touch));
+
+    expect(gains).toHaveLength(0);
+  });
+
+  it("drags a band by touch from its dot's handle", async () => {
+    const element = await mount([...FLAT], [...FLAT], "phone");
+    const gains = collectGains(element);
+    const frame = queryChartFrame(element);
+    const handle = element.shadowRoot!.querySelectorAll<HTMLElement>(".handle")[4];
+    const touch = { pointerId: 1, pointerType: "touch", bubbles: true, clientX: phoneBandCentreX(4) };
+
+    handle.dispatchEvent(new PointerEvent("pointerdown", { ...touch, clientY: 110 }));
+    frame.dispatchEvent(new PointerEvent("pointermove", { ...touch, clientY: 16 }));
+    frame.dispatchEvent(new PointerEvent("pointerup", touch));
+
+    expect(gains.at(-1)).toEqual({ band: 4, value: 12 });
+  });
+
+  it("starts an edit step for each drag and each tap on − or +", async () => {
+    const element = await mount([...FLAT]);
+    let starts = 0;
+    element.addEventListener("gain-edit-start", () => (starts += 1));
+
+    drag(element, bandCentreX(6), 150, [24, 30]);
+    await element.updateComplete;
+    const raise = element.shadowRoot!.querySelectorAll<HTMLButtonElement>(".step")[1];
+    await click(element, raise);
+    await click(element, raise);
+
+    expect(starts).toBe(3);
+  });
+
   it("drags on the phone too, where the dots are too small to hit", async () => {
     const element = await mount([...FLAT], [...FLAT], "phone");
     const gains = collectGains(element);

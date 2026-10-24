@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import "./settings-page.ts";
 import type { SettingsPage, SettingsSection } from "./settings-page.ts";
+import { FakeCommunityLibrary } from "./testing/fake-community-library.ts";
 import { FakePhoneAppApi } from "./testing/fake-phone-app-api.ts";
 import { updatedPi } from "./testing/fake-updates-api.ts";
 
 async function mount(section: SettingsSection): Promise<SettingsPage> {
   const page = document.createElement("settings-page") as SettingsPage;
+  page.community = new FakeCommunityLibrary([]);
   page.section = section;
   page.updates = updatedPi();
   document.body.append(page);
@@ -22,7 +24,14 @@ describe("settings-page", () => {
     const page = await mount("updates");
     const buttons = [...page.shadowRoot!.querySelectorAll<HTMLButtonElement>(".sections button")];
 
-    expect(buttons.map((button) => button.textContent!.trim())).toEqual(["Updates", "Wi-Fi", "Backup", "System", "Language"]);
+    expect(buttons.map((button) => button.textContent!.trim())).toEqual([
+      "Updates",
+      "Wi-Fi",
+      "Backup",
+      "Community",
+      "System",
+      "Language",
+    ]);
     expect(buttons[0].getAttribute("aria-pressed")).toBe("true");
   });
 
@@ -42,6 +51,7 @@ describe("settings-page", () => {
     ["updates", "update-settings"],
     ["wifi", "wifi-settings"],
     ["backup", "library-backup"],
+    ["community", "community-library"],
     ["system", "system-panel"],
     ["language", "locale-switcher"],
   ] as const)("shows %s with its own component", async (section, tag) => {
@@ -57,7 +67,7 @@ describe("settings-page", () => {
       sections.push((event as CustomEvent<{ section: string }>).detail.section),
     );
 
-    page.shadowRoot!.querySelectorAll<HTMLButtonElement>(".sections button")[3].click();
+    page.shadowRoot!.querySelectorAll<HTMLButtonElement>(".sections button")[4].click();
 
     expect(sections).toEqual(["system"]);
   });

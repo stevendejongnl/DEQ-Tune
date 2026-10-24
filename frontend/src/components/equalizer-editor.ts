@@ -1,5 +1,5 @@
-import { html, LitElement, nothing, type TemplateResult } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { html, LitElement, nothing, type PropertyValues, type TemplateResult } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import type { EqualizerDto } from "../dto/profile.dto.ts";
 import type { AppLayout } from "../layout-query.ts";
 import type { Locale } from "../i18n/locale.ts";
@@ -20,6 +20,11 @@ const FLAT = new Array(13).fill(0);
  *
  * Any EQ can take a drag. An EQ of the person's own changes in place. A
  * factory EQ and No EQ say that a drag makes a copy, and app-root makes it.
+ *
+ * Undo goes back one edit step (one drag, one tap on − or +), and emits
+ * `equalizer-gains` with the curve from before it. A swipe on the phone
+ * could move a band by mistake, so the steps are kept until another EQ
+ * comes in.
  */
 @customElement("equalizer-editor")
 export class EqualizerEditor extends LitElement {
@@ -28,6 +33,24 @@ export class EqualizerEditor extends LitElement {
   @property({ attribute: false }) equalizer: EqualizerDto | null = null;
   @property({ type: String }) locale: Locale = "en";
   @property({ type: String }) layout: AppLayout = "desktop";
+
+  /** The curve before each edit step, the newest last. */
+  @state() private undoSteps: number[][] = [];
+  /** True once the current edit step saved its curve to `undoSteps`. */
+  private stepSaved = false;
+
+  /** Another EQ drops the steps. The first edit of a factory EQ goes on
+   * in its copy: a draft (id -1), then the created EQ. That keeps them. */
+  override willUpdate(changed: PropertyValues<this>): void {
+    const previous = changed.get("equalizer") as EqualizerDto | null | undefined;
+    if (!changed.has("equalizer") || previous === undefined) {
+      return;
+    }
+    const continuesCopy = previous?.id === -1 || this.equalizer?.id === -1;
+    if (!continuesCopy && previous?.id !== this.equalizer?.id) {
+      this.undoSteps = [];
+    }
+  }
 
   override render() {
     const strings = uiStrings(this.locale);
@@ -38,12 +61,18 @@ export class EqualizerEditor extends LitElement {
         ${equalizer?.source === "custom"
           ? this.renderOwnHead(strings, equalizer)
           : this.renderReadOnlyHead(strings, equalizer)}
+        <div class="undo-row">
+          <button type="button" class="undo" ?disabled=${this.undoSteps.length === 0} @click=${() => this.undo()}>
+            ${strings.undoEqualizerEdit}
+          </button>
+        </div>
         <eq-editor
           .heading=${equalizer === null ? strings.noEqualizer : equalizerName(equalizer, this.locale)}
           .gains=${gains}
           .factoryGains=${[]}
           .locale=${this.locale}
           .layout=${this.layout}
+          @gain-edit-start=${() => (this.stepSaved = false)}
           @gain-change=${(gainChangeEvent: CustomEvent<{ band: number; value: number }>) =>
             this.changeGain(gains, gainChangeEvent.detail.band, gainChangeEvent.detail.value)}
         ></eq-editor>
@@ -87,9 +116,23 @@ export class EqualizerEditor extends LitElement {
   }
 
   private changeGain(gains: readonly number[], band: number, value: number): void {
+    if (!this.stepSaved) {
+      this.undoSteps = [...this.undoSteps, [...gains]];
+      this.stepSaved = true;
+    }
     this.emit("equalizer-gains", {
       gains: gains.map((gain, index) => (index === band ? value : gain)),
     });
+  }
+
+  private undo(): void {
+    const previous = this.undoSteps.at(-1);
+    if (previous === undefined) {
+      return;
+    }
+    this.undoSteps = this.undoSteps.slice(0, -1);
+    this.stepSaved = false;
+    this.emit("equalizer-gains", { gains: previous });
   }
 
   /** An emptied name keeps the old one. */

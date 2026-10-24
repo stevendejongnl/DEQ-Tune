@@ -90,4 +90,84 @@ describe("equalizer-editor", () => {
 
     expect(deletes).toEqual([{ id: 7 }]);
   });
+
+  describe("undo", () => {
+    function undoButton(element: EqualizerEditor): HTMLButtonElement {
+      return element.shadowRoot!.querySelector(".undo") as HTMLButtonElement;
+    }
+
+    async function edit(element: EqualizerEditor, changes: { band: number; value: number }[]): Promise<void> {
+      chart(element).dispatchEvent(new CustomEvent("gain-edit-start"));
+      for (const change of changes) {
+        chart(element).dispatchEvent(new CustomEvent("gain-change", { detail: change }));
+        // app-root saves each change and hands the new curve back.
+        element.equalizer = {
+          ...element.equalizer!,
+          gains: element.equalizer!.gains.map((gain, band) => (band === change.band ? change.value : gain)),
+        };
+        await element.updateComplete;
+      }
+    }
+
+    it("has nothing to undo before an edit", async () => {
+      const element = await mount(MINE);
+
+      expect(undoButton(element).disabled).toBe(true);
+    });
+
+    it("takes a whole drag back in one step", async () => {
+      const element = await mount(MINE);
+      await edit(element, [
+        { band: 6, value: -4 },
+        { band: 6, value: -8 },
+        { band: 6, value: -12 },
+      ]);
+      const changes = collect<{ gains: number[] }>(element, "equalizer-gains");
+
+      undoButton(element).click();
+      await element.updateComplete;
+
+      expect(changes).toEqual([{ gains: MINE.gains }]);
+      expect(undoButton(element).disabled).toBe(true);
+    });
+
+    it("goes back one step at a time", async () => {
+      const element = await mount(MINE);
+      await edit(element, [{ band: 1, value: 2 }]);
+      await edit(element, [{ band: 2, value: 3 }]);
+      const changes = collect<{ gains: number[] }>(element, "equalizer-gains");
+
+      undoButton(element).click();
+      await element.updateComplete;
+
+      expect(changes.at(-1)!.gains[1]).toBe(2);
+      expect(changes.at(-1)!.gains[2]).toBe(0);
+      expect(undoButton(element).disabled).toBe(false);
+    });
+
+    it("forgets the steps when another EQ comes in", async () => {
+      const element = await mount(MINE);
+      await edit(element, [{ band: 1, value: 2 }]);
+
+      element.equalizer = { ...MINE, id: 8, name: "Other" };
+      await element.updateComplete;
+
+      expect(undoButton(element).disabled).toBe(true);
+    });
+
+    it("keeps the steps while a factory EQ's edit becomes its copy", async () => {
+      const element = await mount(SUPER_BASS);
+      chart(element).dispatchEvent(new CustomEvent("gain-edit-start"));
+      chart(element).dispatchEvent(new CustomEvent("gain-change", { detail: { band: 0, value: 0 } }));
+      element.equalizer = { ...SUPER_BASS, id: -1, source: "custom", gains: [0, ...SUPER_BASS.gains.slice(1)] };
+      await element.updateComplete;
+      element.equalizer = { ...element.equalizer, id: 21 };
+      await element.updateComplete;
+      const changes = collect<{ gains: number[] }>(element, "equalizer-gains");
+
+      undoButton(element).click();
+
+      expect(changes).toEqual([{ gains: SUPER_BASS.gains }]);
+    });
+  });
 });

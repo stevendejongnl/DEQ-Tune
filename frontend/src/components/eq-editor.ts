@@ -27,6 +27,17 @@ import { eqEditorStyles } from "./eq-editor.styles.ts";
 
 const LAST_BAND = EQ_BAND_FREQUENCIES.length - 1;
 
+/** A finger's size around each phone dot: the one place where a touch drags. */
+const PHONE_HANDLE_SIZE = 44;
+
+function isTouch(event: PointerEvent): boolean {
+  return event.pointerType === "touch" || event.pointerType === "pen";
+}
+
+function startsOnHandle(event: PointerEvent): boolean {
+  return event.target instanceof Element && event.target.closest(".handle, .band-hit") !== null;
+}
+
 /** Chart height and padding per layout. The width comes from a
  * `ResizeObserver`, so the chart follows its panel. */
 const CHART_SHAPES: Record<AppLayout, Omit<ChartBox, "width">> = {
@@ -115,7 +126,8 @@ function nearestBand(box: ChartBox, x: number): number {
  * over the factory curve, and edits one band at a time.
  *
  * Set `gains`, `factoryGains`, `locale` and `layout`. It emits
- * `gain-change` with `{ band, value }` on every edit. It depends on
+ * `gain-change` with `{ band, value }` on every edit, and `gain-edit-start`
+ * before each drag, tap or key that edits, so a parent can undo per step. It depends on
  * `ResizeObserver` for the chart width.
  */
 @customElement("eq-editor")
@@ -202,6 +214,7 @@ export class EqEditor extends LitElement {
         @pointermove=${(event: PointerEvent) => this.dragTo(event)}
         @pointerup=${(event: PointerEvent) => this.endDrag(event)}
         @pointercancel=${(event: PointerEvent) => this.endDrag(event)}
+        @click=${(event: MouseEvent) => this.selectNearestBand(event)}
       >
         <svg
           class="chart"
@@ -241,8 +254,8 @@ export class EqEditor extends LitElement {
     `;
   }
 
-  /** On the phone the dots are too small to hit, so they only draw the
-   * curve. A drag anywhere on the chart moves the nearest band, and the
+  /** On the phone each dot sits in a larger handle, the one place where a
+   * touch drags. A swipe anywhere else on the chart scrolls the page. The
    * chips below the chart select a band too. */
   private renderPlainDots(points: readonly { x: number; y: number }[]): TemplateResult {
     return html`
@@ -251,9 +264,14 @@ export class EqEditor extends LitElement {
         const size = selected ? 16 : 9;
         return html`
           <span
-            class="dot ${selected ? "selected" : this.isChanged(band) ? "changed" : ""}"
-            style="left: ${point.x - size / 2}px; top: ${point.y - size / 2}px; width: ${size}px; height: ${size}px"
-          ></span>
+            class="handle"
+            style="left: ${point.x - PHONE_HANDLE_SIZE / 2}px; top: ${point.y - PHONE_HANDLE_SIZE / 2}px; width: ${PHONE_HANDLE_SIZE}px; height: ${PHONE_HANDLE_SIZE}px"
+          >
+            <span
+              class="dot ${selected ? "selected" : this.isChanged(band) ? "changed" : ""}"
+              style="width: ${size}px; height: ${size}px"
+            ></span>
+          </span>
         `;
       })}
     `;
@@ -368,6 +386,8 @@ export class EqEditor extends LitElement {
             step=${GAIN_STEP_DB}
             .value=${String(this.gainOf(band))}
             aria-label=${strings.gainSliderLabel}
+            @pointerdown=${() => this.emitEditStart()}
+            @keydown=${() => this.emitEditStart()}
             @input=${(event: Event) =>
               this.changeGain(band, Number((event.target as HTMLInputElement).value))}
           />
@@ -378,7 +398,7 @@ export class EqEditor extends LitElement {
               type="button"
               class="step"
               aria-label=${strings.lowerGainLabel}
-              @click=${() => this.changeGain(band, this.gainOf(band) - GAIN_STEP_DB)}
+              @click=${() => this.stepGain(band, -GAIN_STEP_DB)}
             >
               −
             </button>
@@ -387,7 +407,7 @@ export class EqEditor extends LitElement {
               type="button"
               class="step"
               aria-label=${strings.raiseGainLabel}
-              @click=${() => this.changeGain(band, this.gainOf(band) + GAIN_STEP_DB)}
+              @click=${() => this.stepGain(band, GAIN_STEP_DB)}
             >
               +
             </button>
@@ -434,12 +454,12 @@ export class EqEditor extends LitElement {
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      this.changeGain(band, this.gainOf(band) + GAIN_STEP_DB);
+      this.stepGain(band, GAIN_STEP_DB);
       return;
     }
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      this.changeGain(band, this.gainOf(band) - GAIN_STEP_DB);
+      this.stepGain(band, -GAIN_STEP_DB);
     }
   }
 
@@ -447,11 +467,16 @@ export class EqEditor extends LitElement {
     this.selectedBand = band;
   }
 
-  /** A press anywhere on the chart takes the band nearest to it. The
-   * chart frame captures the pointer, so the drag goes on outside the
-   * chart, and a re-render of the dots cannot drop it. */
+  /** A mouse press anywhere on the chart takes the band nearest to it. A
+   * touch drags only from a dot's handle: a swipe over the chart scrolled
+   * the page and moved a band at the same time. The chart frame captures
+   * the pointer, so the drag goes on outside the chart, and a re-render of
+   * the dots cannot drop it. */
   private startDrag(event: PointerEvent): void {
     if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+    if (isTouch(event) && !startsOnHandle(event)) {
       return;
     }
     const frame = event.currentTarget as HTMLElement;
@@ -461,9 +486,24 @@ export class EqEditor extends LitElement {
     const dotY = gainY(box, this.gainOf(band));
     this.selectedBand = band;
     this.drag = { band, pointerId: event.pointerId, grabOffsetY: event.clientY - bounds.top - dotY };
+    this.emitEditStart();
     // A test environment can lack pointer capture. A browser always has it.
     frame.setPointerCapture?.(event.pointerId);
     event.preventDefault();
+  }
+
+  /** A tap on the chart selects the band nearest to it, also where a
+   * touch does not drag. */
+  private selectNearestBand(event: MouseEvent): void {
+    const box = chartBox(this.layout, this.chartWidth);
+    const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    this.selectedBand = nearestBand(box, event.clientX - bounds.left);
+  }
+
+  /** Starts one step of undo: a drag, a tap on − or +, a slider move or a
+   * key. The gain changes that follow belong to it. */
+  private emitEditStart(): void {
+    this.dispatchEvent(new CustomEvent("gain-edit-start"));
   }
 
   private dragTo(event: PointerEvent): void {
@@ -487,6 +527,12 @@ export class EqEditor extends LitElement {
     if (frame.hasPointerCapture?.(event.pointerId)) {
       frame.releasePointerCapture(event.pointerId);
     }
+  }
+
+  /** One tap on − or +, or one arrow key: one step of undo each. */
+  private stepGain(band: number, step: number): void {
+    this.emitEditStart();
+    this.changeGain(band, this.gainOf(band) + step);
   }
 
   /** Sends a change only when the gain moves to another 0.5 dB step. A drag

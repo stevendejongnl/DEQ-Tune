@@ -55,9 +55,9 @@ export const eqEditorStyles = css`
   .chart-frame {
     position: relative;
     width: 100%;
-    /* The chart is a drag surface. Without this, a touch drag scrolls the
-       page and the browser cancels the pointer. */
-    touch-action: none;
+    /* A swipe over the chart scrolls the page. Only the dots' handles stop
+       that, see .handle and .band-hit. */
+    touch-action: pan-y;
     user-select: none;
     -webkit-user-select: none;
     cursor: ns-resize;
@@ -137,7 +137,17 @@ export const eqEditorStyles = css`
       box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-accent) 20%, transparent);
     }
   }
-  .band-hit .dot {
+  .handle {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* A drag from here reads the pointer itself, so the browser must not
+       scroll the page instead. */
+    touch-action: none;
+  }
+  .band-hit .dot,
+  .handle .dot {
     position: static;
   }
   .frequency-labels {
@@ -272,6 +282,8 @@ export const eqEditorStyles = css`
      sets the accent colour again. */
   input[type="range"] {
     width: 100%;
+    /* A vertical swipe over the slider scrolls the page. */
+    touch-action: pan-y;
     margin-top: 8px;
     accent-color: var(--color-accent);
   }
