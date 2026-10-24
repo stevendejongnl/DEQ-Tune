@@ -1,6 +1,7 @@
 import { html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { WifiApi } from "../api/client.ts";
+import { phoneAppApi, type PhoneAppApi } from "../api/phone-app.ts";
 import type { AccessPointDto } from "../dto/profile.dto.ts";
 import type { Locale } from "../i18n/locale.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
@@ -18,7 +19,10 @@ export function isValidAccessPointKey(key: string): boolean {
  *
  * Set `api` and `locale`. After the Pi takes the key, it says so and fires
  * `access-point-key-saved` ({ accessPoint }). That event bubbles out of
- * every shadow root, so app-root hears it too. It depends on a `WifiApi`.
+ * every shadow root, so app-root hears it too. Inside the car app it also
+ * hands the key to the car app's Access point mode, which needs the same
+ * key to join. It depends on a `WifiApi`, and on `phoneApp` (null in a
+ * browser).
  */
 @customElement("access-point-key-form")
 export class AccessPointKeyForm extends LitElement {
@@ -26,6 +30,7 @@ export class AccessPointKeyForm extends LitElement {
 
   @property({ attribute: false }) api: Pick<WifiApi, "setAccessPointKey"> | undefined;
   @property({ type: String }) locale: Locale = "en";
+  @property({ attribute: false }) phoneApp: PhoneAppApi | null = phoneAppApi();
 
   @state() private message = "";
   @state() private isBusy = false;
@@ -63,6 +68,7 @@ export class AccessPointKeyForm extends LitElement {
     this.message = "";
     try {
       const accessPoint = await this.api.setAccessPointKey(this.key);
+      this.giveKeyToPhoneApp(accessPoint.ssid, this.key);
       this.key = "";
       this.repeatedKey = "";
       this.message = strings.accessPointSaved.replace("{ssid}", accessPoint.ssid);
@@ -72,6 +78,22 @@ export class AccessPointKeyForm extends LitElement {
     } finally {
       this.isBusy = false;
     }
+  }
+
+  /** Keeps the car app's mode and address, and replaces its access point
+   * name and password. */
+  private giveKeyToPhoneApp(ssid: string, key: string): void {
+    const phoneApp = this.phoneApp;
+    if (phoneApp === null) {
+      return;
+    }
+    const state = phoneApp.read();
+    phoneApp.save({
+      mode: state.mode,
+      access_point_url: state.access_point_url,
+      access_point_ssid: ssid,
+      access_point_password: key,
+    });
   }
 
   private announceSaved(accessPoint: AccessPointDto): void {

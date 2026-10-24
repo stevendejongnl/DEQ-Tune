@@ -4,14 +4,16 @@ import type { AccessPointDto } from "../dto/profile.dto.ts";
 import "./access-point-key-form.ts";
 import { isValidAccessPointKey, type AccessPointKeyForm } from "./access-point-key-form.ts";
 import { FakeWifiApi } from "./testing/fake-wifi-api.ts";
+import { FakePhoneAppApi } from "./testing/fake-phone-app-api.ts";
 
 function piWithAccessPoint(): FakeWifiApi {
   return new FakeWifiApi({ saved: [], visible: [] }, { ssid: "deq-tune", key: "deq-tune-bridge" });
 }
 
-async function mount(api: FakeWifiApi): Promise<AccessPointKeyForm> {
+async function mount(api: FakeWifiApi, phoneApp: FakePhoneAppApi | null = null): Promise<AccessPointKeyForm> {
   const element = document.createElement("access-point-key-form") as AccessPointKeyForm;
   element.api = api;
+  element.phoneApp = phoneApp;
   document.body.append(element);
   await element.updateComplete;
   return element;
@@ -101,5 +103,36 @@ describe("access-point-key-form", () => {
     await new Promise((resolve) => setTimeout(resolve));
     await element.updateComplete;
     expect(saveButton(element).getAttribute("aria-busy")).toBe("false");
+  });
+
+  it("gives the new key to the car app, which joins the access point with it", async () => {
+    const phoneApp = new FakePhoneAppApi({ mode: "BLUETOOTH", access_point_url: "http://192.168.4.1:8420" });
+    const element = await mount(piWithAccessPoint(), phoneApp);
+    await typeInto(element, "key", "a much better key");
+    await typeInto(element, "repeated-key", "a much better key");
+
+    await save(element);
+
+    expect(phoneApp.saved).toEqual([
+      {
+        mode: "BLUETOOTH",
+        access_point_url: "http://192.168.4.1:8420",
+        access_point_ssid: "deq-tune",
+        access_point_password: "a much better key",
+      },
+    ]);
+  });
+
+  it("gives the car app nothing when the Pi refuses the key", async () => {
+    const api = piWithAccessPoint();
+    const phoneApp = new FakePhoneAppApi();
+    const element = await mount(api, phoneApp);
+    await typeInto(element, "key", "a much better key");
+    await typeInto(element, "repeated-key", "a much better key");
+    api.failWith = new ApiError(503, "no helper");
+
+    await save(element);
+
+    expect(phoneApp.saved).toEqual([]);
   });
 });
