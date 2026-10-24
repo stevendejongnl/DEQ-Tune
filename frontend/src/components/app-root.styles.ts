@@ -312,6 +312,10 @@ export const appRootStyles = css`
   }
   .area-correction {
     grid-area: correction;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
   }
   .area-eq {
     grid-area: eq;

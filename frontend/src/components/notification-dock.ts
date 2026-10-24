@@ -6,12 +6,14 @@ import { notificationDockStyles } from "./notification-dock.styles.ts";
 
 /**
  * The bottom-left corner where the app says something on its own: what is
- * new after an update, and that a new version waits for the Update button.
+ * new after an update, that a new version waits for the Update button, and
+ * that the Pi's network still uses the public default key.
  *
  * Nothing here blocks the page. The dock lets clicks through, and only the
  * cards' own controls take them. app-root places it once and decides what
  * it shows. Presentational: it fires `whats-new-dismissed` ({ version }),
- * `update-requested` and `update-postponed` ({ version }).
+ * `update-requested`, `update-postponed` ({ version }) and
+ * `access-point-key-requested`.
  */
 @customElement("notification-dock")
 export class NotificationDock extends LitElement {
@@ -24,12 +26,15 @@ export class NotificationDock extends LitElement {
   @property({ type: String }) releaseUrl = "";
   /** A release that waits for the Update button, or null for no such card. */
   @property({ attribute: false }) availableVersion: string | null = null;
+  /** True while the access point uses the default key after a skipped setup. */
+  @property({ type: Boolean }) accessPointNotice = false;
 
   override render() {
     const strings = uiStrings(this.locale);
     return html`
       ${this.whatsNewVersion === null ? nothing : this.renderWhatsNew(strings, this.whatsNewVersion)}
       ${this.availableVersion === null ? nothing : this.renderAvailable(strings, this.availableVersion)}
+      ${this.accessPointNotice ? this.renderAccessPointNotice(strings) : nothing}
     `;
   }
 
@@ -64,6 +69,21 @@ export class NotificationDock extends LitElement {
           </button>
           <button type="button" class="primary" @click=${() => this.fire("update-requested", {})}>
             ${strings.updateAvailableInstall}
+          </button>
+        </div>
+      </article>
+    `;
+  }
+
+  /** Stays up until the key changes: it has no dismiss button. */
+  private renderAccessPointNotice(strings: UiStrings): TemplateResult {
+    return html`
+      <article class="card access-point" role="status">
+        <p class="headline">${strings.accessPointNoticeTitle}</p>
+        <div class="footer">
+          <span></span>
+          <button type="button" class="primary" @click=${() => this.fire("access-point-key-requested", {})}>
+            ${strings.accessPointNoticeAction}
           </button>
         </div>
       </article>

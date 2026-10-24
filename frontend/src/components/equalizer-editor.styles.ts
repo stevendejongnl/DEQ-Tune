@@ -64,25 +64,4 @@ export const equalizerEditorStyles = css`
     font-size: 13px;
     color: var(--color-muted-foreground);
   }
-  .undo-row {
-    display: flex;
-    justify-content: flex-end;
-  }
-  .undo {
-    height: 36px;
-    padding: 0 14px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    background: transparent;
-    color: var(--color-foreground);
-    font: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-
-    &:disabled {
-      opacity: 0.4;
-      cursor: default;
-    }
-  }
 `;

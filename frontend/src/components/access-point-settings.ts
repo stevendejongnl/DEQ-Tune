@@ -1,16 +1,11 @@
-import { html, LitElement, nothing, type TemplateResult } from "lit";
+import { html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { WifiApi } from "../api/client.ts";
 import type { AccessPointDto } from "../dto/profile.dto.ts";
 import type { Locale } from "../i18n/locale.ts";
-import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
+import { uiStrings } from "../i18n/ui-strings.ts";
+import "./access-point-key-form.ts";
 import { accessPointSettingsStyles } from "./access-point-settings.styles.ts";
-import { isValidNetwork, wifiErrorMessage } from "./wifi-settings.ts";
-
-/** WPA2's rules, with no open network: the access point always has a key. */
-export function isValidAccessPointKey(key: string): boolean {
-  return key !== "" && isValidNetwork("-", key);
-}
 
 /**
  * Lets a person replace the access point's public default key.
@@ -31,10 +26,6 @@ export class AccessPointSettings extends LitElement {
   @property({ type: String }) locale: Locale = "en";
 
   @state() private accessPoint: AccessPointDto | null = null;
-  @state() private message = "";
-  @state() private isBusy = false;
-  @state() private key = "";
-  @state() private repeatedKey = "";
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -53,29 +44,13 @@ export class AccessPointSettings extends LitElement {
         ${this.accessPoint.uses_default_key
           ? html`<p class="warning">${strings.accessPointDefaultKey}</p>`
           : html`<p class="intro">${strings.accessPointOwnKey}</p>`}
-        ${this.renderForm(strings)}
-        ${this.message ? html`<p class="message" role="status">${this.message}</p>` : nothing}
+        <access-point-key-form
+          .api=${this.api}
+          .locale=${this.locale}
+          @access-point-key-saved=${(savedEvent: CustomEvent<{ accessPoint: AccessPointDto }>) =>
+            (this.accessPoint = savedEvent.detail.accessPoint)}
+        ></access-point-key-form>
       </section>
-    `;
-  }
-
-  private renderForm(strings: UiStrings): TemplateResult {
-    const canSave = !this.isBusy && isValidAccessPointKey(this.key) && this.key === this.repeatedKey;
-    return html`
-      <form @submit=${(submitEvent: SubmitEvent) => this.save(submitEvent, strings)}>
-        <label>
-          ${strings.accessPointKeyLabel}
-          <input name="key" type="password" autocomplete="new-password" .value=${this.key}
-            @input=${(inputEvent: InputEvent) => (this.key = (inputEvent.target as HTMLInputElement).value)} />
-          <span class="hint">${strings.accessPointKeyHint}</span>
-        </label>
-        <label>
-          ${strings.accessPointRepeatLabel}
-          <input name="repeated-key" type="password" autocomplete="new-password" .value=${this.repeatedKey}
-            @input=${(inputEvent: InputEvent) => (this.repeatedKey = (inputEvent.target as HTMLInputElement).value)} />
-        </label>
-        <button type="submit" class="save" ?disabled=${!canSave}>${strings.accessPointSave}</button>
-      </form>
     `;
   }
 
@@ -89,25 +64,6 @@ export class AccessPointSettings extends LitElement {
       this.accessPoint = await this.api.readAccessPoint();
     } catch {
       this.accessPoint = null;
-    }
-  }
-
-  private async save(submitEvent: SubmitEvent, strings: UiStrings): Promise<void> {
-    submitEvent.preventDefault();
-    if (this.api === undefined) {
-      return;
-    }
-    this.isBusy = true;
-    this.message = "";
-    try {
-      this.accessPoint = await this.api.setAccessPointKey(this.key);
-      this.key = "";
-      this.repeatedKey = "";
-      this.message = strings.accessPointSaved.replace("{ssid}", this.accessPoint.ssid);
-    } catch (caughtError) {
-      this.message = wifiErrorMessage(strings, caughtError);
-    } finally {
-      this.isBusy = false;
     }
   }
 }

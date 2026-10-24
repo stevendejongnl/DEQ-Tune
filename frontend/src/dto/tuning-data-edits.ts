@@ -21,15 +21,22 @@ export function withEqualizerGain(
   band: number,
   gain: number,
 ): TuningDataDto {
+  const gains = equalizerGains(tuningData).map((value, index) => (index === band ? gain : value));
+  return withEqualizerGains(tuningData, gains);
+}
+
+/** Returns a copy of `tuningData` with the selected bank's gains replaced. */
+export function withEqualizerGains(
+  tuningData: TuningDataDto,
+  gains: readonly number[],
+): TuningDataDto {
   const slotName = equalizerSlotName(tuningData);
   if (slotName === undefined) {
     return tuningData;
   }
   const slot = tuningData.foundationEq.eqs[slotName];
   const banks = slot.banks.map((bankGains, bankIndex) =>
-    bankIndex === slot.selectedBank
-      ? bankGains.map((value, index) => (index === band ? gain : value))
-      : bankGains,
+    bankIndex === slot.selectedBank ? [...gains] : bankGains,
   );
 
   return {

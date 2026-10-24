@@ -220,6 +220,12 @@ export type UiStrings = {
   accessPointRepeatLabel: string;
   accessPointSave: string;
   accessPointSaved: string;
+  accessPointSetupTitle: string;
+  accessPointSetupIntro: string;
+  accessPointSetupLater: string;
+  accessPointSetupDone: string;
+  accessPointNoticeTitle: string;
+  accessPointNoticeAction: string;
   pageLive: string;
   pageOffline: string;
   pageOutdated: string;

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ApiError } from "../api/client.ts";
 import "./access-point-settings.ts";
-import { isValidAccessPointKey, type AccessPointSettings } from "./access-point-settings.ts";
+import type { AccessPointSettings } from "./access-point-settings.ts";
 import { FakeWifiApi } from "./testing/fake-wifi-api.ts";
 
 function piWithAccessPoint(key = "deq-tune-bridge"): FakeWifiApi {
@@ -19,17 +18,6 @@ async function mount(api: FakeWifiApi): Promise<AccessPointSettings> {
 
 function shadow(element: AccessPointSettings): ShadowRoot {
   return element.shadowRoot!;
-}
-
-async function typeInto(element: AccessPointSettings, name: string, value: string): Promise<void> {
-  const input = shadow(element).querySelector(`input[name=${name}]`) as HTMLInputElement;
-  input.value = value;
-  input.dispatchEvent(new InputEvent("input"));
-  await element.updateComplete;
-}
-
-function saveButton(element: AccessPointSettings): HTMLButtonElement {
-  return shadow(element).querySelector(".save") as HTMLButtonElement;
 }
 
 describe("access-point-settings", () => {
@@ -53,44 +41,18 @@ describe("access-point-settings", () => {
     expect(shadow(element).querySelector("section")).toBeNull();
   });
 
-  it("saves only when both fields hold the same valid key", async () => {
-    const api = piWithAccessPoint();
-    const element = await mount(api);
+  it("drops the warning once its form saved a key", async () => {
+    const element = await mount(piWithAccessPoint());
 
-    await typeInto(element, "key", "a much better key");
-    expect(saveButton(element).disabled).toBe(true);
-    await typeInto(element, "repeated-key", "a much better kez");
-    expect(saveButton(element).disabled).toBe(true);
-    await typeInto(element, "repeated-key", "a much better key");
-    expect(saveButton(element).disabled).toBe(false);
-
-    saveButton(element).click();
-    await new Promise((resolve) => setTimeout(resolve));
+    shadow(element)
+      .querySelector("access-point-key-form")!
+      .dispatchEvent(
+        new CustomEvent("access-point-key-saved", {
+          detail: { accessPoint: { ssid: "deq-tune", uses_default_key: false } },
+        }),
+      );
     await element.updateComplete;
 
-    expect(api.accessPoint?.key).toBe("a much better key");
     expect(shadow(element).querySelector(".warning")).toBeNull();
-    expect(shadow(element).querySelector(".message")?.textContent).toContain("next start");
-  });
-
-  it("shows the refusal when the Pi refuses the key", async () => {
-    const api = piWithAccessPoint();
-    const element = await mount(api);
-    await typeInto(element, "key", "a much better key");
-    await typeInto(element, "repeated-key", "a much better key");
-    api.failWith = new ApiError(503, "no helper");
-
-    saveButton(element).click();
-    await new Promise((resolve) => setTimeout(resolve));
-    await element.updateComplete;
-
-    expect(shadow(element).querySelector(".message")?.textContent).not.toBe("");
-    expect(api.accessPoint?.key).toBe("deq-tune-bridge");
-  });
-
-  it("refuses an empty key, which would open the network", () => {
-    expect(isValidAccessPointKey("")).toBe(false);
-    expect(isValidAccessPointKey("short")).toBe(false);
-    expect(isValidAccessPointKey("eight ch")).toBe(true);
   });
 });

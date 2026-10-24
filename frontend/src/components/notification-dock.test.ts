@@ -59,4 +59,18 @@ describe("notification-dock", () => {
     expect(requested).toHaveLength(1);
     expect(postponed[0].detail).toEqual({ version: "1.17.0" });
   });
+
+  it("keeps a notice up while the access point uses the default key", async () => {
+    const dock = await mount((element) => {
+      element.accessPointNotice = true;
+    });
+    const requested = eventsOf(dock, "access-point-key-requested");
+
+    const card = dock.shadowRoot!.querySelector(".access-point")!;
+    (card.querySelector(".primary") as HTMLButtonElement).click();
+
+    expect(card.textContent).toContain("default password");
+    expect(card.querySelectorAll("button")).toHaveLength(1);
+    expect(requested).toHaveLength(1);
+  });
 });

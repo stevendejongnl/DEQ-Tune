@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { equalizerGains, withEqualizerGain, withSpeakerField } from "./tuning-data-edits.ts";
+import {
+  equalizerGains,
+  withEqualizerGain,
+  withEqualizerGains,
+  withSpeakerField,
+} from "./tuning-data-edits.ts";
 import { sampleTuningData } from "./testing/sample-profile.ts";
 
 describe("withEqualizerGain", () => {
@@ -37,6 +42,19 @@ describe("withEqualizerGain", () => {
     const updated = withEqualizerGain(original, 2, 5);
 
     expect(updated.foundationEq.expandEq).toEqual(original.foundationEq.expandEq);
+  });
+});
+
+describe("withEqualizerGains", () => {
+  it("replaces the selected bank's whole curve, for an undo", () => {
+    const original = sampleTuningData();
+    original.foundationEq.eqs.LR.selectedBank = 1;
+    const curve = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0];
+
+    const updated = withEqualizerGains(original, curve);
+
+    expect(equalizerGains(updated)).toEqual(curve);
+    expect(updated.foundationEq.eqs.LR.banks[0]).toEqual(original.foundationEq.eqs.LR.banks[0]);
   });
 });
 

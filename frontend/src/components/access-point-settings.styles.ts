@@ -16,7 +16,7 @@ export const accessPointSettingsStyles = [
       font-size: 13px;
       color: var(--color-foreground);
     }
-    form {
+    access-point-key-form {
       margin-top: 12px;
     }
   `,

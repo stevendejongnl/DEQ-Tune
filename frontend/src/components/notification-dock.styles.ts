@@ -53,7 +53,8 @@ export const notificationDockStyles = css`
     font-weight: 800;
     line-height: 1.3;
   }
-  .available .headline {
+  .available .headline,
+  .access-point .headline {
     padding: 12px 14px 0;
   }
   .highlight {

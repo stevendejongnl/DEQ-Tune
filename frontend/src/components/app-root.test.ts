@@ -12,6 +12,9 @@ import type { AppLayout } from "../layout-query.ts";
 import type { ProfileList } from "./profile-list.ts";
 import type { ProfileDto, ProfileUpdateDto } from "../dto/profile.dto.ts";
 import { equalizerGains } from "../dto/tuning-data-edits.ts";
+import { FakeWifiApi } from "./testing/fake-wifi-api.ts";
+import { ACCESS_POINT_SETUP_SKIPPED_KEY } from "./access-point-key-controller.ts";
+import type { LocaleStorage } from "../i18n/locale.ts";
 
 /** A preset with a star, so the sidebar shows it. Most tests here select a
  * preset through its sidebar chip. */
@@ -32,11 +35,14 @@ async function mount(
   api: FakeProfileApi,
   layout: AppLayout = "desktop",
   pageLocationStore: FakePageLocationStore = createFakePageLocationStore(),
+  accessPointApi: FakeWifiApi = new FakeWifiApi({ saved: [], visible: [] }, null),
+  localeStorage: LocaleStorage = createFakeLocaleStorage({}),
 ): Promise<AppRoot> {
   const element = document.createElement("app-root") as AppRoot;
   element.pageLocationStore = pageLocationStore;
   element.api = api;
-  element.localeStorage = createFakeLocaleStorage({});
+  element.accessPointApi = accessPointApi;
+  element.localeStorage = localeStorage;
   element.browserLanguages = ["en-US"];
   element.layoutQuery = createFakeLayoutQuery(layout);
   document.body.append(element);
@@ -758,6 +764,172 @@ describe("app-root", () => {
 
     expect(questions).toHaveLength(1);
     expect(element.shadowRoot!.querySelector(".badge")!.textContent).toContain("Edited");
+  });
+
+  describe("undo on the car correction curve", () => {
+    function correctionUndo(element: AppRoot): HTMLButtonElement {
+      return element.shadowRoot!.querySelector(".area-correction .undo") as HTMLButtonElement;
+    }
+
+    async function dragBand(element: AppRoot, band: number, values: number[]): Promise<void> {
+      const editor = element.shadowRoot!.querySelector("eq-editor.car-correction")!;
+      editor.dispatchEvent(new CustomEvent("gain-edit-start"));
+      for (const value of values) {
+        editor.dispatchEvent(new CustomEvent("gain-change", { detail: { band, value } }));
+        await flushMicrotasks();
+        await element.updateComplete;
+      }
+    }
+
+    function shownGains(element: AppRoot): number[] {
+      const editor = element.shadowRoot!.querySelector("eq-editor.car-correction") as HTMLElement & {
+        gains: number[];
+      };
+      return editor.gains;
+    }
+
+    it("has nothing to undo before an edit", async () => {
+      const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
+      await click(queryFirstChip(element), element);
+
+      expect(correctionUndo(element).disabled).toBe(true);
+    });
+
+    it("takes a whole drag back in one step", async () => {
+      const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
+      await click(queryFirstChip(element), element);
+      const before = [...shownGains(element)];
+      await dragBand(element, 2, [1.5, 3, 4.5]);
+
+      await click(correctionUndo(element), element);
+
+      expect(shownGains(element)).toEqual(before);
+      expect(correctionUndo(element).disabled).toBe(true);
+      expect(element.shadowRoot!.querySelector(".badge")!.textContent).toContain("Factory preset");
+    });
+
+    it("goes back one step at a time", async () => {
+      const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]));
+      await click(queryFirstChip(element), element);
+      await dragBand(element, 1, [2]);
+      await dragBand(element, 2, [3]);
+
+      await click(correctionUndo(element), element);
+
+      expect(shownGains(element)[1]).toBe(2);
+      expect(shownGains(element)[2]).toBe(0);
+      expect(correctionUndo(element).disabled).toBe(false);
+    });
+
+    it("saves the undone curve of a custom profile", async () => {
+      const api = new FakeProfileApi([starredPreset({ id: 1, source: "custom" })]);
+      await api.activateProfile(1);
+      const element = await mount(api);
+      await click(queryPageButton(element, "Car"), element);
+      await dragBand(element, 4, [6]);
+
+      await click(correctionUndo(element), element);
+      await flushMicrotasks();
+
+      const stored = await api.getProfile(1);
+      expect(equalizerGains(stored.data)[4]).toBe(0);
+    });
+
+    it("forgets the steps when another profile comes in", async () => {
+      const element = await mount(
+        new FakeProfileApi([starredPreset({ id: 1 }), starredPreset({ id: 2, car_model: "mazda_6" })]),
+      );
+      element.confirmDiscard = () => true;
+      await click(queryFirstChip(element), element);
+      await dragBand(element, 2, [4.5]);
+
+      const otherChip = queryProfileList(element).shadowRoot!.querySelectorAll(".chip")[1];
+      await click(otherChip as HTMLButtonElement, element);
+
+      expect(correctionUndo(element).disabled).toBe(true);
+    });
+  });
+
+  describe("the access point key", () => {
+    function piOnTheDefaultKey(): FakeWifiApi {
+      return new FakeWifiApi({ saved: [], visible: [] }, { ssid: "deq-tune", key: "deq-tune-bridge" });
+    }
+
+    async function mountWithAccessPoint(
+      accessPointApi: FakeWifiApi,
+      localeStorage: LocaleStorage = createFakeLocaleStorage({}),
+    ): Promise<AppRoot> {
+      const element = await mount(
+        new FakeProfileApi([starredPreset({ id: 1 })]),
+        "desktop",
+        createFakePageLocationStore(),
+        accessPointApi,
+        localeStorage,
+      );
+      await flushMicrotasks();
+      await element.updateComplete;
+      return element;
+    }
+
+    function dock(element: AppRoot): HTMLElement {
+      return element.shadowRoot!.querySelector("notification-dock")!;
+    }
+
+    it("asks for an own key at the first start on the default key", async () => {
+      const element = await mountWithAccessPoint(piOnTheDefaultKey());
+
+      expect(element.shadowRoot!.querySelector("access-point-setup")).not.toBeNull();
+    });
+
+    it("asks nothing once the key is the person's own", async () => {
+      const api = new FakeWifiApi({ saved: [], visible: [] }, { ssid: "deq-tune", key: "my own key" });
+      const element = await mountWithAccessPoint(api);
+
+      expect(element.shadowRoot!.querySelector("access-point-setup")).toBeNull();
+      expect(dock(element).shadowRoot!.querySelector(".access-point")).toBeNull();
+    });
+
+    it("moves to a dock notice after Later, which opens the Wi-Fi settings", async () => {
+      const element = await mountWithAccessPoint(piOnTheDefaultKey());
+
+      element.shadowRoot!.querySelector("access-point-setup")!.dispatchEvent(
+        new CustomEvent("access-point-setup-skipped"),
+      );
+      await element.updateComplete;
+      await dock(element).updateComplete;
+      const notice = dock(element).shadowRoot!.querySelector(".access-point .primary") as HTMLButtonElement;
+      notice.click();
+      await element.updateComplete;
+
+      expect(element.shadowRoot!.querySelector("access-point-setup")).toBeNull();
+      expect(element.shadowRoot!.querySelector("main settings-page")).not.toBeNull();
+    });
+
+    it("shows the notice, not the setup, after an earlier Later", async () => {
+      const storage = createFakeLocaleStorage({ [ACCESS_POINT_SETUP_SKIPPED_KEY]: "true" });
+      const element = await mountWithAccessPoint(piOnTheDefaultKey(), storage);
+      await dock(element).updateComplete;
+
+      expect(element.shadowRoot!.querySelector("access-point-setup")).toBeNull();
+      expect(dock(element).shadowRoot!.querySelector(".access-point")).not.toBeNull();
+    });
+
+    it("drops the setup and the notice once the key is saved", async () => {
+      const element = await mountWithAccessPoint(piOnTheDefaultKey());
+      const setup = element.shadowRoot!.querySelector("access-point-setup")!;
+
+      setup.dispatchEvent(
+        new CustomEvent("access-point-key-saved", {
+          detail: { accessPoint: { ssid: "deq-tune", uses_default_key: false } },
+        }),
+      );
+      setup.dispatchEvent(new CustomEvent("access-point-setup-closed"));
+      await element.updateComplete;
+      await dock(element).updateComplete;
+
+      expect(element.shadowRoot!.querySelector("access-point-setup")).toBeNull();
+      expect(dock(element).shadowRoot!.querySelector(".access-point")).toBeNull();
+    });
   });
 
   it("puts the save actions in a bar on the phone", async () => {

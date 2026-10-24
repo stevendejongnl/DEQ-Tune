@@ -1,12 +1,14 @@
 import { html, LitElement, nothing, type PropertyValues, type TemplateResult } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { customElement, property } from "lit/decorators.js";
 import type { EqualizerDto } from "../dto/profile.dto.ts";
 import type { AppLayout } from "../layout-query.ts";
 import type { Locale } from "../i18n/locale.ts";
 import { equalizerName } from "../i18n/equalizer-names.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import "./eq-editor.ts";
+import { GainUndoController } from "./gain-undo-controller.ts";
 import { equalizerEditorStyles } from "./equalizer-editor.styles.ts";
+import { undoButtonStyles } from "./undo-button.styles.ts";
 
 const FLAT = new Array(13).fill(0);
 
@@ -28,16 +30,13 @@ const FLAT = new Array(13).fill(0);
  */
 @customElement("equalizer-editor")
 export class EqualizerEditor extends LitElement {
-  static override styles = equalizerEditorStyles;
+  static override styles = [equalizerEditorStyles, undoButtonStyles];
 
   @property({ attribute: false }) equalizer: EqualizerDto | null = null;
   @property({ type: String }) locale: Locale = "en";
   @property({ type: String }) layout: AppLayout = "desktop";
 
-  /** The curve before each edit step, the newest last. */
-  @state() private undoSteps: number[][] = [];
-  /** True once the current edit step saved its curve to `undoSteps`. */
-  private stepSaved = false;
+  private readonly undoSteps = new GainUndoController(this);
 
   /** Another EQ drops the steps. The first edit of a factory EQ goes on
    * in its copy: a draft (id -1), then the created EQ. That keeps them. */
@@ -48,7 +47,7 @@ export class EqualizerEditor extends LitElement {
     }
     const continuesCopy = previous?.id === -1 || this.equalizer?.id === -1;
     if (!continuesCopy && previous?.id !== this.equalizer?.id) {
-      this.undoSteps = [];
+      this.undoSteps.clear();
     }
   }
 
@@ -62,7 +61,7 @@ export class EqualizerEditor extends LitElement {
           ? this.renderOwnHead(strings, equalizer)
           : this.renderReadOnlyHead(strings, equalizer)}
         <div class="undo-row">
-          <button type="button" class="undo" ?disabled=${this.undoSteps.length === 0} @click=${() => this.undo()}>
+          <button type="button" class="undo" ?disabled=${!this.undoSteps.canUndo} @click=${() => this.undo()}>
             ${strings.undoEqualizerEdit}
           </button>
         </div>
@@ -72,7 +71,7 @@ export class EqualizerEditor extends LitElement {
           .factoryGains=${[]}
           .locale=${this.locale}
           .layout=${this.layout}
-          @gain-edit-start=${() => (this.stepSaved = false)}
+          @gain-edit-start=${() => this.undoSteps.startStep()}
           @gain-change=${(gainChangeEvent: CustomEvent<{ band: number; value: number }>) =>
             this.changeGain(gains, gainChangeEvent.detail.band, gainChangeEvent.detail.value)}
         ></eq-editor>
@@ -116,22 +115,17 @@ export class EqualizerEditor extends LitElement {
   }
 
   private changeGain(gains: readonly number[], band: number, value: number): void {
-    if (!this.stepSaved) {
-      this.undoSteps = [...this.undoSteps, [...gains]];
-      this.stepSaved = true;
-    }
+    this.undoSteps.recordBefore(gains);
     this.emit("equalizer-gains", {
       gains: gains.map((gain, index) => (index === band ? value : gain)),
     });
   }
 
   private undo(): void {
-    const previous = this.undoSteps.at(-1);
+    const previous = this.undoSteps.takeBack();
     if (previous === undefined) {
       return;
     }
-    this.undoSteps = this.undoSteps.slice(0, -1);
-    this.stepSaved = false;
     this.emit("equalizer-gains", { gains: previous });
   }
 

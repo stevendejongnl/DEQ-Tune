@@ -6,8 +6,10 @@ import {
   type EqualizerApi,
   type ProfileApi,
   type UpdatesApi,
+  type WifiApi,
 } from "../api/client.ts";
 import type {
+  AccessPointDto,
   ActiveProfileDto,
   AudioStateDto,
   DeviceDto,
@@ -16,7 +18,12 @@ import type {
   TuningDataDto,
 } from "../dto/profile.dto.ts";
 import { blankTuningData } from "../dto/blank-tuning.ts";
-import { equalizerGains, withEqualizerGain, withSpeakerField } from "../dto/tuning-data-edits.ts";
+import {
+  equalizerGains,
+  withEqualizerGain,
+  withEqualizerGains,
+  withSpeakerField,
+} from "../dto/tuning-data-edits.ts";
 import { browserLocaleStorage } from "../i18n/browser-locale-storage.ts";
 import {
   type Locale,
@@ -61,6 +68,10 @@ import { BUILD_ID } from "../build-id.ts";
 import { EqualizerLibraryController } from "./equalizer-library-controller.ts";
 import type { LinkState } from "./link-state.ts";
 import { appRootStyles } from "./app-root.styles.ts";
+import { GainUndoController } from "./gain-undo-controller.ts";
+import { AccessPointKeyController } from "./access-point-key-controller.ts";
+import "./access-point-setup.ts";
+import { undoButtonStyles } from "./undo-button.styles.ts";
 
 /** How often the audio panel re-reads the unit while it can be seen. A read
  * is four exchanges over USB, so this is slower than the header's poll. */
@@ -140,15 +151,17 @@ function editBadgeText(strings: UiStrings, editCount: number): string {
  * a drawer on tablet, and a bottom sheet on the phone. The phone layout
  * also renders one tab at a time.
  *
- * `api`, `localeStorage` and `layoutQuery` default to real
+ * `api`, `accessPointApi`, `localeStorage` and `layoutQuery` default to real
  * implementations but are settable properties so tests can inject fakes
  * instead of mocking `fetch`/`navigator`/`localStorage`/`matchMedia`.
  */
 @customElement("app-root")
 export class AppRoot extends LitElement {
-  static override styles = appRootStyles;
+  static override styles = [appRootStyles, undoButtonStyles];
 
   @property({ attribute: false }) api: ProfileApi & DeviceApi & EqualizerApi & UpdatesApi = new DeqApiClient();
+  @property({ attribute: false }) accessPointApi: Pick<WifiApi, "readAccessPoint" | "setAccessPointKey"> =
+    new DeqApiClient();
   @property({ attribute: false }) localeStorage: LocaleStorage = browserLocaleStorage;
   @property({ attribute: false }) browserLanguages: readonly string[] = resolveGlobalLanguages();
   @property({ attribute: false }) layoutQuery: LayoutQuery = browserLayoutQuery;
@@ -180,6 +193,13 @@ export class AppRoot extends LitElement {
     reloadActive: () => this.loadActiveProfile(),
     newEqualizerName: () => uiStrings(this.locale).newEqualizerName,
   });
+  /** The first-run step and the dock notice for the access point's key. */
+  private readonly accessPointKey = new AccessPointKeyController(this, {
+    api: () => this.accessPointApi,
+    storage: () => this.localeStorage,
+  });
+  /** The edit steps of the car profile's correction curve, for its Undo. */
+  private readonly correctionUndo = new GainUndoController(this);
   /** The Pi's release updater, for the settings page and the dock. */
   private readonly updatesController = new UpdatesController(this, {
     api: () => this.api,
@@ -254,7 +274,15 @@ export class AppRoot extends LitElement {
     void this.loadDeviceOptions();
     void this.loadActiveProfile();
     void this.equalizerLibrary.load();
+    void this.accessPointKey.load();
     window.addEventListener("keydown", this.onKeydown);
+  }
+
+  /** Another profile drops the correction curve's undo steps. */
+  override willUpdate(changed: PropertyValues): void {
+    if (changed.has("selectedId")) {
+      this.correctionUndo.clear();
+    }
   }
 
   override updated(changed: PropertyValues): void {
@@ -390,6 +418,7 @@ export class AppRoot extends LitElement {
         ${this.isPhoneLayout ? this.renderTabBar(strings) : nothing}
       </div>
       ${this.renderNotificationDock()}
+      ${this.accessPointKey.setupOpen ? this.renderAccessPointSetup() : nothing}
     `;
   }
 
@@ -428,6 +457,8 @@ export class AppRoot extends LitElement {
           this.updatesController.setAutomatic(automaticEvent.detail.automatic)}
         @request-update=${() => this.updatesController.requestUpdate()}
         @library-imported=${() => this.reloadLibrary()}
+        @access-point-key-saved=${(savedEvent: CustomEvent<{ accessPoint: AccessPointDto }>) =>
+          this.accessPointKey.accept(savedEvent.detail.accessPoint)}
       ></settings-page>
     `;
   }
@@ -447,7 +478,24 @@ export class AppRoot extends LitElement {
         @update-postponed=${(postponeEvent: CustomEvent<{ version: string }>) =>
           this.updatesController.postpone(postponeEvent.detail.version)}
         @update-requested=${() => this.updatesController.requestUpdate()}
+        .accessPointNotice=${this.accessPointKey.showsNotice}
+        @access-point-key-requested=${() => this.openSettings("wifi")}
       ></notification-dock>
+    `;
+  }
+
+  /** The first-run step that asks for an own access point key. */
+  private renderAccessPointSetup(): TemplateResult {
+    return html`
+      <access-point-setup
+        .api=${this.accessPointApi}
+        .locale=${this.locale}
+        .ssid=${this.accessPointKey.accessPoint?.ssid ?? ""}
+        @access-point-key-saved=${(savedEvent: CustomEvent<{ accessPoint: AccessPointDto }>) =>
+          this.accessPointKey.accept(savedEvent.detail.accessPoint)}
+        @access-point-setup-skipped=${() => this.accessPointKey.skip()}
+        @access-point-setup-closed=${() => this.accessPointKey.closeSetup()}
+      ></access-point-setup>
     `;
   }
 
@@ -792,16 +840,29 @@ export class AppRoot extends LitElement {
       return nothing;
     }
     return html`
-      <eq-editor
-        class="area-correction car-correction"
-        .heading=${strings.carCorrectionTitle}
-        .gains=${equalizerGains(this.shownData ?? profile.data)}
-        .factoryGains=${this.factoryGains}
-        .locale=${this.locale}
-        .layout=${this.layout}
-        @gain-change=${(gainChangeEvent: CustomEvent<{ band: number; value: number }>) =>
-          this.changeGain(gainChangeEvent.detail.band, gainChangeEvent.detail.value)}
-      ></eq-editor>
+      <div class="area-correction">
+        <div class="undo-row">
+          <button
+            type="button"
+            class="undo"
+            ?disabled=${!this.correctionUndo.canUndo}
+            @click=${() => this.undoCorrectionStep()}
+          >
+            ${strings.undoEqualizerEdit}
+          </button>
+        </div>
+        <eq-editor
+          class="car-correction"
+          .heading=${strings.carCorrectionTitle}
+          .gains=${equalizerGains(this.shownData ?? profile.data)}
+          .factoryGains=${this.factoryGains}
+          .locale=${this.locale}
+          .layout=${this.layout}
+          @gain-edit-start=${() => this.correctionUndo.startStep()}
+          @gain-change=${(gainChangeEvent: CustomEvent<{ band: number; value: number }>) =>
+            this.changeGain(gainChangeEvent.detail.band, gainChangeEvent.detail.value)}
+        ></eq-editor>
+      </div>
     `;
   }
 
@@ -1165,7 +1226,19 @@ export class AppRoot extends LitElement {
     if (profile === undefined || shown === undefined) {
       return;
     }
+    this.correctionUndo.recordBefore(equalizerGains(shown));
     await this.applyEdit(profile, withEqualizerGain(shown, band, gain));
+  }
+
+  /** Puts the correction curve back as it was before the newest edit step. */
+  private async undoCorrectionStep(): Promise<void> {
+    const profile = this.selectedProfile;
+    const shown = this.shownData;
+    const previous = this.correctionUndo.takeBack();
+    if (profile === undefined || shown === undefined || previous === undefined) {
+      return;
+    }
+    await this.applyEdit(profile, withEqualizerGains(shown, previous));
   }
 
   private async changeSpeaker(
@@ -1223,6 +1296,7 @@ export class AppRoot extends LitElement {
 
   private revertToFactory(): void {
     this.draft = null;
+    this.correctionUndo.clear();
     const profile = this.selectedProfile;
     const factory = this.factoryData;
     if (profile === undefined || factory === undefined || profile.source === "factory") {
