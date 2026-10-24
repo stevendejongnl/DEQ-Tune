@@ -813,6 +813,19 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AccessPointKeySaved
+         * @description The access point after a new key. The Pi restarts to use the key, so
+         *     the phone loses the Pi for about a minute.
+         */
+        AccessPointKeySaved: {
+            /** Ssid */
+            ssid: string;
+            /** Uses Default Key */
+            uses_default_key: boolean;
+            /** Restarts Now */
+            restarts_now: boolean;
+        };
+        /**
          * AccessPointKeyWrite
          * @description A new key for the access point. It applies at the access point's
          *     next start, which is the Pi's next boot.
@@ -2673,7 +2686,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AccessPointRead"];
+                    "application/json": components["schemas"]["AccessPointKeySaved"];
                 };
             };
             /** @description Validation Error */

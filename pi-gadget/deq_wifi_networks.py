@@ -14,12 +14,17 @@ an `nmcli` command line itself.
     deq-wifi-networks join       asks deq-wifi-recover to run now
     deq-wifi-networks access-point      the access point's name, and whether
                                         it still uses the public default key
-    deq-wifi-networks access-point-key  reads a new key on stdin, one line
+    deq-wifi-networks access-point-key  reads a new key on stdin, one line,
+                                        and restarts the Pi to use it
 
 The access point's key also comes on stdin. The helper writes it into the
 access point's keyfile and never prints it. The new key applies the next
-time the access point starts, at the next boot: a restart of the access
-point now would drop the phone that asked for the change.
+time the access point starts. So, with no DEQ session, the helper also
+restarts the Pi, REBOOT_DELAY_SECONDS later. The delay lets the backend's
+reply reach the phone first. During a DEQ session it does not restart:
+a restart then would also restart the gadget and wedge the USB link. The
+key then applies at the next start, and `restarts_now` in the reply says
+which of the two happened.
 
 The password comes on stdin and goes into a keyfile that only root can
 read. It never goes on a command line, because every user on the Pi can
@@ -60,6 +65,7 @@ KEYFILE_DIRECTORY = Path("/etc/NetworkManager/system-connections")
 UDC_DIRECTORY = Path("/sys/class/udc")
 RECOVER_SERVICE = "deq-wifi-recover.service"
 REFUSAL_EXIT_CODE = 2
+REBOOT_DELAY_SECONDS = 5
 SSID_MAXIMUM_BYTES = 32
 HEX_KEY_PATTERN = re.compile(r"[0-9a-fA-F]{64}")
 ACCESS_POINT_CONNECTION = "deq-tune-ap"
@@ -305,6 +311,23 @@ def set_access_point_key(key: str) -> None:
     nmcli("connection", "load", str(path))
 
 
+def restart_for_new_key(session_running: bool, run_command=subprocess.run) -> bool:
+    """Starts a restart of the Pi REBOOT_DELAY_SECONDS from now, unless a DEQ
+    session runs. Returns whether it started one.
+
+    A transient systemd timer runs the restart, so this returns at once and
+    the reply still leaves.
+    """
+    if session_running:
+        return False
+    run_command(
+        ["systemd-run", f"--on-active={REBOOT_DELAY_SECONDS}", "systemctl", "reboot"],
+        check=True,
+        timeout=20,
+    )
+    return True
+
+
 def run(arguments: list[str]) -> object:
     match arguments:
         case ["saved"]:
@@ -324,7 +347,8 @@ def run(arguments: list[str]) -> object:
             return read_access_point()
         case ["access-point-key"]:
             set_access_point_key(sys.stdin.readline().rstrip("\n"))
-            return read_access_point()
+            restarts_now = restart_for_new_key(deq_session_is_running())
+            return {**read_access_point(), "restarts_now": restarts_now}
     raise Refusal("Use one of: saved, visible, save SSID, forget SSID, join, access-point, access-point-key.")
 
 

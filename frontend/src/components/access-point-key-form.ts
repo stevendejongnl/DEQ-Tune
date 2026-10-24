@@ -65,7 +65,8 @@ export class AccessPointKeyForm extends LitElement {
       const accessPoint = await this.api.setAccessPointKey(this.key);
       this.key = "";
       this.repeatedKey = "";
-      this.message = strings.accessPointSaved.replace("{ssid}", accessPoint.ssid);
+      const saved = accessPoint.restarts_now ? strings.accessPointSavedRestarting : strings.accessPointSaved;
+      this.message = saved.replace("{ssid}", accessPoint.ssid);
       this.announceSaved(accessPoint);
     } catch (caughtError) {
       this.message = wifiErrorMessage(strings, caughtError);

@@ -1380,7 +1380,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccessPointRead"
+                  "$ref": "#/components/schemas/AccessPointKeySaved"
                 }
               }
             }
@@ -1566,6 +1566,30 @@
   },
   "components": {
     "schemas": {
+      "AccessPointKeySaved": {
+        "properties": {
+          "ssid": {
+            "type": "string",
+            "title": "Ssid"
+          },
+          "uses_default_key": {
+            "type": "boolean",
+            "title": "Uses Default Key"
+          },
+          "restarts_now": {
+            "type": "boolean",
+            "title": "Restarts Now"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ssid",
+          "uses_default_key",
+          "restarts_now"
+        ],
+        "title": "AccessPointKeySaved",
+        "description": "The access point after a new key. The Pi restarts to use the key, so\nthe phone loses the Pi for about a minute."
+      },
       "AccessPointKeyWrite": {
         "properties": {
           "key": {

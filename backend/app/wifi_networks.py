@@ -58,6 +58,15 @@ class AccessPoint:
     uses_default_key: bool
 
 
+@dataclass
+class AccessPointKeyChange:
+    ssid: str
+    uses_default_key: bool
+    # True when the helper started a restart of the Pi, so the new key applies
+    # now. False during a DEQ session: the key then applies at the next start.
+    restarts_now: bool
+
+
 class WifiNetworks:
     """Lists, saves and forgets the networks that the bridge joins.
 
@@ -97,13 +106,14 @@ class WifiNetworks:
         read = self.run_helper("access-point")
         return None if read is None else AccessPoint(**read)
 
-    def set_access_point_key(self, key: str) -> AccessPoint | None:
-        """Saves a new access point key, for the access point's next start.
+    def set_access_point_key(self, key: str) -> AccessPointKeyChange | None:
+        """Saves a new access point key. The helper also restarts the Pi to use
+        it, unless a DEQ session runs.
 
         The key goes on stdin, as a network's password does.
         """
         read = self.run_helper("access-point-key", input_text=key + "\n")
-        return None if read is None else AccessPoint(**read)
+        return None if read is None else AccessPointKeyChange(**read)
 
     def run_helper(self, *arguments: str, input_text: str = "") -> object:
         try:

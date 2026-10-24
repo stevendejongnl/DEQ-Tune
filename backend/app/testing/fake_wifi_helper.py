@@ -68,7 +68,8 @@ class FakeWifiHelper:
             if self.access_point is None:
                 raise PermissionError("The Pi has no access point. Run configure-access-point.sh first.")
             self.access_point["key"] = stdin_text.rstrip("\n")
-            return self.access_point_read()
+            # The real helper restarts the Pi unless a DEQ session runs.
+            return {**self.access_point_read(), "restarts_now": not self.deq_session_running}
         raise PermissionError("Use one of: saved, visible, save SSID, forget SSID, join, access-point, access-point-key.")
 
     def access_point_read(self) -> dict[str, object] | None:

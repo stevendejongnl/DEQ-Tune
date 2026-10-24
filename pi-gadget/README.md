@@ -134,7 +134,8 @@ checks that the two still give the same bytes.
   that leaves the bench, or set one in the app: Settings → Wi-Fi → The
   Pi's access point. The app also asks for one at its first start while
   the default key is in use. `deq-wifi-networks access-point-key` writes it into
-  the keyfile, and it applies at the access point's next start. The API
+  the keyfile, and restarts the Pi 5 seconds later so the key applies. During a
+  DEQ session it does not restart, and the key applies at the next start. The API
   says only whether the key is the default, never the key.
 - **The BLE bridge needs no pairing yet.** Any device nearby can reach the
   API through it.
