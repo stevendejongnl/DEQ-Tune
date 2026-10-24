@@ -14,6 +14,7 @@ import {
 import type { Locale } from "../i18n/locale.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import { communityLibraryStyles } from "./community-library.styles.ts";
+import { busyStyles } from "./busy.styles.ts";
 
 type KindFilter = "all" | "equalizer" | "profile";
 type LoadState = "loading" | "failed" | "ready";
@@ -65,7 +66,7 @@ function addStateText(strings: UiStrings, addState: AddState): string {
  */
 @customElement("community-library")
 export class CommunityLibrary extends LitElement {
-  static override styles = communityLibraryStyles;
+  static override styles = [communityLibraryStyles, busyStyles];
 
   @property({ attribute: false }) api: LibraryApi | undefined;
   @property({ attribute: false }) community: CommunityLibraryApi = new CommunityLibraryClient();
@@ -163,6 +164,7 @@ export class CommunityLibrary extends LitElement {
         ${entry.kind === "profile" ? html`<p class="warning">${strings.communityProfileWarning}</p>` : nothing}
         <div class="entry-actions">
           <button type="button" class="add" ?disabled=${addState === "adding" || addState === "added"}
+            aria-busy=${addState === "adding"}
             @click=${() => this.addEntry(entry)}>
             ${strings.communityAdd}
           </button>

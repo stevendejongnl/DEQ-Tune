@@ -72,6 +72,8 @@ import { GainUndoController } from "./gain-undo-controller.ts";
 import { AccessPointKeyController } from "./access-point-key-controller.ts";
 import "./access-point-setup.ts";
 import { undoButtonStyles } from "./undo-button.styles.ts";
+import { busyStyles } from "./busy.styles.ts";
+import type { ProfileAction } from "./profile-list.ts";
 
 /** How often the audio panel re-reads the unit while it can be seen. A read
  * is four exchanges over USB, so this is slower than the header's poll. */
@@ -142,6 +144,17 @@ function editBadgeText(strings: UiStrings, editCount: number): string {
     : strings.editedBadgeMany.replace("{count}", String(editCount));
 }
 
+/** True while a text field has the focus, through shadow roots too. A
+ * reload then would drop what the person types, such as a new access point
+ * key. */
+function isTypingInAField(): boolean {
+  let focused: Element | null = typeof document === "undefined" ? null : document.activeElement;
+  while (focused?.shadowRoot?.activeElement) {
+    focused = focused.shadowRoot.activeElement;
+  }
+  return focused instanceof HTMLInputElement || focused instanceof HTMLTextAreaElement;
+}
+
 /**
  * Top-level page: loads profiles from the backend and wires the
  * profile sidebar, EQ editor, speaker panel, DSP and audio panels,
@@ -157,7 +170,7 @@ function editBadgeText(strings: UiStrings, editCount: number): string {
  */
 @customElement("app-root")
 export class AppRoot extends LitElement {
-  static override styles = [appRootStyles, undoButtonStyles];
+  static override styles = [appRootStyles, undoButtonStyles, busyStyles];
 
   @property({ attribute: false }) api: ProfileApi & DeviceApi & EqualizerApi & UpdatesApi = new DeqApiClient();
   @property({ attribute: false }) accessPointApi: Pick<WifiApi, "readAccessPoint" | "setAccessPointKey"> =
@@ -207,12 +220,16 @@ export class AppRoot extends LitElement {
     scheduleFunction: () => this.scheduleFunction,
     cancelFunction: () => this.cancelFunction,
     pageBuild: () => this.pageBuild,
-    hasUnsavedEdits: () => this.draft !== null,
+    hasUnsavedEdits: () => this.draft !== null || this.profileAction !== null || isTypingInAField(),
     reload: () => this.reloadFunction(),
   });
   // Inside the car app, its own settings come first.
   @state() private settingsSection: SettingsSection = phoneAppApi() === null ? "updates" : "phone";
   @state() private liveSimulation: LiveSimulationId | null = null;
+  /** The Live Simulation mode that waits on the Pi, for its loader. */
+  @state() private pendingLiveSimulation: LiveSimulationId | null = null;
+  /** The profile action that waits on the Pi, for its loader. */
+  @state() private profileAction: ProfileAction | null = null;
   @state() private profilesDrawerOpen = false;
   @state() private layout: AppLayout = "desktop";
   /** The phone opens on the audio tab: it answers "is anything audible
@@ -535,6 +552,7 @@ export class AppRoot extends LitElement {
           .locale=${this.locale}
           .unitConnected=${this.unitConnected}
           .activeProfileId=${this.activeProfile?.profile_id ?? null}
+          .busyAction=${this.profileAction}
           @select-profile=${(selectEvent: CustomEvent<{ id: number }>) =>
             this.selectProfile(selectEvent.detail.id)}
           @duplicate-profile=${(duplicateEvent: CustomEvent<{ id: number }>) =>
@@ -611,7 +629,8 @@ export class AppRoot extends LitElement {
         ${this.draft === null
           ? nothing
           : html`
-              <button type="button" class="primary" @click=${() => this.saveDraftAsProfile()}>
+              <button type="button" class="primary" aria-busy=${this.profileAction === "save-draft"}
+                @click=${() => this.saveDraftAsProfile()}>
                 ${strings.saveAsMyProfile}
               </button>
             `}
@@ -634,7 +653,8 @@ export class AppRoot extends LitElement {
         ${this.draft === null
           ? nothing
           : html`
-              <button type="button" class="primary" @click=${() => this.saveDraftAsProfile()}>
+              <button type="button" class="primary" aria-busy=${this.profileAction === "save-draft"}
+                @click=${() => this.saveDraftAsProfile()}>
                 ${strings.saveShort}
               </button>
             `}
@@ -1053,7 +1073,12 @@ export class AppRoot extends LitElement {
 
   private async changeLiveSimulation(id: LiveSimulationId): Promise<void> {
     this.liveSimulation = id;
-    await this.sendToUnit(() => this.api.selectLiveSimulation(id));
+    this.pendingLiveSimulation = id;
+    try {
+      await this.sendToUnit(() => this.api.selectLiveSimulation(id));
+    } finally {
+      this.pendingLiveSimulation = null;
+    }
   }
 
   private async sendToUnit(send: () => Promise<unknown>): Promise<void> {
@@ -1076,6 +1101,8 @@ export class AppRoot extends LitElement {
           : this.activeProfile.equalizer_id}
         .liveSimulationIds=${this.liveSimulationIds}
         .liveSimulation=${this.liveSimulation}
+        .activatingEqualizer=${this.equalizerLibrary.activating}
+        .pendingLiveSimulation=${this.pendingLiveSimulation}
         @activate-equalizer=${(activateEvent: CustomEvent<{ id: number | null }>) =>
           this.equalizerLibrary.activate(activateEvent.detail.id)}
         @favorite-equalizer=${(favoriteEvent: CustomEvent<{ id: number; favorite: boolean }>) =>
@@ -1153,10 +1180,12 @@ export class AppRoot extends LitElement {
     if (this.draft !== null && !this.confirmDiscard(uiStrings(this.locale).discardDraftConfirm)) {
       return;
     }
-    const created = await this.api.createProfile({
-      name: uiStrings(this.locale).newProfileName,
-      data: blankTuningData(),
-    });
+    const created = await this.whileBusy("create", () =>
+      this.api.createProfile({
+        name: uiStrings(this.locale).newProfileName,
+        data: blankTuningData(),
+      }),
+    );
     this.draft = null;
     await this.loadProfiles();
     this.selectedId = created.id;
@@ -1169,7 +1198,7 @@ export class AppRoot extends LitElement {
   private async saveUnitProfile(): Promise<void> {
     let saved: ProfileDto;
     try {
-      saved = await this.api.saveUnitProfile(uiStrings(this.locale).unitTuneName);
+      saved = await this.whileBusy("save-unit", () => this.api.saveUnitProfile(uiStrings(this.locale).unitTuneName));
     } catch {
       return;
     }
@@ -1320,11 +1349,24 @@ export class AppRoot extends LitElement {
     if (profile === undefined || draft === null) {
       return;
     }
-    const copy = await this.api.duplicateProfile(profile.id);
-    await this.api.updateProfile(copy.id, { data: draft });
+    const copy = await this.whileBusy("save-draft", async () => {
+      const duplicate = await this.api.duplicateProfile(profile.id);
+      await this.api.updateProfile(duplicate.id, { data: draft });
+      return duplicate;
+    });
     this.draft = null;
     await this.loadProfiles();
     this.selectedId = copy.id;
+  }
+
+  /** Runs one profile action, and marks its button busy while it waits. */
+  private async whileBusy<Result>(action: ProfileAction, work: () => Promise<Result>): Promise<Result> {
+    this.profileAction = action;
+    try {
+      return await work();
+    } finally {
+      this.profileAction = null;
+    }
   }
 
   private async saveProfileData(id: number, data: ProfileDto["data"]): Promise<void> {

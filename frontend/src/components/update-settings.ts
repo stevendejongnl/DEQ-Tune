@@ -4,6 +4,7 @@ import type { UpdatesDto } from "../dto/profile.dto.ts";
 import type { Locale } from "../i18n/locale.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import { updateSettingsStyles } from "./update-settings.styles.ts";
+import { busyStyles } from "./busy.styles.ts";
 import type { UpdateRequestState } from "./updates-controller.ts";
 
 /** A timestamp from the updater, in the reader's own clock and language. */
@@ -24,7 +25,7 @@ function formatCheckedAt(checkedAt: string, locale: Locale): string {
  */
 @customElement("update-settings")
 export class UpdateSettings extends LitElement {
-  static override styles = updateSettingsStyles;
+  static override styles = [updateSettingsStyles, busyStyles];
 
   @property({ attribute: false }) updates: UpdatesDto | null = null;
   @property({ type: String }) requestState: UpdateRequestState = "idle";
@@ -97,6 +98,7 @@ export class UpdateSettings extends LitElement {
     return html`
       <div class="actions">
         <button type="button" class="check-now" ?disabled=${this.requestState === "busy"}
+          aria-busy=${this.requestState === "busy"}
           @click=${() => this.fire("request-update", {})}>
           ${strings.updatesCheckNow}
         </button>

@@ -13,6 +13,7 @@ import type { ProfileList } from "./profile-list.ts";
 import type { ProfileDto, ProfileUpdateDto } from "../dto/profile.dto.ts";
 import { equalizerGains } from "../dto/tuning-data-edits.ts";
 import { FakeWifiApi } from "./testing/fake-wifi-api.ts";
+import { updatedPi } from "./testing/fake-updates-api.ts";
 import { ACCESS_POINT_SETUP_SKIPPED_KEY } from "./access-point-key-controller.ts";
 import type { LocaleStorage } from "../i18n/locale.ts";
 import type { NotificationDock } from "./notification-dock.ts";
@@ -848,6 +849,43 @@ describe("app-root", () => {
       await click(otherChip as HTMLButtonElement, element);
 
       expect(correctionUndo(element).disabled).toBe(true);
+    });
+  });
+
+  describe("following the Pi's build", () => {
+    async function mountOnOlderBuild(api: FakeProfileApi, reloads: string[]): Promise<AppRoot> {
+      api.updates.updates = updatedPi({ frontend_build: "newer-build" });
+      const element = document.createElement("app-root") as AppRoot;
+      element.pageLocationStore = createFakePageLocationStore();
+      element.api = api;
+      element.accessPointApi = new FakeWifiApi({ saved: [], visible: [] }, null);
+      element.localeStorage = createFakeLocaleStorage({});
+      element.browserLanguages = ["en-US"];
+      element.layoutQuery = createFakeLayoutQuery("desktop");
+      element.pageBuild = "older-build";
+      element.reloadFunction = () => reloads.push("reload");
+      document.body.append(element);
+      await flushMicrotasks();
+      await element.updateComplete;
+      return element;
+    }
+
+    it("reloads into the Pi's newer build", async () => {
+      const reloads: string[] = [];
+      await mountOnOlderBuild(new FakeProfileApi([starredPreset({ id: 1 })]), reloads);
+
+      expect(reloads).toEqual(["reload"]);
+    });
+
+    it("does not reload while the person types in a field", async () => {
+      const field = document.createElement("input");
+      document.body.append(field);
+      field.focus();
+      const reloads: string[] = [];
+
+      await mountOnOlderBuild(new FakeProfileApi([starredPreset({ id: 1 })]), reloads);
+
+      expect(reloads).toEqual([]);
     });
   });
 

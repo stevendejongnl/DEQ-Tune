@@ -5,6 +5,7 @@ import type { SavedWifiNetworkDto, WifiDto } from "../dto/profile.dto.ts";
 import type { Locale } from "../i18n/locale.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import { wifiSettingsStyles } from "./wifi-settings.styles.ts";
+import { busyStyles } from "./busy.styles.ts";
 
 const MINIMUM_PASSWORD_LENGTH = 8;
 const MAXIMUM_PASSWORD_LENGTH = 63;
@@ -58,7 +59,7 @@ export function wifiErrorMessage(strings: UiStrings, caughtError: unknown): stri
  */
 @customElement("wifi-settings")
 export class WifiSettings extends LitElement {
-  static override styles = wifiSettingsStyles;
+  static override styles = [wifiSettingsStyles, busyStyles];
 
   @property({ attribute: false }) api: WifiApi | undefined;
   @property({ type: String }) locale: Locale = "en";
@@ -67,7 +68,9 @@ export class WifiSettings extends LitElement {
 
   @state() private wifi: WifiDto | null = null;
   @state() private message = "";
-  @state() private isBusy = false;
+  /** The action whose request runs: "join", "save", "forget:<ssid>" or
+   * "load". Its control shows the loader. */
+  @state() private busyAction: string | null = null;
   @state() private ssid = "";
   @state() private password = "";
 
@@ -92,6 +95,7 @@ export class WifiSettings extends LitElement {
         <div class="section-heading">
           <h3>${strings.wifiSavedTitle}</h3>
           <button type="button" class="join" ?disabled=${this.isBusy || saved.length === 0}
+            aria-busy=${this.busyAction === "join"}
             @click=${() => this.requestJoin(strings)}>
             ${strings.wifiJoinNow}
           </button>
@@ -115,6 +119,7 @@ export class WifiSettings extends LitElement {
             ? html`<span class="tag">${strings.wifiInRange}</span>`
             : nothing}
         <button type="button" class="forget" ?disabled=${this.isBusy}
+          aria-busy=${this.busyAction === `forget:${network.ssid}`}
           @click=${() => this.forget(strings, network)}>
           ${strings.wifiForget}
         </button>
@@ -143,7 +148,8 @@ export class WifiSettings extends LitElement {
             @input=${(inputEvent: InputEvent) => (this.password = (inputEvent.target as HTMLInputElement).value)} />
           <span class="hint">${strings.wifiPasswordHint}</span>
         </label>
-        <button type="submit" class="save" ?disabled=${this.isBusy || !isValidNetwork(this.ssid, this.password)}>
+        <button type="submit" class="save" ?disabled=${this.isBusy || !isValidNetwork(this.ssid, this.password)}
+          aria-busy=${this.busyAction === "save"}>
           ${strings.wifiSave}
         </button>
       </form>
@@ -152,13 +158,13 @@ export class WifiSettings extends LitElement {
 
   /** Reads the networks fresh. */
   async load(): Promise<void> {
-    await this.run((api) => api.readWifi());
+    await this.run("load", (api) => api.readWifi());
   }
 
   private async save(submitEvent: SubmitEvent, strings: UiStrings): Promise<void> {
     submitEvent.preventDefault();
     const ssid = this.ssid;
-    const saved = await this.run((api) => api.saveWifiNetwork(ssid, this.password));
+    const saved = await this.run("save", (api) => api.saveWifiNetwork(ssid, this.password));
     if (saved) {
       this.ssid = "";
       this.password = "";
@@ -170,28 +176,32 @@ export class WifiSettings extends LitElement {
     if (network.connected && !this.confirmFunction(strings.wifiForgetConnectedConfirm.replaceAll("{ssid}", network.ssid))) {
       return;
     }
-    await this.run((api) => api.forgetWifiNetwork(network.ssid));
+    await this.run(`forget:${network.ssid}`, (api) => api.forgetWifiNetwork(network.ssid));
   }
 
   private async requestJoin(strings: UiStrings): Promise<void> {
-    this.isBusy = true;
+    this.busyAction = "join";
     try {
       await this.api?.requestWifiJoin();
       this.message = strings.wifiJoinRequested;
     } catch (caughtError) {
       this.message = wifiErrorMessage(strings, caughtError);
     } finally {
-      this.isBusy = false;
+      this.busyAction = null;
     }
+  }
+
+  private get isBusy(): boolean {
+    return this.busyAction !== null;
   }
 
   /** Runs one request that answers with the networks, and shows the answer
    * or the failure. Returns whether it worked. */
-  private async run(request: (api: WifiApi) => Promise<WifiDto>): Promise<boolean> {
+  private async run(action: string, request: (api: WifiApi) => Promise<WifiDto>): Promise<boolean> {
     if (this.api === undefined) {
       return false;
     }
-    this.isBusy = true;
+    this.busyAction = action;
     this.message = "";
     try {
       this.wifi = await request(this.api);
@@ -200,7 +210,7 @@ export class WifiSettings extends LitElement {
       this.message = wifiErrorMessage(uiStrings(this.locale), caughtError);
       return false;
     } finally {
-      this.isBusy = false;
+      this.busyAction = null;
     }
   }
 }

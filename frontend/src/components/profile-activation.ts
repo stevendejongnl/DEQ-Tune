@@ -4,6 +4,7 @@ import type { ActiveProfileDto } from "../dto/profile.dto.ts";
 import type { Locale } from "../i18n/locale.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import { profileActivationStyles } from "./profile-activation.styles.ts";
+import { busyStyles } from "./busy.styles.ts";
 
 /**
  * Says whether the shown profile is the one the unit plays, and offers to
@@ -18,7 +19,7 @@ import { profileActivationStyles } from "./profile-activation.styles.ts";
  */
 @customElement("profile-activation")
 export class ProfileActivation extends LitElement {
-  static override styles = profileActivationStyles;
+  static override styles = [profileActivationStyles, busyStyles];
 
   @property({ type: Number }) profileId: number | null = null;
   @property({ attribute: false }) active: ActiveProfileDto | null = null;
@@ -43,6 +44,7 @@ export class ProfileActivation extends LitElement {
         type="button"
         class="activate"
         ?disabled=${this.hasDraft || this.busy}
+        aria-busy=${this.busy}
         @click=${() => this.requestActivation()}
       >
         ${strings.activate}
@@ -80,6 +82,7 @@ export class ProfileActivation extends LitElement {
               type="button"
               class="apply"
               ?disabled=${this.hasDraft || this.busy}
+              aria-busy=${this.busy}
               @click=${() => this.requestActivation()}
             >
               ${actionLabel}

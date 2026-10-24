@@ -6,6 +6,7 @@ import type { LibraryExportDto } from "../dto/profile.dto.ts";
 import type { Locale } from "../i18n/locale.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import { libraryBackupStyles } from "./library-backup.styles.ts";
+import { busyStyles } from "./busy.styles.ts";
 
 /** Saves a text file, and says whether it was saved. The person can cancel
  * the car app's save dialog. A browser's download gives no answer. */
@@ -48,7 +49,7 @@ export function libraryFileName(now: Date): string {
  */
 @customElement("library-backup")
 export class LibraryBackup extends LitElement {
-  static override styles = libraryBackupStyles;
+  static override styles = [libraryBackupStyles, busyStyles];
 
   @property({ attribute: false }) api: LibraryApi | undefined;
   @property({ type: String }) locale: Locale = "en";
@@ -56,17 +57,18 @@ export class LibraryBackup extends LitElement {
   @property({ attribute: false }) now: () => Date = () => new Date();
 
   @state() private message = "";
-  @state() private isBusy = false;
+  /** The action whose request runs. Its control shows the loader. */
+  @state() private busyAction: "export" | "import" | null = null;
 
   override render() {
     const strings = uiStrings(this.locale);
     return html`
       <p class="intro">${strings.backupIntro}</p>
       <div class="actions">
-        <button type="button" class="export" ?disabled=${this.isBusy} @click=${() => this.exportLibrary(strings)}>
+        <button type="button" class="export" ?disabled=${this.isBusy} aria-busy=${this.busyAction === "export"} @click=${() => this.exportLibrary(strings)}>
           ${strings.backupExport}
         </button>
-        <label class="import">
+        <label class="import" aria-busy=${this.busyAction === "import"}>
           ${strings.backupImport}
           <input type="file" accept="application/json,.json" ?disabled=${this.isBusy}
             @change=${(changeEvent: Event) => this.importChosenFile(changeEvent)} />
@@ -80,7 +82,7 @@ export class LibraryBackup extends LitElement {
     if (this.api === undefined) {
       return;
     }
-    await this.busy(async () => {
+    await this.busy("export", async () => {
       const library = await this.api!.exportLibrary();
       const saved = await this.saveFile(libraryFileName(this.now()), JSON.stringify(library, null, 2));
       if (!saved) {
@@ -115,7 +117,7 @@ export class LibraryBackup extends LitElement {
       this.message = strings.backupNotALibrary;
       return;
     }
-    await this.busy(async () => {
+    await this.busy("import", async () => {
       const result = await this.api!.importLibrary(library);
       this.message = strings.backupImported
         .replace("{profiles}", String(result.profiles_added))
@@ -128,15 +130,19 @@ export class LibraryBackup extends LitElement {
   }
 
   /** Runs one request, and turns its failure into words for the person. */
-  private async busy(work: () => Promise<void>, strings: UiStrings): Promise<void> {
-    this.isBusy = true;
+  private get isBusy(): boolean {
+    return this.busyAction !== null;
+  }
+
+  private async busy(action: "export" | "import", work: () => Promise<void>, strings: UiStrings): Promise<void> {
+    this.busyAction = action;
     this.message = "";
     try {
       await work();
     } catch (caughtError) {
       this.message = isRefusedFile(caughtError) ? strings.backupNotALibrary : strings.backupFailed;
     } finally {
-      this.isBusy = false;
+      this.busyAction = null;
     }
   }
 }

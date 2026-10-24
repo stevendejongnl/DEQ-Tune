@@ -2,6 +2,7 @@ import { html, LitElement, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { Locale } from "../i18n/locale.ts";
 import { dspPanelStyles } from "./dsp-panel.styles.ts";
+import { busyStyles } from "./busy.styles.ts";
 import type { EqualizerDto } from "../dto/profile.dto.ts";
 import {
   type LiveSimulationId,
@@ -33,13 +34,16 @@ function renderLockIcon(): TemplateResult {
  * `liveSimulationIds` come from the unit's own value sets
  * (`/api/device/options`), which app-root.ts reads.
  *
+ * `activatingEqualizer` and `pendingLiveSimulation` name the choice that
+ * waits on the Pi, and that tile shows the loader.
+ *
  * It emits `activate-equalizer` ({ id }, `null` for none),
  * `favorite-equalizer` ({ id, favorite }) and `live-simulation-change`
  * ({ id }).
  */
 @customElement("dsp-panel")
 export class DspPanel extends LitElement {
-  static override styles = dspPanelStyles;
+  static override styles = [dspPanelStyles, busyStyles];
 
   @property({ type: String }) locale: Locale = "en";
   @property({ type: Array }) equalizers: readonly EqualizerDto[] = [];
@@ -48,6 +52,8 @@ export class DspPanel extends LitElement {
   @property({ attribute: false }) activeEqualizerId: number | null | undefined = undefined;
   @property({ type: Array }) liveSimulationIds: readonly LiveSimulationId[] = [];
   @property({ type: String }) liveSimulation: LiveSimulationId | null = null;
+  @property({ attribute: false }) activatingEqualizer: { id: number | null } | null = null;
+  @property({ attribute: false }) pendingLiveSimulation: LiveSimulationId | null = null;
 
   @state() private libraryOpen = false;
 
@@ -87,6 +93,7 @@ export class DspPanel extends LitElement {
         type="button"
         class="tile ${selected ? "selected" : ""}"
         aria-pressed=${selected}
+        aria-busy=${this.isActivating(id)}
         @click=${() => this.dispatchEvent(new CustomEvent("activate-equalizer", { detail: { id } }))}
       >
         <span class="radio"></span>${name}
@@ -122,6 +129,7 @@ export class DspPanel extends LitElement {
               <button
                 type="button"
                 class="library-name"
+                aria-busy=${this.isActivating(equalizer.id)}
                 @click=${() =>
                   this.dispatchEvent(
                     new CustomEvent("activate-equalizer", { detail: { id: equalizer.id } }),
@@ -160,6 +168,10 @@ export class DspPanel extends LitElement {
     `;
   }
 
+  private isActivating(id: number | null): boolean {
+    return this.activatingEqualizer !== null && this.activatingEqualizer.id === id;
+  }
+
   private renderLiveSimulationOption(id: LiveSimulationId): TemplateResult {
     const selected = id === this.liveSimulation;
     return html`
@@ -167,6 +179,7 @@ export class DspPanel extends LitElement {
         type="button"
         class="option ${selected ? "selected" : ""}"
         aria-pressed=${selected}
+        aria-busy=${id === this.pendingLiveSimulation}
         @click=${() =>
           this.dispatchEvent(new CustomEvent("live-simulation-change", { detail: { id } }))}
       >

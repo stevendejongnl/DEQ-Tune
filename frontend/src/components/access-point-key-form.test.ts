@@ -84,4 +84,22 @@ describe("access-point-key-form", () => {
     expect(isValidAccessPointKey("short")).toBe(false);
     expect(isValidAccessPointKey("eight ch")).toBe(true);
   });
+
+  it("shows the loader on Save while the Pi works on the key", async () => {
+    const api = piWithAccessPoint();
+    let release = () => {};
+    api.hold = new Promise((resolve) => (release = resolve));
+    const element = await mount(api);
+    await typeInto(element, "key", "a much better key");
+    await typeInto(element, "repeated-key", "a much better key");
+
+    saveButton(element).click();
+    await element.updateComplete;
+    expect(saveButton(element).getAttribute("aria-busy")).toBe("true");
+
+    release();
+    await new Promise((resolve) => setTimeout(resolve));
+    await element.updateComplete;
+    expect(saveButton(element).getAttribute("aria-busy")).toBe("false");
+  });
 });

@@ -157,4 +157,14 @@ describe("dsp-panel", () => {
     expect(tiles(element)[3].textContent).toContain("Dutch hardcore");
     expect(element.shadowRoot!.textContent).toContain("Konzerthalle");
   });
+
+  it("shows the loader on the EQ that waits on the Pi", async () => {
+    const element = await mount(null);
+
+    element.activatingEqualizer = { id: null };
+    await element.updateComplete;
+
+    expect(tiles(element)[0].getAttribute("aria-busy")).toBe("true");
+    expect(tiles(element)[1].getAttribute("aria-busy")).toBe("false");
+  });
 });

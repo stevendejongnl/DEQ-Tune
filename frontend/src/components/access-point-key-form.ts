@@ -5,6 +5,7 @@ import type { AccessPointDto } from "../dto/profile.dto.ts";
 import type { Locale } from "../i18n/locale.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import { accessPointKeyFormStyles } from "./access-point-key-form.styles.ts";
+import { busyStyles } from "./busy.styles.ts";
 import { isValidNetwork, wifiErrorMessage } from "./wifi-settings.ts";
 
 /** WPA2's rules, with no open network: the access point always has a key. */
@@ -21,7 +22,7 @@ export function isValidAccessPointKey(key: string): boolean {
  */
 @customElement("access-point-key-form")
 export class AccessPointKeyForm extends LitElement {
-  static override styles = accessPointKeyFormStyles;
+  static override styles = [accessPointKeyFormStyles, busyStyles];
 
   @property({ attribute: false }) api: Pick<WifiApi, "setAccessPointKey"> | undefined;
   @property({ type: String }) locale: Locale = "en";
@@ -47,7 +48,7 @@ export class AccessPointKeyForm extends LitElement {
           <input name="repeated-key" type="password" autocomplete="new-password" .value=${this.repeatedKey}
             @input=${(inputEvent: InputEvent) => (this.repeatedKey = (inputEvent.target as HTMLInputElement).value)} />
         </label>
-        <button type="submit" class="save" ?disabled=${!canSave}>${strings.accessPointSave}</button>
+        <button type="submit" class="save" ?disabled=${!canSave} aria-busy=${this.isBusy}>${strings.accessPointSave}</button>
       </form>
       ${this.message ? html`<p class="message" role="status">${this.message}</p>` : nothing}
     `;

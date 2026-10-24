@@ -12,6 +12,8 @@ const DEFAULT_ACCESS_POINT_KEY = "deq-tune-bridge";
 export class FakeWifiApi implements WifiApi {
   wifi: WifiDto;
   failWith: Error | null = null;
+  /** While set, every call waits for it, so a test sees a request in flight. */
+  hold: Promise<void> | null = null;
   savedPasswords: string[] = [];
   joinRequests = 0;
   /** The access point's name and key, or null for a Pi without one. */
@@ -23,11 +25,13 @@ export class FakeWifiApi implements WifiApi {
   }
 
   async readWifi(): Promise<WifiDto> {
+    await this.hold;
     this.throwIfFailing();
     return this.wifi;
   }
 
   async saveWifiNetwork(ssid: string, password: string): Promise<WifiDto> {
+    await this.hold;
     this.throwIfFailing();
     this.savedPasswords.push(password);
     this.wifi = { ...this.wifi, saved: [...this.wifi.saved, { ssid, connected: false }] };
@@ -35,22 +39,26 @@ export class FakeWifiApi implements WifiApi {
   }
 
   async forgetWifiNetwork(ssid: string): Promise<WifiDto> {
+    await this.hold;
     this.throwIfFailing();
     this.wifi = { ...this.wifi, saved: this.wifi.saved.filter((network) => network.ssid !== ssid) };
     return this.wifi;
   }
 
   async requestWifiJoin(): Promise<void> {
+    await this.hold;
     this.throwIfFailing();
     this.joinRequests += 1;
   }
 
   async readAccessPoint(): Promise<AccessPointDto> {
+    await this.hold;
     this.throwIfFailing();
     return this.accessPointRead();
   }
 
   async setAccessPointKey(key: string): Promise<AccessPointDto> {
+    await this.hold;
     this.throwIfFailing();
     if (this.accessPoint !== null) {
       this.accessPoint = { ...this.accessPoint, key };

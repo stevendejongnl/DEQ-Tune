@@ -7,6 +7,7 @@ import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import { groupFactoryProfiles, type CarModelGroup } from "../factory-groups.ts";
 import { autoFocus } from "./auto-focus.ts";
 import { profileListStyles } from "./profile-list.styles.ts";
+import { busyStyles } from "./busy.styles.ts";
 
 function renderSearchIcon(): TemplateResult {
   return html`
@@ -17,6 +18,9 @@ function renderSearchIcon(): TemplateResult {
   `;
 }
 
+
+/** A profile action that waits on the Pi. */
+export type ProfileAction = "save-unit" | "create" | "save-draft";
 /**
  * The profile list. The sidebar shows your own profiles and the presets you
  * starred. The library holds every preset, grouped by car model, with a
@@ -34,7 +38,7 @@ function isFavoriteGroup(group: CarModelGroup): boolean {
 
 @customElement("profile-list")
 export class ProfileList extends LitElement {
-  static override styles = profileListStyles;
+  static override styles = [profileListStyles, busyStyles];
 
   @property({ type: Array }) profiles: ProfileDto[] = [];
   @property({ type: Number }) selectedId: number | null = null;
@@ -43,6 +47,8 @@ export class ProfileList extends LitElement {
   @property({ type: Boolean }) unitConnected = false;
   /** The profile the unit plays. Its row carries an Active tag. */
   @property({ type: Number }) activeProfileId: number | null = null;
+  /** The profile action that waits on the Pi. Its button shows the loader. */
+  @property({ type: String }) busyAction: ProfileAction | null = null;
 
   @state() private search = "";
   @state() private openMenuId: number | null = null;
@@ -109,6 +115,8 @@ export class ProfileList extends LitElement {
                   <button
                     type="button"
                     class="head-action save-unit-tune"
+                    aria-busy=${this.busyAction === "save-unit"}
+                    ?disabled=${this.busyAction !== null}
                     @click=${() => this.dispatchEvent(new CustomEvent("save-unit-profile"))}
                   >
                     ${strings.saveUnitTune}
@@ -118,6 +126,8 @@ export class ProfileList extends LitElement {
             <button
               type="button"
               class="head-action new-profile"
+              aria-busy=${this.busyAction === "create"}
+              ?disabled=${this.busyAction !== null}
               @click=${() => this.dispatchEvent(new CustomEvent("create-profile"))}
             >
               + ${strings.newProfile}

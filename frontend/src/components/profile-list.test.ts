@@ -295,4 +295,15 @@ describe("profile-list", () => {
     expect(element.shadowRoot!.querySelector(".open-library")).not.toBeNull();
     expect(element.shadowRoot!.querySelector('input[type="search"]')).toBeNull();
   });
+
+  it("shows the loader on New profile while the Pi creates it", async () => {
+    const element = await mount();
+
+    element.busyAction = "create";
+    await element.updateComplete;
+
+    const button = element.shadowRoot!.querySelector(".new-profile") as HTMLButtonElement;
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(button.disabled).toBe(true);
+  });
 });

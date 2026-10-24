@@ -146,4 +146,21 @@ describe("isValidNetwork", () => {
   ])("%s with %s is %s", (ssid, password, expected) => {
     expect(isValidNetwork(ssid, password)).toBe(expected);
   });
+
+  it("shows the loader on the one Forget that runs", async () => {
+    const api = homeAndCar();
+    const element = await mountOpen(api);
+    let release = () => {};
+    api.hold = new Promise((resolve) => (release = resolve));
+
+    forgetButton(element, "Pixel").click();
+    await element.updateComplete;
+
+    expect(forgetButton(element, "Pixel").getAttribute("aria-busy")).toBe("true");
+    expect(forgetButton(element, "CloudSuite").getAttribute("aria-busy")).toBe("false");
+    release();
+    await new Promise((resolve) => setTimeout(resolve));
+    await element.updateComplete;
+    expect(shadow(element).querySelector("[aria-busy=true]")).toBeNull();
+  });
 });

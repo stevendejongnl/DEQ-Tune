@@ -34,6 +34,9 @@ export interface EqualizerLibraryHooks {
  */
 export class EqualizerLibraryController implements ReactiveController {
   equalizers: EqualizerDto[] = [];
+  /** The EQ whose activation waits on the Pi (`id` null for No EQ), or
+   * null while none waits. Its tile shows the loader. */
+  activating: { id: number | null } | null = null;
   private draft: EqualizerDraft | null = null;
   private creatingCopy = false;
   private unsavedEdit: { id: number; gains?: number[]; name?: string } | null = null;
@@ -74,10 +77,15 @@ export class EqualizerLibraryController implements ReactiveController {
   }
 
   async activate(id: number | null): Promise<void> {
+    this.activating = { id };
+    this.host.requestUpdate();
     try {
       this.hooks.setActive(await this.hooks.api().activateEqualizer(id));
     } catch {
       // The backend is out of reach. The status stays as it was.
+    } finally {
+      this.activating = null;
+      this.host.requestUpdate();
     }
   }
 
