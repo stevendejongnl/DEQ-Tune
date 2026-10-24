@@ -47,7 +47,6 @@ import "./eq-editor.ts";
 import "./speaker-panel.ts";
 import "./bridge-notices.ts";
 import "./device-status.ts";
-import "./locale-switcher.ts";
 import "./dsp-panel.ts";
 import "./audio-controls.ts";
 import "./profile-activation.ts";
@@ -135,7 +134,7 @@ function editBadgeText(strings: UiStrings, editCount: number): string {
 /**
  * Top-level page: loads profiles from the backend and wires the
  * profile sidebar, EQ editor, speaker panel, DSP and audio panels,
- * device status pill, and language switcher together.
+ * device status pill, and settings page together.
  *
  * One shell serves three layouts. The sidebar is permanent on desktop,
  * a drawer on tablet, and a bottom sheet on the phone. The phone layout
@@ -205,6 +204,10 @@ export class AppRoot extends LitElement {
   @state() private audioState: AudioStateDto | null = null;
   @state() private audioSourceNames: readonly string[] = [];
   @state() private audioBusy = false;
+  /** A drag sends a new volume while the last one is still on its way.
+   * Only the newest one waiting matters, so it replaces any older one. */
+  private queuedVolumeDb: number | null = null;
+  private sendingVolume = false;
   /** Whether the DEQ link is up, as `device-status` last polled it. */
   @state() private unitConnected = false;
   @state() private bridgeReachable = true;
@@ -945,6 +948,11 @@ export class AppRoot extends LitElement {
     if (!this.unitConnected) {
       return;
     }
+    if (this.sendingVolume) {
+      this.queuedVolumeDb = volumeDb;
+      return;
+    }
+    this.sendingVolume = true;
     this.audioBusy = true;
     try {
       this.audioState = await this.api.setVolume(volumeDb);
@@ -953,6 +961,12 @@ export class AppRoot extends LitElement {
       // known state on its own next render.
     } finally {
       this.audioBusy = false;
+      this.sendingVolume = false;
+    }
+    const queued = this.queuedVolumeDb;
+    this.queuedVolumeDb = null;
+    if (queued !== null && queued !== volumeDb) {
+      await this.changeVolume(queued);
     }
   }
 

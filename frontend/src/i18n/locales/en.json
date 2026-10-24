@@ -262,5 +262,7 @@
   "communityPresent": "In your library already.",
   "communityContribute": "Share your own profile or EQ",
   "systemUnitSection": "DEQ unit",
-  "systemUnitFirmware": "Firmware"
+  "systemUnitFirmware": "Firmware",
+  "audioVolumeDown": "Volume down",
+  "audioVolumeUp": "Volume up"
 }

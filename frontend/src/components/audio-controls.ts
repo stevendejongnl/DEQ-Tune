@@ -1,9 +1,18 @@
 import { html, LitElement, type PropertyValues, type TemplateResult } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import type { AudioStateDto } from "../dto/profile.dto.ts";
 import type { Locale } from "../i18n/locale.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import { audioControlsStyles } from "./audio-controls.styles.ts";
+import type { CancelFunction, ScheduleFunction } from "./device-status.ts";
+
+/** The unit's volume range, in dB. */
+export const VOLUME_MIN_DB = -80;
+export const VOLUME_MAX_DB = 10;
+
+/** How long the slider must rest before a drag sends its value. Each send
+ * is a USB write, so a drag sends a few values and not one per pixel. */
+export const VOLUME_SEND_DELAY_MS = 300;
 
 /** The wire name is what the unit speaks and what this emits, but not
  * what a driver should read. Only the three names `/options` ever
@@ -55,7 +64,10 @@ function muteLabel(strings: UiStrings, state: AudioStateDto): string {
  *
  * Presentational, like the other panels: it emits `volume-change`
  * ({ volumeDb }) and `audio-source-change` ({ name }), and app-root does
- * the talking.
+ * the talking. A drag shows its value at once, and sends it when the
+ * slider rests for `VOLUME_SEND_DELAY_MS` or the finger lets go. It
+ * depends on a schedule and a cancel function for that delay, which a
+ * test replaces.
  */
 @customElement("audio-controls")
 export class AudioControls extends LitElement {
@@ -72,8 +84,17 @@ export class AudioControls extends LitElement {
    * so the panel must not say that the unit is down. */
   @property({ type: Boolean }) bridgeReachable = true;
 
+  @property({ attribute: false }) scheduleFunction: ScheduleFunction = (action, delayMs) =>
+    setTimeout(action, delayMs);
+  @property({ attribute: false }) cancelFunction: CancelFunction = (handle) =>
+    clearTimeout(handle as ReturnType<typeof setTimeout>);
+
   /** True while a finger or pointer holds the volume slider. */
   private holdingSlider = false;
+  /** The value under the finger, shown before the unit confirms it. */
+  @state() private draftVolumeDb: number | null = null;
+  private sendHandle: unknown = null;
+  private lastSentVolumeDb: number | null = null;
 
   /** A poll hands over a new state object every few seconds. Re-rendering
    * mid-drag would snap the thumb back to the last polled value under the
@@ -86,6 +107,59 @@ export class AudioControls extends LitElement {
     this.holdingSlider = holding;
     if (!holding) {
       this.requestUpdate();
+    }
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.cancelSend();
+  }
+
+  /** A newly polled state replaces the draft once nothing waits to send. */
+  protected override willUpdate(changed: PropertyValues): void {
+    if (changed.has("state") && !this.holdingSlider && this.sendHandle === null) {
+      this.draftVolumeDb = null;
+    }
+  }
+
+  private shownVolumeDb(state: AudioStateDto): number {
+    return this.draftVolumeDb ?? state.volume_db;
+  }
+
+  /** The slider moved: show the value, and send it once the slider rests. */
+  private dragVolume(volumeDb: number): void {
+    this.draftVolumeDb = volumeDb;
+    this.cancelSend();
+    this.sendHandle = this.scheduleFunction(() => {
+      this.sendHandle = null;
+      this.sendVolume(volumeDb);
+    }, VOLUME_SEND_DELAY_MS);
+  }
+
+  /** The finger let go, or a step button: send now. */
+  private commitVolume(volumeDb: number): void {
+    this.draftVolumeDb = volumeDb;
+    this.cancelSend();
+    this.sendVolume(volumeDb);
+  }
+
+  private stepVolume(state: AudioStateDto, stepDb: number): void {
+    const next = Math.min(VOLUME_MAX_DB, Math.max(VOLUME_MIN_DB, this.shownVolumeDb(state) + stepDb));
+    this.commitVolume(next);
+  }
+
+  private sendVolume(volumeDb: number): void {
+    if (volumeDb === this.lastSentVolumeDb) {
+      return;
+    }
+    this.lastSentVolumeDb = volumeDb;
+    this.emit("volume-change", { volumeDb });
+  }
+
+  private cancelSend(): void {
+    if (this.sendHandle !== null) {
+      this.cancelFunction(this.sendHandle);
+      this.sendHandle = null;
     }
   }
 
@@ -114,41 +188,40 @@ export class AudioControls extends LitElement {
 
   private renderState(strings: ReturnType<typeof uiStrings>): TemplateResult {
     const state = this.state as AudioStateDto;
+    const off = !this.connected;
+    const volumeDb = this.shownVolumeDb(state);
+    const fill = ((volumeDb - VOLUME_MIN_DB) / (VOLUME_MAX_DB - VOLUME_MIN_DB)) * 100;
     return html`
-      <dl class="readout">
-        <dt>${strings.audioSourceLabel}</dt>
-        <dd>${sourceLabel(strings, state.source_mode)}</dd>
-        <dt>${strings.audioVolumeLabel}</dt>
-        <dd>${state.volume_db} dB</dd>
-        <dt>${strings.audioMutedLabel}</dt>
-        <dd class=${state.muted ? "warn" : ""}>${muteLabel(strings, state)}</dd>
-        <dt>${strings.audioDrivingLabel}</dt>
-        <dd>${state.driving ? strings.audioDrivingYes : strings.audioDrivingNo}</dd>
-      </dl>
-
-      <label class="control">
-        <span>${strings.audioVolumeLabel}</span>
+      <div class="volume">
+        <span class="label">${strings.audioVolumeLabel}</span>
+        <div class="stepper">
+          <button type="button" class="step" aria-label=${strings.audioVolumeDown} ?disabled=${off}
+            @click=${() => this.stepVolume(state, -1)}>−</button>
+          <output class="volume-readout">${volumeDb} <span class="unit">dB</span></output>
+          <button type="button" class="step" aria-label=${strings.audioVolumeUp} ?disabled=${off}
+            @click=${() => this.stepVolume(state, 1)}>+</button>
+        </div>
         <input
           type="range"
-          min="-80"
-          max="10"
+          min=${VOLUME_MIN_DB}
+          max=${VOLUME_MAX_DB}
           step="1"
-          .value=${String(state.volume_db)}
+          style="--fill: ${fill}%"
+          aria-label=${strings.audioVolumeLabel}
+          .value=${String(volumeDb)}
+          ?disabled=${off}
           @pointerdown=${() => this.setHolding(true)}
           @pointerup=${() => this.setHolding(false)}
           @pointercancel=${() => this.setHolding(false)}
-          ?disabled=${this.busy || !this.connected}
-          @change=${(event: Event) =>
-            this.emit("volume-change", {
-              volumeDb: Number((event.target as HTMLInputElement).value),
-            })}
+          @input=${(event: Event) => this.dragVolume(Number((event.target as HTMLInputElement).value))}
+          @change=${(event: Event) => this.commitVolume(Number((event.target as HTMLInputElement).value))}
         />
-      </label>
+      </div>
 
-      <label class="control">
-        <span>${strings.audioSourceLabel}</span>
+      <label class="source">
+        <span class="label">${strings.audioSourceLabel}</span>
         <select
-          ?disabled=${this.busy || !this.connected}
+          ?disabled=${this.busy || off}
           @change=${(event: Event) =>
             this.emit("audio-source-change", {
               name: (event.target as HTMLSelectElement).value,
@@ -162,6 +235,13 @@ export class AudioControls extends LitElement {
           )}
         </select>
       </label>
+
+      <dl class="readout">
+        <dt>${strings.audioMutedLabel}</dt>
+        <dd class=${state.muted ? "warn" : ""}>${muteLabel(strings, state)}</dd>
+        <dt>${strings.audioDrivingLabel}</dt>
+        <dd>${state.driving ? strings.audioDrivingYes : strings.audioDrivingNo}</dd>
+      </dl>
     `;
   }
 

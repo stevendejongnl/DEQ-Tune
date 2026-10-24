@@ -939,6 +939,23 @@ describe("app-root", () => {
       expect(schedule.pending).not.toBeNull();
     });
 
+    it("sends only the newest volume that waits while one is on its way", async () => {
+      const api = new FakeProfileApi([starredPreset({ id: 1 })]);
+      api.device.startConnected();
+      const element = await mountWithSchedule(api, new ManualSchedule());
+      const controls = queryAudioControls(element);
+      const sendVolume = (volumeDb: number) =>
+        controls.dispatchEvent(new CustomEvent("volume-change", { detail: { volumeDb }, bubbles: true, composed: true }));
+
+      sendVolume(-10);
+      sendVolume(-7);
+      sendVolume(-3);
+      await flushMicrotasks();
+      await flushMicrotasks();
+
+      expect(api.device.volumeWrites).toEqual([-10, -3]);
+    });
+
     it("skips the read while the phone shows another tab, and reads on opening audio", async () => {
       const api = new FakeProfileApi([starredPreset({ id: 1 })]);
       api.device.startConnected();

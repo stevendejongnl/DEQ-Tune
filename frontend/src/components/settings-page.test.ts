@@ -60,6 +60,25 @@ describe("settings-page", () => {
     expect(page.shadowRoot!.querySelector(`.card ${tag}`)).not.toBeNull();
   });
 
+  it("ignores a tap that ends a sideways swipe of the section list", async () => {
+    const page = await mount("updates");
+    let clock = 1000;
+    page.now = () => clock;
+    const sections: string[] = [];
+    page.addEventListener("section-change", (event) =>
+      sections.push((event as CustomEvent<{ section: string }>).detail.section),
+    );
+    const buttons = page.shadowRoot!.querySelectorAll<HTMLButtonElement>(".sections button");
+
+    page.shadowRoot!.querySelector(".sections")!.dispatchEvent(new Event("scroll"));
+    clock += 50;
+    buttons[1].click();
+    clock += 200;
+    buttons[2].click();
+
+    expect(sections).toEqual(["backup"]);
+  });
+
   it("asks for another section", async () => {
     const page = await mount("updates");
     const sections: string[] = [];

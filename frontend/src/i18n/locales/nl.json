@@ -262,5 +262,7 @@
   "communityPresent": "Staat al in je bibliotheek.",
   "communityContribute": "Deel je eigen profiel of EQ",
   "systemUnitSection": "DEQ-unit",
-  "systemUnitFirmware": "Firmware"
+  "systemUnitFirmware": "Firmware",
+  "audioVolumeDown": "Zachter",
+  "audioVolumeUp": "Harder"
 }

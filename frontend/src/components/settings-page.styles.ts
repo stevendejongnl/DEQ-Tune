@@ -21,6 +21,21 @@ export const settingsPageStyles = css`
     @media (max-width: 720px) {
       flex-direction: row;
       overflow-x: auto;
+      scroll-behavior: smooth;
+      scroll-snap-type: x proximity;
+      scroll-padding-inline: 16px;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+      /* The edges fade, so a cut-off section reads as "more this way". */
+      mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+      button {
+        scroll-snap-align: start;
+        flex-shrink: 0;
+      }
     }
 
     button {

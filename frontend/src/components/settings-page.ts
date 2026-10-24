@@ -1,4 +1,4 @@
-import { html, LitElement, type TemplateResult } from "lit";
+import { html, LitElement, type PropertyValues, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { BridgeSystemApi, LibraryApi, WifiApi } from "../api/client.ts";
 import { CommunityLibraryClient, type CommunityLibraryApi } from "../api/community-library.ts";
@@ -75,10 +75,30 @@ export class SettingsPage extends LitElement {
   @property({ attribute: false }) phoneApp: PhoneAppApi | null = phoneAppApi();
   @property({ attribute: false }) community: CommunityLibraryApi = new CommunityLibraryClient();
 
+  /** A tap within this time after the section list scrolled sideways
+   * ends that swipe, so it does not open a section. */
+  static readonly TAP_AFTER_SCROLL_MS = 150;
+
+  /** The clock, which a test replaces. */
+  @property({ attribute: false }) now: () => number = () => performance.now();
+
+  private lastNavScrollAt = Number.NEGATIVE_INFINITY;
+
+  /** On a phone the list scrolls sideways. The chosen section scrolls into view. */
+  protected override updated(changed: PropertyValues): void {
+    if (changed.has("section")) {
+      const chosen = this.shadowRoot?.querySelector<HTMLElement>('.sections button[aria-pressed="true"]');
+      if (typeof chosen?.scrollIntoView === "function") {
+        chosen.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      }
+    }
+  }
+
   override render() {
     const strings = uiStrings(this.locale);
     return html`
-      <nav class="sections" aria-label=${strings.settingsTitle}>
+      <nav class="sections" aria-label=${strings.settingsTitle}
+        @scroll=${() => (this.lastNavScrollAt = this.now())}>
         ${visibleSections(this.phoneApp !== null).map(
           (section) => html`
             <button type="button" aria-pressed=${this.section === section}
@@ -141,6 +161,9 @@ export class SettingsPage extends LitElement {
   }
 
   private selectSection(section: SettingsSection): void {
+    if (this.now() - this.lastNavScrollAt < SettingsPage.TAP_AFTER_SCROLL_MS) {
+      return;
+    }
     this.dispatchEvent(new CustomEvent("section-change", { detail: { section } }));
   }
 }
