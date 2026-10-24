@@ -88,7 +88,7 @@ describe("system-panel", () => {
     expect(element.freshness).toBe("live");
   });
 
-  it("says it is checking, not cached, until the first read answers", async () => {
+  it("says it is checking, not offline, until the first read answers", async () => {
     const api = new FakeBridgeSystemApi();
     const release = api.holdAnswers();
 
@@ -96,7 +96,7 @@ describe("system-panel", () => {
 
     expect(element.freshness).toBe("checking");
     expect(textOf(element)).toContain("State checking…");
-    expect(textOf(element)).not.toContain("cached");
+    expect(textOf(element)).not.toContain("offline");
 
     release();
     await flushMicrotasks();
@@ -104,14 +104,14 @@ describe("system-panel", () => {
     expect(element.freshness).toBe("live");
   });
 
-  it("calls the page cached, and says why, when the Pi does not answer", async () => {
+  it("calls the page offline, and says why, when the Pi does not answer", async () => {
     const api = new FakeBridgeSystemApi();
     api.unreachable = true;
 
     const { element } = await mountOpen(api);
 
-    expect(element.freshness).toBe("cached");
-    expect(textOf(element)).toContain("This page is the copy that your browser cached.");
+    expect(element.freshness).toBe("offline");
+    expect(textOf(element)).toContain("The page shows what it loaded before.");
   });
 
   it("offers a reload when the Pi serves another build", async () => {

@@ -3,8 +3,8 @@ import { readPageFreshness } from "./page-freshness.ts";
 import { sampleBridgeSystem } from "./components/testing/fake-bridge-system-api.ts";
 
 describe("readPageFreshness", () => {
-  it("is cached when the Pi does not answer", () => {
-    expect(readPageFreshness(null, "abc")).toBe("cached");
+  it("is offline when the Pi does not answer", () => {
+    expect(readPageFreshness(null, "abc")).toBe("offline");
   });
 
   it("is live when the Pi serves this build", () => {

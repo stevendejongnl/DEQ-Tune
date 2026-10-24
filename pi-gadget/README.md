@@ -22,7 +22,6 @@ car, so the car app carries the REST API over BLE.
 | `deq_ble_bridge.py`, `deq-ble-bridge.service` | The REST API over BLE GATT, for the car app | `/usr/local/bin/` |
 | `deq-access-point.sh`, `.service`, `configure-access-point.sh` | A Wi-Fi access point beside the client link | `/usr/local/bin/` |
 | `deq_portal.py`, `deq-portal.service`, `deq-portal-dns.conf` | A captive portal that opens the app on a phone | `/usr/local/bin/` |
-| `deq_tls_proxy.py`, `deq-tls-proxy.service` | TLS on port 8443, for a PWA install | `/home/deq/deq-tune/pi-gadget/` |
 | `deq_wifi_networks.py` | The root helper behind the web app's Wi-Fi dialog | `/usr/local/bin/deq-wifi-networks` |
 | `deq-wifi-recover.sh`, `.service`, `.timer` | Brings a lost client link back | `/usr/local/bin/` |
 | `deq-heartbeat.sh`, `deq-session-record.sh` | Plain log files that outlive a brown-out | `/usr/local/bin/` |

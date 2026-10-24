@@ -88,4 +88,34 @@ export const settingsPageStyles = css`
     font-size: 13px;
     color: var(--color-muted-foreground);
   }
+  .android-language {
+    margin: 12px 0 0;
+  }
+  .translations {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-divider);
+
+    h3 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      color: var(--color-text-2);
+    }
+    p {
+      margin: 0;
+    }
+  }
+  .links {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 14px;
+
+    a {
+      color: var(--color-accent);
+    }
+  }
 `;

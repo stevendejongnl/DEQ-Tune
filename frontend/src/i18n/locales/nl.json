@@ -146,11 +146,10 @@
   "wifiInvalid": "Controleer de netwerknaam. Een wachtwoord heeft 8 tot 63 tekens.",
   "wifiFailed": "De Pi gaf geen antwoord. Probeer het opnieuw.",
   "pageLive": "live",
-  "pageCached": "cache",
   "pageOutdated": "verouderd",
   "systemOpenLabel": "Toon de systeeminformatie van de Pi",
   "systemTitle": "Pi-systeem",
-  "systemUnreachable": "De Pi geeft geen antwoord. Deze pagina is de kopie uit de cache van je browser.",
+  "systemUnreachable": "De Pi geeft geen antwoord. De pagina toont wat hij eerder laadde.",
   "systemPageSection": "Deze pagina",
   "systemPageState": "Status",
   "systemPageBuild": "Build van de pagina",
@@ -265,5 +264,11 @@
   "systemUnitFirmware": "Firmware",
   "audioVolumeDown": "Zachter",
   "audioVolumeUp": "Harder",
-  "pageChecking": "controleren…"
+  "pageChecking": "controleren…",
+  "pageOffline": "offline",
+  "settingsLanguageAndroid": "In de auto-app verandert de Android-instelling App-talen hem ook.",
+  "settingsTranslationsTitle": "Vertalingen",
+  "settingsTranslationsText": "Vrijwilligers vertalen de app op Weblate. Sommige talen zijn nog niet af: tekst die nog niemand vertaalde staat in het Engels. Je kunt helpen, zonder GitHub-account en zonder code.",
+  "settingsTranslateLink": "Help vertalen op Weblate",
+  "settingsTranslatingGuideLink": "Hoe vertalen werkt"
 }

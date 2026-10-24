@@ -26,10 +26,10 @@ describe("device-pill", () => {
     document.body.innerHTML = "";
   });
 
-  it("calls the page cached when no bridge answers", async () => {
+  it("calls the page offline when no bridge answers", async () => {
     const element = await mount({ linkState: "no-bridge" });
 
-    expect(freshnessOf(element)).toBe("cached");
+    expect(freshnessOf(element)).toBe("offline");
   });
 
   it("calls the page live when the bridge answers, with or without the unit", async () => {
@@ -40,11 +40,11 @@ describe("device-pill", () => {
     expect(freshnessOf(connected)).toBe("live");
   });
 
-  it("keeps the cached tag on a phone, where the label is gone", async () => {
+  it("keeps the offline tag on a phone, where the label is gone", async () => {
     const element = await mount({ linkState: "no-bridge", layout: "phone" });
 
     expect(labelOf(element)).toBe("");
-    expect(freshnessOf(element)).toBe("cached");
+    expect(freshnessOf(element)).toBe("offline");
   });
 
   it("names the bridge when the bridge is what cannot be reached", async () => {

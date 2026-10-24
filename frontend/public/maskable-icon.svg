@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28">
-  <rect width="28" height="28" fill="#12110f"/>
-  <!-- The mark at 70%: its corners stay inside the maskable safe zone, a circle of radius 40%. -->
-  <g transform="translate(4.2 4.2) scale(0.7)">
-    <rect x="1" y="1" width="26" height="26" rx="7" fill="none" stroke="#f2a53a" stroke-width="1.5"/>
-    <path d="M6 17 L9 12 L12 15 L15 8 L18 16 L22 11" fill="none" stroke="#f2a53a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  </g>
-</svg>

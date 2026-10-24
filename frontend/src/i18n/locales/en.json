@@ -146,11 +146,10 @@
   "wifiInvalid": "Check the network name. A password has 8 to 63 characters.",
   "wifiFailed": "The Pi did not answer. Try again.",
   "pageLive": "live",
-  "pageCached": "cached",
   "pageOutdated": "outdated",
   "systemOpenLabel": "Show the Pi's system information",
   "systemTitle": "Pi system",
-  "systemUnreachable": "The Pi does not answer. This page is the copy that your browser cached.",
+  "systemUnreachable": "The Pi does not answer. The page shows what it loaded before.",
   "systemPageSection": "This page",
   "systemPageState": "State",
   "systemPageBuild": "Page build",
@@ -265,5 +264,11 @@
   "systemUnitFirmware": "Firmware",
   "audioVolumeDown": "Volume down",
   "audioVolumeUp": "Volume up",
-  "pageChecking": "checking…"
+  "pageChecking": "checking…",
+  "pageOffline": "offline",
+  "settingsLanguageAndroid": "In the car app, Android's own App languages setting changes it too.",
+  "settingsTranslationsTitle": "Translations",
+  "settingsTranslationsText": "Volunteers translate the app on Weblate. Some languages are not complete yet: text that nobody translated shows in English. You can help, with no account on GitHub and no code.",
+  "settingsTranslateLink": "Help translate on Weblate",
+  "settingsTranslatingGuideLink": "How translating works"
 }

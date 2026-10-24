@@ -42,11 +42,11 @@ export class DevicePill extends LitElement {
     `;
   }
 
-  /** Whether the page is live from the Pi or the copy the browser cached.
-   * No bridge means no server answered, so the service worker served it. */
+  /** Whether the Pi answers this page, or the page is offline: no bridge
+   * means that no server answered, and the page shows what it had. */
   private renderFreshness(strings: UiStrings): TemplateResult {
-    const isCached = this.linkState === "no-bridge";
-    return html`<span class="freshness">${isCached ? strings.pageCached : strings.pageLive}</span>`;
+    const isOffline = this.linkState === "no-bridge";
+    return html`<span class="freshness">${isOffline ? strings.pageOffline : strings.pageLive}</span>`;
   }
 
   private renderLabel(strings: UiStrings): TemplateResult {

@@ -104,7 +104,7 @@ export class SystemPanel extends LitElement {
     const stateLabel = {
       checking: strings.pageChecking,
       live: strings.pageLive,
-      cached: strings.pageCached,
+      offline: strings.pageOffline,
       outdated: strings.pageOutdated,
     }[freshness];
     return html`
@@ -119,7 +119,7 @@ export class SystemPanel extends LitElement {
             ? nothing
             : html`<dt>${strings.systemServedBuild}</dt><dd>${this.system.frontend_build ?? UNKNOWN}</dd>`}
         </dl>
-        ${this.hasRead && freshness === "cached" ? html`<p class="hint">${strings.systemUnreachable}</p>` : nothing}
+        ${this.hasRead && freshness === "offline" ? html`<p class="hint">${strings.systemUnreachable}</p>` : nothing}
         ${freshness === "outdated"
           ? html`<p class="hint">
               ${strings.systemOutdatedHint}
@@ -215,7 +215,7 @@ export class SystemPanel extends LitElement {
     try {
       this.system = await this.api.readBridgeSystem();
     } catch {
-      // The Pi is out of reach. The page is then the cached copy.
+      // The Pi is out of reach. The page is then offline.
       this.system = null;
     }
     this.hasRead = true;

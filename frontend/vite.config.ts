@@ -1,6 +1,5 @@
 import ttsc from "@ttsc/unplugin/vite";
 import { defineConfig } from "vitest/config";
-import { VitePWA } from "vite-plugin-pwa";
 import { execSync } from "node:child_process";
 import type { Plugin } from "vite";
 
@@ -20,7 +19,7 @@ const BUILD_ID = makeBuildId();
 
 /** Writes the build id beside the page. The backend reads the file and
  * reports it, and the app compares it with the id it was built with. A
- * page whose id differs is a cached copy of an older build. */
+ * page whose id differs is an older build that stayed open. */
 function buildIdFile(): Plugin {
   return {
     name: "deq-build-id",
@@ -37,49 +36,6 @@ export default defineConfig({
   plugins: [
     ttsc(),
     buildIdFile(),
-    VitePWA({
-      registerType: "autoUpdate",
-      includeAssets: ["favicon.svg"],
-      manifest: {
-        name: "DEQ Tune",
-        short_name: "DEQ Tune",
-        description: "Pioneer DEQ equalizer profiles, in the browser.",
-        theme_color: "#12110f",
-        background_color: "#12110f",
-        display: "standalone",
-        start_url: "/",
-        icons: [
-          { src: "pwa-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: "pwa-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-          { src: "maskable-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
-          { src: "maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-        ],
-      },
-      workbox: {
-        // The page comes from the bridge whenever it answers, and from the
-        // cache only when it does not. A precached index.html would win over
-        // the network, and a person would see the old build after each
-        // update. So the page stays out of the precache, and a navigation
-        // asks the network first. The hashed files under /assets stay
-        // precached, because a file there never changes under its name.
-        globIgnores: ["**/index.html"],
-        navigateFallback: null,
-        skipWaiting: true,
-        clientsClaim: true,
-        runtimeCaching: [
-          {
-            // The backend API is live data (users edit profiles). Never serve it from cache.
-            urlPattern: /^\/api\//,
-            handler: "NetworkOnly",
-          },
-          {
-            urlPattern: ({ request }) => request.mode === "navigate",
-            handler: "NetworkFirst",
-            options: { cacheName: "deq-tune-page", networkTimeoutSeconds: 4 },
-          },
-        ],
-      },
-    }),
   ],
   // The ttsc transform writes imports of typia's deep internals, so Vite's
   // first scan cannot see them: it discovers them mid-run, re-optimizes,

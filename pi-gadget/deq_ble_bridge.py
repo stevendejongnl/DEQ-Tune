@@ -13,7 +13,7 @@ is at 5745 MHz. Bluetooth is the remaining option.
 
 BLE rather than SPP/RFCOMM, for two reasons that are not about this car:
 a browser cannot open an RFCOMM socket (that ruled Bluetooth out for the
-PWA), and a smaller board without
+web app), and a smaller board without
 Classic Bluetooth can still carry BLE. BLE GATT is the only transport
 that serves the native app and a future web frontend.
 

@@ -80,7 +80,7 @@ NO_CACHE = {"Cache-Control": "no-cache"}
 
 
 def revalidate_headers(path: Path) -> dict[str, str]:
-    return NO_CACHE if path.suffix in {".html", ".txt", ".js", ".webmanifest"} else {}
+    return NO_CACHE if path.suffix in {".html", ".txt", ".js"} else {}
 
 
 def register_frontend_routes(app: FastAPI, dist_dir: Path) -> None:

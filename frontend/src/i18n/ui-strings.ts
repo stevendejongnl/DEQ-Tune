@@ -159,6 +159,11 @@ export type UiStrings = {
   backupExported: string;
   backupNotSaved: string;
   undoEqualizerEdit: string;
+  settingsLanguageAndroid: string;
+  settingsTranslationsTitle: string;
+  settingsTranslationsText: string;
+  settingsTranslateLink: string;
+  settingsTranslatingGuideLink: string;
   pageChecking: string;
   audioVolumeDown: string;
   audioVolumeUp: string;
@@ -216,7 +221,7 @@ export type UiStrings = {
   accessPointSave: string;
   accessPointSaved: string;
   pageLive: string;
-  pageCached: string;
+  pageOffline: string;
   pageOutdated: string;
   systemOpenLabel: string;
   systemTitle: string;

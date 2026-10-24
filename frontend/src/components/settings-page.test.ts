@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import "./settings-page.ts";
-import type { SettingsPage, SettingsSection } from "./settings-page.ts";
+import { TRANSLATING_GUIDE_URL, WEBLATE_PROJECT_URL, type SettingsPage, type SettingsSection } from "./settings-page.ts";
 import { FakeCommunityLibrary } from "./testing/fake-community-library.ts";
 import { FakePhoneAppApi } from "./testing/fake-phone-app-api.ts";
 import { updatedPi } from "./testing/fake-updates-api.ts";
@@ -77,6 +77,25 @@ describe("settings-page", () => {
     buttons[2].click();
 
     expect(sections).toEqual(["backup"]);
+  });
+
+  it("links the language section to Weblate and the translation guide", async () => {
+    const page = await mount("language");
+    const links = [...page.shadowRoot!.querySelectorAll<HTMLAnchorElement>(".translations a")];
+
+    expect(links.map((link) => link.href)).toEqual([WEBLATE_PROJECT_URL, TRANSLATING_GUIDE_URL]);
+    expect(page.shadowRoot!.querySelector(".android-language")).toBeNull();
+  });
+
+  it("tells the car app's user about Android's own language setting", async () => {
+    const page = document.createElement("settings-page") as SettingsPage;
+    page.phoneApp = new FakePhoneAppApi();
+    page.community = new FakeCommunityLibrary([]);
+    page.section = "language";
+    document.body.append(page);
+    await page.updateComplete;
+
+    expect(page.shadowRoot!.querySelector(".android-language")!.textContent).toContain("App languages");
   });
 
   it("asks for another section", async () => {

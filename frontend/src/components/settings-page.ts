@@ -1,4 +1,4 @@
-import { html, LitElement, type PropertyValues, type TemplateResult } from "lit";
+import { html, LitElement, nothing, type PropertyValues, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { BridgeSystemApi, LibraryApi, WifiApi } from "../api/client.ts";
 import { CommunityLibraryClient, type CommunityLibraryApi } from "../api/community-library.ts";
@@ -17,6 +17,10 @@ import "./update-settings.ts";
 import type { UpdateRequestState } from "./updates-controller.ts";
 import "./access-point-settings.ts";
 import "./wifi-settings.ts";
+
+/** Where people translate the app, and the guide for it. */
+export const WEBLATE_PROJECT_URL = "https://hosted.weblate.org/projects/deq-tune/";
+export const TRANSLATING_GUIDE_URL = "https://github.com/stevendejongnl/deq-tune/blob/main/TRANSLATING.md";
 
 export type SettingsSection = "phone" | "updates" | "wifi" | "backup" | "community" | "system" | "language";
 
@@ -157,6 +161,15 @@ export class SettingsPage extends LitElement {
             this.dispatchEvent(new CustomEvent("locale-change", { detail: localeEvent.detail, bubbles: true, composed: true }))}
         ></locale-switcher>
       </div>
+      ${this.phoneApp === null ? nothing : html`<p class="hint android-language">${strings.settingsLanguageAndroid}</p>`}
+      <section class="translations">
+        <h3>${strings.settingsTranslationsTitle}</h3>
+        <p class="hint">${strings.settingsTranslationsText}</p>
+        <ul class="links">
+          <li><a href=${WEBLATE_PROJECT_URL} target="_blank" rel="noopener">${strings.settingsTranslateLink}</a></li>
+          <li><a href=${TRANSLATING_GUIDE_URL} target="_blank" rel="noopener">${strings.settingsTranslatingGuideLink}</a></li>
+        </ul>
+      </section>
     `;
   }
 

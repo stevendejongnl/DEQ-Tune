@@ -17,10 +17,9 @@ and it never touches the gadget, the backend or the radio. The DEQ link
 is the thing this project exists for, and a convenience for joining the
 network is not allowed to risk it.
 
-The page cannot install the app, and does not pretend to. A captive
-webview has no browser menu, fires no `beforeinstallprompt`, and usually
-registers no service worker, so the install criteria cannot be met
-there. Its one job is to hand the phone to a real browser with an
+The captive webview is a poor place for the web app: it has no browser
+menu, and Android closes it when the phone leaves the sign-in screen.
+So the page's one job is to hand the phone to a real browser with an
 `intent://` link, which the webview cannot handle itself and so passes
 to Android.
 """
