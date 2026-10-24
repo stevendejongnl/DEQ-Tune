@@ -15,6 +15,7 @@ import { equalizerGains } from "../dto/tuning-data-edits.ts";
 import { FakeWifiApi } from "./testing/fake-wifi-api.ts";
 import { ACCESS_POINT_SETUP_SKIPPED_KEY } from "./access-point-key-controller.ts";
 import type { LocaleStorage } from "../i18n/locale.ts";
+import type { NotificationDock } from "./notification-dock.ts";
 
 /** A preset with a star, so the sidebar shows it. Most tests here select a
  * preset through its sidebar chip. */
@@ -871,7 +872,7 @@ describe("app-root", () => {
       return element;
     }
 
-    function dock(element: AppRoot): HTMLElement {
+    function dock(element: AppRoot): NotificationDock {
       return element.shadowRoot!.querySelector("notification-dock")!;
     }
 
