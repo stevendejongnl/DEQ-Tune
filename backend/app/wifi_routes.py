@@ -13,7 +13,6 @@ from contextlib import contextmanager
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.schemas import (
-    AccessPointKeySaved,
     AccessPointKeyWrite,
     AccessPointRead,
     SavedWifiNetworkRead,
@@ -64,15 +63,14 @@ def read_access_point(networks: WifiNetworks = Depends(get_wifi_networks)) -> Ac
         return access_point_read(networks.access_point())
 
 
-@router.put("/access-point/key", response_model=AccessPointKeySaved)
+@router.put("/access-point/key", response_model=AccessPointRead)
 def set_access_point_key(
     body: AccessPointKeyWrite, networks: WifiNetworks = Depends(get_wifi_networks)
-) -> AccessPointKeySaved:
+) -> AccessPointRead:
+    """Saves a new key. The Pi restarts a few seconds after this reply, so the
+    key applies and the phone loses the Pi for about a minute."""
     with helper_errors_as_http():
-        change = networks.set_access_point_key(body.key)
-    if change is None:
-        raise HTTPException(status_code=404, detail="The Pi has no access point.")
-    return AccessPointKeySaved(**vars(change))
+        return access_point_read(networks.set_access_point_key(body.key))
 
 
 def access_point_read(access_point: AccessPoint | None) -> AccessPointRead:

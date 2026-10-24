@@ -67,15 +67,9 @@ class RecordingRunner:
         self.commands.append(command)
 
 
-def test_a_new_key_restarts_the_pi_after_a_delay_with_no_session() -> None:
+def test_a_new_key_restarts_the_pi_after_a_delay() -> None:
     runner = RecordingRunner()
 
-    assert restart_for_new_key(session_running=False, run_command=runner) is True
+    restart_for_new_key(run_command=runner)
+
     assert runner.commands == [["systemd-run", f"--on-active={REBOOT_DELAY_SECONDS}", "systemctl", "reboot"]]
-
-
-def test_a_new_key_never_restarts_the_pi_during_a_deq_session() -> None:
-    runner = RecordingRunner()
-
-    assert restart_for_new_key(session_running=True, run_command=runner) is False
-    assert runner.commands == []

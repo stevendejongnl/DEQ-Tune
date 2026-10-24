@@ -1,6 +1,6 @@
 import type { WifiApi } from "../../api/client.ts";
 import { ApiError } from "../../api/client.ts";
-import type { AccessPointDto, AccessPointKeySavedDto, WifiDto } from "../../dto/profile.dto.ts";
+import type { AccessPointDto, WifiDto } from "../../dto/profile.dto.ts";
 
 /** The default key of `configure-access-point.sh`. */
 const DEFAULT_ACCESS_POINT_KEY = "deq-tune-bridge";
@@ -14,8 +14,6 @@ export class FakeWifiApi implements WifiApi {
   failWith: Error | null = null;
   /** While set, every call waits for it, so a test sees a request in flight. */
   hold: Promise<void> | null = null;
-  /** The Pi does not restart for a new key during a DEQ session. */
-  deqSessionRunning = false;
   savedPasswords: string[] = [];
   joinRequests = 0;
   /** The access point's name and key, or null for a Pi without one. */
@@ -59,14 +57,13 @@ export class FakeWifiApi implements WifiApi {
     return this.accessPointRead();
   }
 
-  async setAccessPointKey(key: string): Promise<AccessPointKeySavedDto> {
+  async setAccessPointKey(key: string): Promise<AccessPointDto> {
     await this.hold;
     this.throwIfFailing();
     if (this.accessPoint !== null) {
       this.accessPoint = { ...this.accessPoint, key };
     }
-    // The real Pi restarts unless a DEQ session runs.
-    return { ...this.accessPointRead(), restarts_now: !this.deqSessionRunning };
+    return this.accessPointRead();
   }
 
   private accessPointRead(): AccessPointDto {

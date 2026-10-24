@@ -52,18 +52,6 @@ describe("access-point-key-form", () => {
     expect(element.shadowRoot!.querySelector(".message")?.textContent).toContain("restarts now");
   });
 
-  it("says the key waits for the next start while the DEQ is connected", async () => {
-    const api = piWithAccessPoint();
-    api.deqSessionRunning = true;
-    const element = await mount(api);
-    await typeInto(element, "key", "a much better key");
-    await typeInto(element, "repeated-key", "a much better key");
-
-    await save(element);
-
-    expect(element.shadowRoot!.querySelector(".message")?.textContent).toContain("next start");
-  });
-
   it("tells app-root that the key changed, out of every shadow root", async () => {
     const element = await mount(piWithAccessPoint());
     const heard: AccessPointDto[] = [];
@@ -75,7 +63,7 @@ describe("access-point-key-form", () => {
 
     await save(element);
 
-    expect(heard).toEqual([{ ssid: "deq-tune", uses_default_key: false, restarts_now: true }]);
+    expect(heard).toEqual([{ ssid: "deq-tune", uses_default_key: false }]);
   });
 
   it("shows the refusal when the Pi refuses the key", async () => {

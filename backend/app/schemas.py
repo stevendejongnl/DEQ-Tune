@@ -384,15 +384,6 @@ class AccessPointRead(BaseModel):
     uses_default_key: bool
 
 
-class AccessPointKeySaved(AccessPointRead):
-    """The access point after a new key. The Pi restarts to use the key, so
-    the phone loses the Pi for about a minute."""
-
-    # False during a DEQ session: a restart then would wedge the USB link, so
-    # the key applies at the Pi's next start.
-    restarts_now: bool
-
-
 class AccessPointKeyWrite(BaseModel):
     """A new key for the access point. It applies at the access point's
     next start, which is the Pi's next boot."""

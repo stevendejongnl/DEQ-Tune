@@ -363,13 +363,8 @@ export interface AccessPointDto {
   uses_default_key: boolean;
 }
 
-/** The access point after a new key. With no DEQ session the Pi restarts
- * to use it (`restarts_now`). During one, the key applies at its next start. */
-export interface AccessPointKeySavedDto extends AccessPointDto {
-  restarts_now: boolean;
-}
-
-/** A new access point key. */
+/** A new access point key. The Pi restarts a few seconds after the reply,
+ * so the key applies. */
 export interface AccessPointKeyWriteDto {
   key: string;
 }

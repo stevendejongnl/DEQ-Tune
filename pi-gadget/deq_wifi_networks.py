@@ -19,12 +19,12 @@ an `nmcli` command line itself.
 
 The access point's key also comes on stdin. The helper writes it into the
 access point's keyfile and never prints it. The new key applies the next
-time the access point starts. So, with no DEQ session, the helper also
-restarts the Pi, REBOOT_DELAY_SECONDS later. The delay lets the backend's
-reply reach the phone first. During a DEQ session it does not restart:
-a restart then would also restart the gadget and wedge the USB link. The
-key then applies at the next start, and `restarts_now` in the reply says
-which of the two happened.
+time the access point starts, so the helper also restarts the Pi,
+REBOOT_DELAY_SECONDS later. The delay lets the backend's reply reach the
+phone first. A restart is safe during a DEQ session: measured on
+2026-10-24, the DEQ handshook again by itself 40 seconds after a reboot
+with the link up, as after a replug. Only a restart of the gadget service
+alone wedges the USB link.
 
 The password comes on stdin and goes into a keyfile that only root can
 read. It never goes on a command line, because every user on the Pi can
@@ -311,21 +311,17 @@ def set_access_point_key(key: str) -> None:
     nmcli("connection", "load", str(path))
 
 
-def restart_for_new_key(session_running: bool, run_command=subprocess.run) -> bool:
-    """Starts a restart of the Pi REBOOT_DELAY_SECONDS from now, unless a DEQ
-    session runs. Returns whether it started one.
+def restart_for_new_key(run_command=subprocess.run) -> None:
+    """Starts a restart of the Pi REBOOT_DELAY_SECONDS from now.
 
     A transient systemd timer runs the restart, so this returns at once and
     the reply still leaves.
     """
-    if session_running:
-        return False
     run_command(
         ["systemd-run", f"--on-active={REBOOT_DELAY_SECONDS}", "systemctl", "reboot"],
         check=True,
         timeout=20,
     )
-    return True
 
 
 def run(arguments: list[str]) -> object:
@@ -347,8 +343,8 @@ def run(arguments: list[str]) -> object:
             return read_access_point()
         case ["access-point-key"]:
             set_access_point_key(sys.stdin.readline().rstrip("\n"))
-            restarts_now = restart_for_new_key(deq_session_is_running())
-            return {**read_access_point(), "restarts_now": restarts_now}
+            restart_for_new_key()
+            return read_access_point()
     raise Refusal("Use one of: saved, visible, save SSID, forget SSID, join, access-point, access-point-key.")
 
 

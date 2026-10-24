@@ -220,7 +220,6 @@ export type UiStrings = {
   accessPointRepeatLabel: string;
   accessPointSave: string;
   accessPointSaved: string;
-  accessPointSavedRestarting: string;
   accessPointSetupTitle: string;
   accessPointSetupIntro: string;
   accessPointSetupLater: string;

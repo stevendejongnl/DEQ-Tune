@@ -25,7 +25,6 @@ import type {
   AccessPointDto,
   LibraryExportDto,
   LibraryImportDto,
-  AccessPointKeySavedDto,
   AccessPointKeyWriteDto,
   WifiDto,
   WifiForgetWriteDto,
@@ -147,7 +146,7 @@ export interface WifiApi {
   /** A 404 means the Pi has no access point. */
   readAccessPoint(): Promise<AccessPointDto>;
   /** The new key applies at the access point's next start, the Pi's next boot. */
-  setAccessPointKey(key: string): Promise<AccessPointKeySavedDto>;
+  setAccessPointKey(key: string): Promise<AccessPointDto>;
 }
 
 /** The person's own library as one file, to move it to another install.
@@ -252,9 +251,9 @@ export class DeqApiClient
     return typia.assert<AccessPointDto>(await this.call("GET", "/wifi/access-point"));
   }
 
-  async setAccessPointKey(key: string): Promise<AccessPointKeySavedDto> {
+  async setAccessPointKey(key: string): Promise<AccessPointDto> {
     const validBody = typia.assert<AccessPointKeyWriteDto>({ key });
-    return typia.assert<AccessPointKeySavedDto>(await this.call("PUT", "/wifi/access-point/key", validBody));
+    return typia.assert<AccessPointDto>(await this.call("PUT", "/wifi/access-point/key", validBody));
   }
 
   async exportLibrary(): Promise<LibraryExportDto> {

@@ -112,16 +112,8 @@ def test_sets_a_new_access_point_key(wifi_client, helper):
     response = wifi_client.put("/api/wifi/access-point/key", json={"key": "a much better key"})
 
     assert response.status_code == 200
-    assert response.json() == {"ssid": "deq-tune", "uses_default_key": False, "restarts_now": True}
+    assert response.json() == {"ssid": "deq-tune", "uses_default_key": False}
     assert helper.access_point["key"] == "a much better key"
-
-
-def test_a_new_access_point_key_waits_for_the_next_start_during_a_deq_session(wifi_client, helper):
-    helper.deq_session_running = True
-
-    response = wifi_client.put("/api/wifi/access-point/key", json={"key": "a much better key"})
-
-    assert response.json()["restarts_now"] is False
 
 
 @pytest.mark.parametrize("key", ["", "short", "x" * 64, "tab\there"])
