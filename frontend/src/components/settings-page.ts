@@ -69,6 +69,8 @@ export class SettingsPage extends LitElement {
   @property({ attribute: false }) updates: UpdatesDto | null = null;
   @property({ type: String }) requestState: UpdateRequestState = "idle";
   @property({ type: String }) pageBuild = BUILD_ID;
+  /** The connected unit's firmware version, for the System section. */
+  @property({ type: String }) firmwareVersion: string | null = null;
   /** The car app's settings, or null in a browser. */
   @property({ attribute: false }) phoneApp: PhoneAppApi | null = phoneAppApi();
   @property({ attribute: false }) community: CommunityLibraryApi = new CommunityLibraryClient();
@@ -119,7 +121,8 @@ export class SettingsPage extends LitElement {
         return html`<community-library .api=${this.api} .community=${this.community}
           .locale=${this.locale}></community-library>`;
       case "system":
-        return html`<system-panel .api=${this.api} .locale=${this.locale} .pageBuild=${this.pageBuild}></system-panel>`;
+        return html`<system-panel .api=${this.api} .locale=${this.locale} .pageBuild=${this.pageBuild}
+          .firmwareVersion=${this.firmwareVersion}></system-panel>`;
       case "language":
         return this.renderLanguage(strings);
     }

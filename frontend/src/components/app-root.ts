@@ -10,6 +10,7 @@ import {
 import type {
   ActiveProfileDto,
   AudioStateDto,
+  DeviceDto,
   ProfileDto,
   Speaker,
   TuningDataDto,
@@ -207,6 +208,8 @@ export class AppRoot extends LitElement {
   /** Whether the DEQ link is up, as `device-status` last polled it. */
   @state() private unitConnected = false;
   @state() private bridgeReachable = true;
+  /** The connected unit's firmware version, for Settings → System. */
+  @state() private unitFirmware: string | null = null;
   /** Which profile the unit plays, as the backend reports it. `null` until
    * the first read answers. */
   @state() private activeProfile: ActiveProfileDto | null = null;
@@ -371,8 +374,10 @@ export class AppRoot extends LitElement {
               .api=${this.api}
               .locale=${this.locale}
               .layout=${this.layout}
-              @link-state=${(linkEvent: CustomEvent<{ linkState: LinkState }>) =>
-                this.onLinkState(linkEvent.detail.linkState)}
+              @link-state=${(linkEvent: CustomEvent<{ linkState: LinkState; device: DeviceDto | null }>) => {
+                this.unitFirmware = linkEvent.detail.device?.firmware_version ?? null;
+                this.onLinkState(linkEvent.detail.linkState);
+              }}
               @open-system=${() => this.openSettings("system")}
             ></device-status>
           </div>
@@ -411,6 +416,7 @@ export class AppRoot extends LitElement {
         .section=${this.settingsSection}
         .updates=${this.updatesController.updates}
         .requestState=${this.updatesController.requestState}
+        .firmwareVersion=${this.unitFirmware}
         @section-change=${(sectionEvent: CustomEvent<{ section: SettingsSection }>) =>
           (this.settingsSection = sectionEvent.detail.section)}
         @locale-change=${(localeChangeEvent: CustomEvent<{ locale: Locale }>) =>

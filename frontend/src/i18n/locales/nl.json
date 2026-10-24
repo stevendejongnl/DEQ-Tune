@@ -260,5 +260,7 @@
   "communityAdd": "Toevoegen aan mijn bibliotheek",
   "communityAdded": "Toegevoegd.",
   "communityPresent": "Staat al in je bibliotheek.",
-  "communityContribute": "Deel je eigen profiel of EQ"
+  "communityContribute": "Deel je eigen profiel of EQ",
+  "systemUnitSection": "DEQ-unit",
+  "systemUnitFirmware": "Firmware"
 }

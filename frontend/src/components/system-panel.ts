@@ -37,7 +37,8 @@ function interfaceDetails(networkInterface: NetworkInterfaceDto): string {
 }
 
 /**
- * Shows the Pi's machine statistics, and where this page came from.
+ * Shows the DEQ unit's firmware, the Pi's machine statistics, and where
+ * this page came from.
  *
  * It is the System section of the settings page. A click on the status
  * pill opens that section. While the panel is on the page, it reads
@@ -52,6 +53,8 @@ export class SystemPanel extends LitElement {
   @property({ attribute: false }) api: BridgeSystemApi | undefined;
   @property({ type: String }) locale: Locale = "en";
   @property({ type: String }) pageBuild = "";
+  /** The connected unit's firmware version, or null while no unit is connected. */
+  @property({ type: String }) firmwareVersion: string | null = null;
   @property({ attribute: false }) scheduleFunction: ScheduleFunction = (action, delayMs) =>
     setTimeout(action, delayMs);
   @property({ attribute: false }) cancelFunction: CancelFunction = (handle) =>
@@ -81,8 +84,15 @@ export class SystemPanel extends LitElement {
   override render() {
     const strings = uiStrings(this.locale);
     return html`
-      ${this.renderPage(strings)} ${this.system === null ? nothing : this.renderSystem(strings, this.system)}
+      ${this.renderUnit(strings)} ${this.renderPage(strings)}
+      ${this.system === null ? nothing : this.renderSystem(strings, this.system)}
     `;
+  }
+
+  private renderUnit(strings: UiStrings): TemplateResult {
+    return this.renderRows(strings.systemUnitSection, [
+      [strings.systemUnitFirmware, this.firmwareVersion ?? strings.deviceNotConnected],
+    ]);
   }
 
   private renderPage(strings: UiStrings): TemplateResult {

@@ -260,5 +260,7 @@
   "communityAdd": "Add to my library",
   "communityAdded": "Added.",
   "communityPresent": "In your library already.",
-  "communityContribute": "Share your own profile or EQ"
+  "communityContribute": "Share your own profile or EQ",
+  "systemUnitSection": "DEQ unit",
+  "systemUnitFirmware": "Firmware"
 }

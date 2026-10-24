@@ -38,9 +38,4 @@ export const devicePillStyles = css`
       color: var(--color-accent);
     }
   }
-  .firmware {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--color-muted-foreground);
-  }
 `;

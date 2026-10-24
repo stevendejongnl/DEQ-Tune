@@ -120,12 +120,6 @@ describe("device-status", () => {
     expect(pillOf(element).linkState).toBe("connected");
   });
 
-  it("hands the pill the unit's firmware version", async () => {
-    const element = await mount(new FakeDeviceApi().startConnected());
-
-    expect(pillOf(element).firmwareVersion).toBe("2.02");
-  });
-
   it("says the unit is down when the bridge answers and the unit is not there", async () => {
     const element = await mount(
       new FakeDeviceApi().startWithUnitDown("the unit is not connected"),

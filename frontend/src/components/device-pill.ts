@@ -7,8 +7,8 @@ import { devicePillStyles } from "./device-pill.styles.ts";
 import type { LinkState } from "./link-state.ts";
 
 /**
- * The header's status pill: a dot, what the link is doing, and the
- * unit's firmware version when there is one.
+ * The header's status pill: a dot, what the link is doing, and whether
+ * the page is live. The unit's firmware version is in Settings → System.
  *
  * It shows one link state and nothing else. `device-status` sets its
  * properties. It depends only on the UI strings. It reads no API and
@@ -24,7 +24,6 @@ export class DevicePill extends LitElement {
   static override styles = devicePillStyles;
 
   @property({ type: String, reflect: true }) linkState: LinkState = "no-bridge";
-  @property({ type: String }) firmwareVersion: string | null = null;
   @property({ type: String }) locale: Locale = "en";
   @property({ type: String }) layout: AppLayout = "desktop";
 
@@ -57,11 +56,6 @@ export class DevicePill extends LitElement {
     if (this.linkState === "unit-down") {
       return html`<span class="device-label">${strings.deviceNotConnected}</span>`;
     }
-    return html`
-      <span class="device-label">${strings.deviceConnected}</span>
-      ${this.firmwareVersion === null
-        ? nothing
-        : html`<span class="firmware">${this.firmwareVersion}</span>`}
-    `;
+    return html`<span class="device-label">${strings.deviceConnected}</span>`;
   }
 }

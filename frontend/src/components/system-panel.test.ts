@@ -68,6 +68,20 @@ describe("system-panel", () => {
     expect(text).toContain("1h 2m");
   });
 
+  it("shows the DEQ unit's firmware version", async () => {
+    const { element } = await mountOpen();
+    element.firmwareVersion = "2.02";
+    await element.updateComplete;
+
+    expect(textOf(element)).toContain("DEQ unit Firmware2.02");
+  });
+
+  it("says the unit is not connected when there is no firmware version", async () => {
+    const { element } = await mountOpen();
+
+    expect(textOf(element)).toContain("DEQ unit FirmwareDEQ not connected");
+  });
+
   it("calls the page live when the Pi serves this build", async () => {
     const { element } = await mountOpen();
 

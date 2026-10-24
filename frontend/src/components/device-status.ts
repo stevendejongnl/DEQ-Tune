@@ -89,7 +89,6 @@ export class DeviceStatus extends LitElement {
       >
         <device-pill
           .linkState=${this.linkState}
-          .firmwareVersion=${this.device?.firmware_version ?? null}
           .locale=${this.locale}
           .layout=${this.layout}
         ></device-pill>

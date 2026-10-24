@@ -4,7 +4,7 @@ import type { DevicePill } from "./device-pill.ts";
 import type { LinkState } from "./link-state.ts";
 
 async function mount(
-  properties: Partial<Pick<DevicePill, "linkState" | "firmwareVersion" | "layout">> = {},
+  properties: Partial<Pick<DevicePill, "linkState" | "layout">> = {},
 ): Promise<DevicePill> {
   const element = document.createElement("device-pill") as DevicePill;
   Object.assign(element, properties);
@@ -59,17 +59,11 @@ describe("device-pill", () => {
     expect(labelOf(element)).toBe("DEQ not connected");
   });
 
-  it("says connected, and shows the firmware version", async () => {
-    const element = await mount({ linkState: "connected", firmwareVersion: "2.02" });
+  it("says connected, without the firmware version", async () => {
+    const element = await mount({ linkState: "connected" });
 
     expect(labelOf(element)).toBe("DEQ connected");
-    expect(element.shadowRoot!.querySelector(".firmware")!.textContent).toContain("2.02");
-  });
-
-  it("leaves out the firmware version when there is none", async () => {
-    const element = await mount({ linkState: "connected", firmwareVersion: null });
-
-    expect(element.shadowRoot!.querySelector(".firmware")).toBeNull();
+    expect(element.shadowRoot!.textContent).not.toContain("2.02");
   });
 
   it("drops the label on a phone until a unit is connected", async () => {
