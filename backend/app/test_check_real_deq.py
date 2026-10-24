@@ -18,17 +18,17 @@ from app.testing.fake_deq import FakeDeq
 check_real_deq = pytest.importorskip("scripts.check_real_deq")
 
 
-def test_check_link_defaults_to_the_accessory_gadget(monkeypatch) -> None:
+def test_check_link_defaults_to_the_accessory_gadget(monkeypatch, tmp_path) -> None:
     """The app's default is the fake unit. This script's one job is a check of
     a real unit. So its own default transport is `accessory`, the Pi's link to
     a DEQ, and not `fake`."""
     monkeypatch.delenv("DEQ_TRANSPORT", raising=False)
     report = check_real_deq.Report()
-    # No gadget relays on this machine, so the open always fails here. This
-    # test only checks, by its error, that the script tried the accessory
-    # transport and not a hardcoded "fake" one.
+    # No gadget listens on this path, also on the Pi where the gadget runs. So
+    # the open always fails. This test only checks, by its error, that the
+    # script tried the accessory transport and not a hardcoded "fake" one.
     with pytest.raises(TransportError, match="could not reach the gadget"):
-        check_real_deq.check_link(report)
+        check_real_deq.check_link(report, str(tmp_path / "no-gadget.sock"))
 
 
 def test_check_link_rejects_the_fake_transport(monkeypatch) -> None:

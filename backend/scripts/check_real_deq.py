@@ -45,6 +45,7 @@ import argparse
 import os
 import sys
 
+from app.accessory_transport import ACCESSORY_SOCKET_PATH
 from app.deq_blob import encode_blob
 from app.deq_device import (
     ACCESSORY_TRANSPORT_NAME,
@@ -104,7 +105,9 @@ class Report:
         return 1
 
 
-def check_link(report: Report) -> Transport:
+def check_link(
+    report: Report, accessory_socket_path: str = ACCESSORY_SOCKET_PATH
+) -> Transport:
     """Opens the link named by `DEQ_TRANSPORT`, or stops with the reason."""
     transport_name = os.environ.get("DEQ_TRANSPORT", ACCESSORY_TRANSPORT_NAME)
     if transport_name == FAKE_TRANSPORT_NAME:
@@ -114,7 +117,7 @@ def check_link(report: Report) -> Transport:
             f"{USB_TRANSPORT_NAME!r}."
         )
     print(f"Opening the link ({transport_name})")
-    transport = build_transport(transport_name)
+    transport = build_transport(transport_name, accessory_socket_path)
     report.ok("opened the link", transport_name)
     return transport
 

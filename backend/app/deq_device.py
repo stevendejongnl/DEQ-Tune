@@ -28,6 +28,7 @@ import os
 import threading
 from dataclasses import dataclass
 
+from app.accessory_transport import ACCESSORY_SOCKET_PATH
 from app.deq_blob import UserConfiguration
 from app.deq_session import DEFAULT_AUDIO_SOURCE, DeqSession, SessionError
 from app.deq_transport import Transport, TransportError
@@ -63,7 +64,10 @@ class DeviceState:
     problem: str | None = None
 
 
-def build_transport(name: str | None = None) -> Transport:
+def build_transport(
+    name: str | None = None,
+    accessory_socket_path: str = ACCESSORY_SOCKET_PATH,
+) -> Transport:
     """Returns the transport that the environment names.
 
     An unknown name raises an error, and the app does not fall back to the
@@ -87,7 +91,7 @@ def build_transport(name: str | None = None) -> Transport:
     if name == ACCESSORY_TRANSPORT_NAME:
         from app.accessory_transport import AccessoryTransport
 
-        return AccessoryTransport()
+        return AccessoryTransport(socket_path=accessory_socket_path)
     raise DeviceUnavailable(
         f"no transport named {name!r}. "
         f"Use {TRANSPORT_ENVIRONMENT_VARIABLE}={FAKE_TRANSPORT_NAME}, "

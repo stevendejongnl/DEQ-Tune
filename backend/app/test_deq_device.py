@@ -38,7 +38,7 @@ def test_an_unknown_name_is_an_error():
         build_transport("not-a-real-transport")
 
 
-def test_accessory_without_the_gadget_running_says_what_to_check():
+def test_accessory_without_the_gadget_running_says_what_to_check(tmp_path):
     """The gadget's socket exists only while a DEQ session runs. So a developer
     who asks for the real transport on a laptop gets this result.
     `AccessoryTransport` itself reaches the socket. So its failure comes back
@@ -46,7 +46,7 @@ def test_accessory_without_the_gadget_running_says_what_to_check():
     `DeqDevice.connect()` catches `TransportError` and turns it into a reported
     problem. `build_transport` itself does not."""
     with pytest.raises(AccessoryUnavailable, match="could not reach the gadget"):
-        build_transport(ACCESSORY_TRANSPORT_NAME)
+        build_transport(ACCESSORY_TRANSPORT_NAME, str(tmp_path / "no-gadget.sock"))
 
 
 def test_usb_with_no_pyusb_installed_says_so():
