@@ -67,7 +67,11 @@ export class SystemPanel extends LitElement {
 
   private refreshHandle: unknown;
 
-  get freshness(): PageFreshness {
+  /** `checking` until the first read answers: no answer yet says nothing. */
+  get freshness(): PageFreshness | "checking" {
+    if (!this.hasRead) {
+      return "checking";
+    }
     return readPageFreshness(this.system, this.pageBuild);
   }
 
@@ -97,7 +101,12 @@ export class SystemPanel extends LitElement {
 
   private renderPage(strings: UiStrings): TemplateResult {
     const freshness = this.freshness;
-    const stateLabel = { live: strings.pageLive, cached: strings.pageCached, outdated: strings.pageOutdated }[freshness];
+    const stateLabel = {
+      checking: strings.pageChecking,
+      live: strings.pageLive,
+      cached: strings.pageCached,
+      outdated: strings.pageOutdated,
+    }[freshness];
     return html`
       <section>
         <h3>${strings.systemPageSection}</h3>

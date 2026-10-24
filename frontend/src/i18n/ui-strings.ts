@@ -159,6 +159,7 @@ export type UiStrings = {
   backupExported: string;
   backupNotSaved: string;
   undoEqualizerEdit: string;
+  pageChecking: string;
   audioVolumeDown: string;
   audioVolumeUp: string;
   systemUnitSection: string;

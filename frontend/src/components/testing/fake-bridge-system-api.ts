@@ -43,15 +43,31 @@ export function sampleBridgeSystem(overrides: Partial<BridgeSystemDto> = {}): Br
  * An in-memory `BridgeSystemApi`: real behaviour, no network, no mocking.
  *
  * It answers with `system`. Set `unreachable` to make the request fail, as
- * a Pi that is off does. It counts the reads, so a test can prove a refresh.
+ * a Pi that is off does. `holdAnswers()` keeps each answer back until the
+ * test releases it, as a slow Pi does. It counts the reads, so a test can
+ * prove a refresh.
  */
 export class FakeBridgeSystemApi implements BridgeSystemApi {
   unreachable = false;
   readCount = 0;
   system: BridgeSystemDto = sampleBridgeSystem();
+  private held: Promise<void> | null = null;
+
+  /** Returns the function that lets the held answers go. */
+  holdAnswers(): () => void {
+    let release = (): void => {};
+    this.held = new Promise((resolve) => (release = resolve));
+    return () => {
+      this.held = null;
+      release();
+    };
+  }
 
   async readBridgeSystem(): Promise<BridgeSystemDto> {
     this.readCount += 1;
+    if (this.held !== null) {
+      await this.held;
+    }
     if (this.unreachable) {
       throw new TypeError("Failed to fetch");
     }

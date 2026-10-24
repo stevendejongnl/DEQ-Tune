@@ -88,6 +88,22 @@ describe("system-panel", () => {
     expect(element.freshness).toBe("live");
   });
 
+  it("says it is checking, not cached, until the first read answers", async () => {
+    const api = new FakeBridgeSystemApi();
+    const release = api.holdAnswers();
+
+    const { element } = await mountOpen(api);
+
+    expect(element.freshness).toBe("checking");
+    expect(textOf(element)).toContain("State checking…");
+    expect(textOf(element)).not.toContain("cached");
+
+    release();
+    await flushMicrotasks();
+    await element.updateComplete;
+    expect(element.freshness).toBe("live");
+  });
+
   it("calls the page cached, and says why, when the Pi does not answer", async () => {
     const api = new FakeBridgeSystemApi();
     api.unreachable = true;

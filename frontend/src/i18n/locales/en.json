@@ -264,5 +264,6 @@
   "systemUnitSection": "DEQ unit",
   "systemUnitFirmware": "Firmware",
   "audioVolumeDown": "Volume down",
-  "audioVolumeUp": "Volume up"
+  "audioVolumeUp": "Volume up",
+  "pageChecking": "checking…"
 }
