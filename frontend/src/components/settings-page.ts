@@ -1,25 +1,36 @@
 import { html, LitElement, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import type { BridgeSystemApi, WifiApi } from "../api/client.ts";
+import type { BridgeSystemApi, LibraryApi, WifiApi } from "../api/client.ts";
+import { phoneAppApi, type PhoneAppApi } from "../api/phone-app.ts";
 import { BUILD_ID } from "../build-id.ts";
 import type { UpdatesDto } from "../dto/profile.dto.ts";
 import type { Locale } from "../i18n/locale.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
+import { downloadFile, type SaveFile } from "./library-backup.ts";
 import "./locale-switcher.ts";
+import "./phone-app-settings.ts";
 import { settingsPageStyles } from "./settings-page.styles.ts";
 import "./system-panel.ts";
 import "./update-settings.ts";
 import type { UpdateRequestState } from "./updates-controller.ts";
+import "./access-point-settings.ts";
 import "./wifi-settings.ts";
 
-export type SettingsSection = "updates" | "wifi" | "system" | "language";
+export type SettingsSection = "phone" | "updates" | "wifi" | "backup" | "system" | "language";
 
-export const SETTINGS_SECTIONS: readonly SettingsSection[] = ["updates", "wifi", "system", "language"];
+export const SETTINGS_SECTIONS: readonly SettingsSection[] = ["phone", "updates", "wifi", "backup", "system", "language"];
+
+/** The sections to list. Phone app exists only inside the car app. */
+export function visibleSections(hasPhoneApp: boolean): SettingsSection[] {
+  return SETTINGS_SECTIONS.filter((section) => section !== "phone" || hasPhoneApp);
+}
 
 function sectionTitle(strings: UiStrings, section: SettingsSection): string {
   return {
+    phone: strings.settingsSectionPhone,
     updates: strings.settingsSectionUpdates,
     wifi: strings.settingsSectionWifi,
+    backup: strings.settingsSectionBackup,
     system: strings.settingsSectionSystem,
     language: strings.settingsSectionLanguage,
   }[section];
@@ -29,7 +40,8 @@ function sectionTitle(strings: UiStrings, section: SettingsSection): string {
  * The settings page, laid out as Fluidd lays out its own: a list of
  * sections, and one card for the chosen section.
  *
- * It holds the Pi's updates, its Wi-Fi networks, its system statistics,
+ * It holds the car app's own settings (inside the car app only), the Pi's
+ * updates, its Wi-Fi networks, the library backup, its system statistics,
  * and the app's language. app-root opens it from the header's gear button,
  * and opens the System section from the status pill. It fires
  * `section-change` ({ section }) and passes on `locale-change`. The
@@ -40,18 +52,20 @@ function sectionTitle(strings: UiStrings, section: SettingsSection): string {
 export class SettingsPage extends LitElement {
   static override styles = settingsPageStyles;
 
-  @property({ attribute: false }) api: (WifiApi & BridgeSystemApi) | undefined;
+  @property({ attribute: false }) api: (WifiApi & BridgeSystemApi & LibraryApi) | undefined;
   @property({ type: String }) locale: Locale = "en";
   @property({ type: String }) section: SettingsSection = "updates";
   @property({ attribute: false }) updates: UpdatesDto | null = null;
   @property({ type: String }) requestState: UpdateRequestState = "idle";
   @property({ type: String }) pageBuild = BUILD_ID;
+  /** The car app's settings, or null in a browser. */
+  @property({ attribute: false }) phoneApp: PhoneAppApi | null = phoneAppApi();
 
   override render() {
     const strings = uiStrings(this.locale);
     return html`
       <nav class="sections" aria-label=${strings.settingsTitle}>
-        ${SETTINGS_SECTIONS.map(
+        ${visibleSections(this.phoneApp !== null).map(
           (section) => html`
             <button type="button" aria-pressed=${this.section === section}
               @click=${() => this.selectSection(section)}>
@@ -68,13 +82,27 @@ export class SettingsPage extends LitElement {
   }
 
   /** Picks the one section to show. */
+  /** Inside the car app, Android's save dialog. A WebView ignores a download. */
+  private libraryFileSaver(): SaveFile {
+    const phoneApp = this.phoneApp;
+    return phoneApp === null ? downloadFile : (fileName, text) => phoneApp.saveFile(fileName, text);
+  }
+
   private renderSection(strings: UiStrings): TemplateResult {
     switch (this.section) {
+      case "phone":
+        return html`<phone-app-settings .api=${this.phoneApp} .locale=${this.locale}></phone-app-settings>`;
       case "updates":
         return html`<update-settings .updates=${this.updates} .requestState=${this.requestState}
           .locale=${this.locale}></update-settings>`;
       case "wifi":
-        return html`<wifi-settings .api=${this.api} .locale=${this.locale}></wifi-settings>`;
+        return html`
+          <wifi-settings .api=${this.api} .locale=${this.locale}></wifi-settings>
+          <access-point-settings .api=${this.api} .locale=${this.locale}></access-point-settings>
+        `;
+      case "backup":
+        return html`<library-backup .api=${this.api} .locale=${this.locale}
+          .saveFile=${this.libraryFileSaver()}></library-backup>`;
       case "system":
         return html`<system-panel .api=${this.api} .locale=${this.locale} .pageBuild=${this.pageBuild}></system-panel>`;
       case "language":

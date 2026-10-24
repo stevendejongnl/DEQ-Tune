@@ -15,6 +15,7 @@ def helper():
     return FakeWifiHelper(
         saved={"CloudSuite": True},
         visible=[{"ssid": "CloudSuite", "signal": 79, "secured": True}],
+        access_point={"ssid": "deq-tune", "key": "deq-tune-bridge"},
     )
 
 
@@ -101,3 +102,29 @@ def test_a_machine_with_no_helper_answers_503():
             assert client.get("/api/wifi").status_code == 503
     finally:
         app.dependency_overrides.pop(get_wifi_networks)
+
+
+def test_reads_the_access_point_without_its_key(wifi_client):
+    assert wifi_client.get("/api/wifi/access-point").json() == {"ssid": "deq-tune", "uses_default_key": True}
+
+
+def test_sets_a_new_access_point_key(wifi_client, helper):
+    response = wifi_client.put("/api/wifi/access-point/key", json={"key": "a much better key"})
+
+    assert response.status_code == 200
+    assert response.json() == {"ssid": "deq-tune", "uses_default_key": False}
+    assert helper.access_point["key"] == "a much better key"
+
+
+@pytest.mark.parametrize("key", ["", "short", "x" * 64, "tab\there"])
+def test_refuses_a_bad_access_point_key_before_the_helper_runs(wifi_client, helper, key):
+    response = wifi_client.put("/api/wifi/access-point/key", json={"key": key})
+
+    assert response.status_code == 422
+    assert helper.access_point["key"] == "deq-tune-bridge"
+
+
+def test_a_pi_without_an_access_point_answers_404(wifi_client, helper):
+    helper.access_point = None
+
+    assert wifi_client.get("/api/wifi/access-point").status_code == 404

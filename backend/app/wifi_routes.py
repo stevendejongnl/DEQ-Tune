@@ -1,7 +1,8 @@
-"""The HTTP face of the bridge's Wi-Fi networks.
+"""The HTTP face of the bridge's Wi-Fi networks and its access point.
 
 A save or a forget changes the saved networks only. The bridge joins a saved
-network on its own, or after `POST /wifi/join`.
+network on its own, or after `POST /wifi/join`. A new access point key
+applies at the access point's next start.
 """
 
 from __future__ import annotations
@@ -12,6 +13,8 @@ from contextlib import contextmanager
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.schemas import (
+    AccessPointKeyWrite,
+    AccessPointRead,
     SavedWifiNetworkRead,
     VisibleWifiNetworkRead,
     WifiForgetWrite,
@@ -19,6 +22,7 @@ from app.schemas import (
     WifiRead,
 )
 from app.wifi_networks import (
+    AccessPoint,
     SavedNetwork,
     WifiNetworks,
     WifiRefused,
@@ -51,6 +55,26 @@ def forget_network(body: WifiForgetWrite, networks: WifiNetworks = Depends(get_w
 def join_network(networks: WifiNetworks = Depends(get_wifi_networks)) -> None:
     with helper_errors_as_http():
         networks.request_join()
+
+
+@router.get("/access-point", response_model=AccessPointRead)
+def read_access_point(networks: WifiNetworks = Depends(get_wifi_networks)) -> AccessPointRead:
+    with helper_errors_as_http():
+        return access_point_read(networks.access_point())
+
+
+@router.put("/access-point/key", response_model=AccessPointRead)
+def set_access_point_key(
+    body: AccessPointKeyWrite, networks: WifiNetworks = Depends(get_wifi_networks)
+) -> AccessPointRead:
+    with helper_errors_as_http():
+        return access_point_read(networks.set_access_point_key(body.key))
+
+
+def access_point_read(access_point: AccessPoint | None) -> AccessPointRead:
+    if access_point is None:
+        raise HTTPException(status_code=404, detail="The Pi has no access point.")
+    return AccessPointRead(**vars(access_point))
 
 
 def wifi_read(saved: list[SavedNetwork], networks: WifiNetworks) -> WifiRead:

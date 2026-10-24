@@ -322,6 +322,52 @@ export interface WifiForgetWriteDto {
   ssid: string;
 }
 
+/** A custom profile in a library file. It has no id: the importing
+ * database gives it a new one. */
+export interface LibraryProfileDto {
+  name: string;
+  brand_name: string | null;
+  car_model: string | null;
+  speaker_type: string | null;
+  supported_processors: string[];
+  favorite: boolean;
+  data: TuningDataDto;
+}
+
+export interface LibraryEqualizerDto {
+  name: string;
+  favorite: boolean;
+  gains: number[];
+}
+
+/** A person's own library as one file. See backend/app/library_transfer.py. */
+export interface LibraryExportDto {
+  format: "deq-tune-library";
+  version: number;
+  profiles: LibraryProfileDto[];
+  equalizers: LibraryEqualizerDto[];
+  starred_factory_profiles: string[];
+  starred_factory_equalizers: string[];
+}
+
+export interface LibraryImportDto {
+  profiles_added: number;
+  equalizers_added: number;
+  skipped: number;
+  stars_added: number;
+}
+
+/** The Pi's own access point. It never carries the key. */
+export interface AccessPointDto {
+  ssid: string;
+  uses_default_key: boolean;
+}
+
+/** A new access point key. It applies at the Pi's next start. */
+export interface AccessPointKeyWriteDto {
+  key: string;
+}
+
 export interface UpdateHistoryDto {
   from_version: string;
   to_version: string;

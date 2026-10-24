@@ -1336,6 +1336,68 @@
         }
       }
     },
+    "/api/wifi/access-point": {
+      "get": {
+        "tags": [
+          "wifi"
+        ],
+        "summary": "Read Access Point",
+        "operationId": "read_access_point_api_wifi_access_point_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessPointRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wifi/access-point/key": {
+      "put": {
+        "tags": [
+          "wifi"
+        ],
+        "summary": "Set Access Point Key",
+        "operationId": "set_access_point_key_api_wifi_access_point_key_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessPointKeyWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessPointRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/updates": {
       "get": {
         "tags": [
@@ -1417,6 +1479,68 @@
         }
       }
     },
+    "/api/library/export": {
+      "get": {
+        "tags": [
+          "library"
+        ],
+        "summary": "Read Library Export",
+        "operationId": "read_library_export_api_library_export_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryExport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/library/import": {
+      "post": {
+        "tags": [
+          "library"
+        ],
+        "summary": "Import Library File",
+        "operationId": "import_library_file_api_library_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LibraryExport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryImportRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -1442,6 +1566,39 @@
   },
   "components": {
     "schemas": {
+      "AccessPointKeyWrite": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "AccessPointKeyWrite",
+        "description": "A new key for the access point. It applies at the access point's\nnext start, which is the Pi's next boot."
+      },
+      "AccessPointRead": {
+        "properties": {
+          "ssid": {
+            "type": "string",
+            "title": "Ssid"
+          },
+          "uses_default_key": {
+            "type": "boolean",
+            "title": "Uses Default Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ssid",
+          "uses_default_key"
+        ],
+        "title": "AccessPointRead",
+        "description": "The Pi's own access point. It never carries the key: anyone in\nBluetooth range can read this."
+      },
       "ActiveEqualizerWrite": {
         "properties": {
           "equalizer_id": {
@@ -2457,6 +2614,176 @@
         ],
         "title": "LRBank",
         "description": "A combined L+R graphic-EQ slot. `banks` holds one 13-value gain array\nper storable bank (the device has multiple slots). `selectedBank` picks\nwhich one is active. Frequencies follow the fixed 13-band table that\n`expandEq` also gives explicitly per channel (50Hz-12.5kHz, doubling)."
+      },
+      "LibraryEqualizer": {
+        "properties": {
+          "gains": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "maxItems": 13,
+            "minItems": 13,
+            "title": "Gains"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "favorite": {
+            "type": "boolean",
+            "title": "Favorite",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "gains",
+          "name"
+        ],
+        "title": "LibraryEqualizer"
+      },
+      "LibraryExport": {
+        "properties": {
+          "format": {
+            "type": "string",
+            "title": "Format",
+            "default": "deq-tune-library"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 1
+          },
+          "profiles": {
+            "items": {
+              "$ref": "#/components/schemas/LibraryProfile"
+            },
+            "type": "array",
+            "title": "Profiles",
+            "default": []
+          },
+          "equalizers": {
+            "items": {
+              "$ref": "#/components/schemas/LibraryEqualizer"
+            },
+            "type": "array",
+            "title": "Equalizers",
+            "default": []
+          },
+          "starred_factory_profiles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Starred Factory Profiles",
+            "default": []
+          },
+          "starred_factory_equalizers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Starred Factory Equalizers",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "LibraryExport",
+        "description": "A person's own library, as one file: the custom profiles, the custom\nEQs, and the stars on factory presets. The factory presets themselves\ncome with every install, so the file names them only by their name."
+      },
+      "LibraryImportRead": {
+        "properties": {
+          "profiles_added": {
+            "type": "integer",
+            "title": "Profiles Added"
+          },
+          "equalizers_added": {
+            "type": "integer",
+            "title": "Equalizers Added"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          },
+          "stars_added": {
+            "type": "integer",
+            "title": "Stars Added"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profiles_added",
+          "equalizers_added",
+          "skipped",
+          "stars_added"
+        ],
+        "title": "LibraryImportRead",
+        "description": "What an import added. An item that the library holds already, with\nthe same name and the same content, counts as skipped."
+      },
+      "LibraryProfile": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "brand_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brand Name"
+          },
+          "car_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Car Model"
+          },
+          "speaker_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker Type"
+          },
+          "supported_processors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Supported Processors",
+            "default": []
+          },
+          "favorite": {
+            "type": "boolean",
+            "title": "Favorite",
+            "default": false
+          },
+          "data": {
+            "$ref": "#/components/schemas/TuningData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "data"
+        ],
+        "title": "LibraryProfile",
+        "description": "A custom profile in an export. It has no id: the importing database\ngives it a new one."
       },
       "LiveSimulationWrite": {
         "properties": {

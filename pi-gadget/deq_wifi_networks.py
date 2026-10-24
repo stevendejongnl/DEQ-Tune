@@ -12,6 +12,14 @@ an `nmcli` command line itself.
     deq-wifi-networks save SSID  reads the password on stdin, one line
     deq-wifi-networks forget SSID
     deq-wifi-networks join       asks deq-wifi-recover to run now
+    deq-wifi-networks access-point      the access point's name, and whether
+                                        it still uses the public default key
+    deq-wifi-networks access-point-key  reads a new key on stdin, one line
+
+The access point's key also comes on stdin. The helper writes it into the
+access point's keyfile and never prints it. The new key applies the next
+time the access point starts, at the next boot: a restart of the access
+point now would drop the phone that asked for the change.
 
 The password comes on stdin and goes into a keyfile that only root can
 read. It never goes on a command line, because every user on the Pi can
@@ -54,6 +62,11 @@ RECOVER_SERVICE = "deq-wifi-recover.service"
 REFUSAL_EXIT_CODE = 2
 SSID_MAXIMUM_BYTES = 32
 HEX_KEY_PATTERN = re.compile(r"[0-9a-fA-F]{64}")
+ACCESS_POINT_CONNECTION = "deq-tune-ap"
+# configure-access-point.sh sets this key when it gets none. It is public, so
+# the app asks the person to change it.
+DEFAULT_ACCESS_POINT_KEY = "deq-tune-bridge"
+PSK_LINE_PATTERN = re.compile(r"^psk=.*$", re.MULTILINE)
 
 
 class Refusal(Exception):
@@ -241,6 +254,57 @@ def join() -> None:
     subprocess.run(["systemctl", "start", "--no-block", RECOVER_SERVICE], check=True, timeout=20)
 
 
+def access_point_keyfile() -> Path | None:
+    for line in nmcli("-t", "-f", "NAME,FILENAME", "connection", "show").splitlines():
+        name, filename = split_terse_line(line)
+        if name == ACCESS_POINT_CONNECTION:
+            return Path(filename)
+    return None
+
+
+def read_access_point() -> dict[str, object] | None:
+    """The access point's name, and whether its key is the public default.
+
+    It never returns the key itself: the API that shows this answers anyone
+    in Bluetooth range.
+    """
+    if access_point_keyfile() is None:
+        return None
+    ssid = nmcli("-g", "802-11-wireless.ssid", "connection", "show", ACCESS_POINT_CONNECTION).strip()
+    key = nmcli("-s", "-g", "802-11-wireless-security.psk", "connection", "show", ACCESS_POINT_CONNECTION)
+    return {"ssid": ssid, "uses_default_key": key.strip() == DEFAULT_ACCESS_POINT_KEY}
+
+
+def keyfile_with_key(text: str, key: str) -> str:
+    """Replaces the one `psk=` line of a keyfile. The key goes through
+    `keyfile_string`, and a lambda, so no character in it reads as a
+    regular-expression escape."""
+    replaced, count = PSK_LINE_PATTERN.subn(lambda match: f"psk={keyfile_string(key)}", text)
+    if count != 1:
+        raise Refusal("The access point's settings hold no key to replace.")
+    return replaced
+
+
+def set_access_point_key(key: str) -> None:
+    """Writes a new key into the access point's keyfile, for its next start."""
+    if key == "":
+        raise Refusal("The access point needs a password.")
+    check_password(key)
+    path = access_point_keyfile()
+    if path is None:
+        raise Refusal("The Pi has no access point. Run configure-access-point.sh first.")
+    text = keyfile_with_key(path.read_text(), key)
+    # A new file with mode 600, then one rename, so the keyfile is never half
+    # written and never readable by other users.
+    temporary = path.with_name(path.name + ".new")
+    temporary.unlink(missing_ok=True)
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w") as handle:
+        handle.write(text)
+    os.replace(temporary, path)
+    nmcli("connection", "load", str(path))
+
+
 def run(arguments: list[str]) -> object:
     match arguments:
         case ["saved"]:
@@ -256,7 +320,12 @@ def run(arguments: list[str]) -> object:
         case ["join"]:
             join()
             return None
-    raise Refusal("Use one of: saved, visible, save SSID, forget SSID, join.")
+        case ["access-point"]:
+            return read_access_point()
+        case ["access-point-key"]:
+            set_access_point_key(sys.stdin.readline().rstrip("\n"))
+            return read_access_point()
+    raise Refusal("Use one of: saved, visible, save SSID, forget SSID, join, access-point, access-point-key.")
 
 
 def main() -> int:

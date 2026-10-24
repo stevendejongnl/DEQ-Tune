@@ -1,4 +1,4 @@
-import { html, LitElement, nothing, type TemplateResult } from "lit";
+import { html, LitElement, nothing, type PropertyValues, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
   DeqApiClient,
@@ -17,7 +17,13 @@ import type {
 import { blankTuningData } from "../dto/blank-tuning.ts";
 import { equalizerGains, withEqualizerGain, withSpeakerField } from "../dto/tuning-data-edits.ts";
 import { browserLocaleStorage } from "../i18n/browser-locale-storage.ts";
-import { type Locale, type LocaleStorage, resolveInitialLocale, saveLocale } from "../i18n/locale.ts";
+import {
+  type Locale,
+  type LocaleStorage,
+  localeFromLanguageTag,
+  resolveInitialLocale,
+  saveLocale,
+} from "../i18n/locale.ts";
 import {
   localizedModelName,
   localizedProfileName,
@@ -26,6 +32,14 @@ import {
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import type { LiveSimulationId } from "../i18n/dsp-presets.ts";
 import { browserLayoutQuery, type AppLayout, type LayoutQuery } from "../layout-query.ts";
+import {
+  browserPageLocationStore,
+  pageLocationHash,
+  parsePageLocation,
+  type AppPage,
+  type PageLocationStore,
+  type PhoneTab,
+} from "../page-location.ts";
 import { countEdits } from "../tuning-edit-count.ts";
 import "./profile-list.ts";
 import "./eq-editor.ts";
@@ -39,6 +53,7 @@ import "./profile-activation.ts";
 import "./equalizer-editor.ts";
 import "./settings-page.ts";
 import type { SettingsSection } from "./settings-page.ts";
+import { phoneAppApi, type PhoneAppApi } from "../api/phone-app.ts";
 import "./notification-dock.ts";
 import { UpdatesController } from "./updates-controller.ts";
 import { releaseHighlight } from "../release-notes.ts";
@@ -54,12 +69,6 @@ export const AUDIO_POLL_MS = 5000;
 type ScheduleFunction = (action: () => void, delayMs: number) => unknown;
 type CancelFunction = (handle: unknown) => void;
 
-/** The four tabs of the phone layout's bottom tab bar. */
-type PhoneTab = "audio" | "eq" | "car";
-
-/** Sound holds what plays: the audio, the EQ and its library. Car holds the
- * car profile: the speakers, their timing and the car's own correction. */
-type AppPage = "sound" | "car" | "settings";
 
 function resolveGlobalLanguages(): readonly string[] {
   return typeof navigator === "undefined" ? [] : navigator.languages;
@@ -143,6 +152,9 @@ export class AppRoot extends LitElement {
   @property({ attribute: false }) localeStorage: LocaleStorage = browserLocaleStorage;
   @property({ attribute: false }) browserLanguages: readonly string[] = resolveGlobalLanguages();
   @property({ attribute: false }) layoutQuery: LayoutQuery = browserLayoutQuery;
+  @property({ attribute: false }) pageLocationStore: PageLocationStore = browserPageLocationStore;
+  /** The car app's settings, or null in a browser. */
+  @property({ attribute: false }) phoneApp: PhoneAppApi | null = phoneAppApi();
   /** The audio timer, injectable like `device-status`'s so a test can fire it. */
   @property({ attribute: false }) scheduleFunction: ScheduleFunction = (action, delayMs) =>
     setTimeout(action, delayMs);
@@ -155,6 +167,9 @@ export class AppRoot extends LitElement {
   @state() private profiles: ProfileDto[] = [];
   @state() private selectedId: number | null = null;
   @state() private locale: Locale = "en";
+  /** Whether the person chose the language on this page, or on the page
+   * whose hash this page opened with. Only a choice goes into the hash. */
+  private localeChosen = false;
   @state() private liveSimulationIds: readonly LiveSimulationId[] = [];
   /** The EQ library, and the edits of the EQ that plays. */
   private readonly equalizerLibrary = new EqualizerLibraryController(this, {
@@ -175,7 +190,8 @@ export class AppRoot extends LitElement {
     hasUnsavedEdits: () => this.draft !== null,
     reload: () => this.reloadFunction(),
   });
-  @state() private settingsSection: SettingsSection = "updates";
+  // Inside the car app, its own settings come first.
+  @state() private settingsSection: SettingsSection = phoneAppApi() === null ? "updates" : "phone";
   @state() private liveSimulation: LiveSimulationId | null = null;
   @state() private profilesDrawerOpen = false;
   @state() private layout: AppLayout = "desktop";
@@ -209,6 +225,7 @@ export class AppRoot extends LitElement {
     typeof window === "undefined" ? true : window.confirm(question);
 
   private unsubscribeLayout: (() => void) | null = null;
+  private unsubscribePhoneApp: (() => void) | null = null;
   private audioPollHandle: unknown;
 
   private readonly onKeydown = (event: KeyboardEvent): void => {
@@ -221,6 +238,9 @@ export class AppRoot extends LitElement {
     super.connectedCallback();
     this.locale = resolveInitialLocale(this.localeStorage, this.browserLanguages);
     this.layout = this.layoutQuery.current();
+    this.restorePageLocation();
+    this.followPhoneLanguage();
+    this.unsubscribePhoneApp = this.phoneApp?.onChange(() => this.followPhoneLanguage()) ?? null;
     this.unsubscribeLayout = this.layoutQuery.subscribe((layout) => {
       this.layout = layout;
     });
@@ -231,9 +251,49 @@ export class AppRoot extends LitElement {
     window.addEventListener("keydown", this.onKeydown);
   }
 
+  override updated(changed: PropertyValues): void {
+    super.updated(changed);
+    if (changed.has("page") || changed.has("phoneTab") || changed.has("settingsSection") || changed.has("locale")) {
+      this.pageLocationStore.write(
+        pageLocationHash({
+          page: this.page,
+          phoneTab: this.phoneTab,
+          settingsSection: this.settingsSection,
+          locale: this.localeChosen ? this.locale : undefined,
+        }),
+      );
+    }
+  }
+
+  /** A reload opens the page that the person had open. */
+  private restorePageLocation(): void {
+    const location = parsePageLocation(this.pageLocationStore.read());
+    this.page = location.page ?? this.page;
+    this.phoneTab = location.phoneTab ?? this.phoneTab;
+    if (location.settingsSection !== undefined && (location.settingsSection !== "phone" || this.phoneApp !== null)) {
+      this.settingsSection = location.settingsSection;
+    }
+    if (location.locale !== undefined) {
+      this.changeLocale(location.locale);
+    }
+  }
+
+  /** Android's App languages choice wins: the person set it for this app.
+   * Without a choice, the page keeps its own saved language. */
+  private followPhoneLanguage(): void {
+    const languageTag = this.phoneApp?.read().language ?? null;
+    const locale = languageTag === null ? null : localeFromLanguageTag(languageTag);
+    if (locale !== null && locale !== this.locale) {
+      this.locale = locale;
+      saveLocale(this.localeStorage, locale);
+    }
+  }
+
   override disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener("keydown", this.onKeydown);
+    this.unsubscribePhoneApp?.();
+    this.unsubscribePhoneApp = null;
     this.unsubscribeLayout?.();
     this.unsubscribeLayout = null;
     this.stopAudioPolling();
@@ -358,6 +418,7 @@ export class AppRoot extends LitElement {
         @automatic-change=${(automaticEvent: CustomEvent<{ automatic: boolean }>) =>
           this.updatesController.setAutomatic(automaticEvent.detail.automatic)}
         @request-update=${() => this.updatesController.requestUpdate()}
+        @library-imported=${() => this.reloadLibrary()}
       ></settings-page>
     `;
   }
@@ -940,8 +1001,10 @@ export class AppRoot extends LitElement {
   }
 
   private changeLocale(locale: Locale): void {
+    this.localeChosen = true;
     this.locale = locale;
     saveLocale(this.localeStorage, locale);
+    this.phoneApp?.setLanguage(locale);
   }
 
   private openProfilesDrawer(): void {
@@ -950,6 +1013,11 @@ export class AppRoot extends LitElement {
 
   private closeProfilesDrawer(): void {
     this.profilesDrawerOpen = false;
+  }
+
+  /** An import added profiles or EQs: read both lists again. */
+  private async reloadLibrary(): Promise<void> {
+    await Promise.all([this.loadInitialProfiles(), this.equalizerLibrary.load()]);
   }
 
   private async loadProfiles(): Promise<void> {

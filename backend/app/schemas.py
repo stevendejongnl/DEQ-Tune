@@ -355,18 +355,45 @@ class WifiNetworkWrite(BaseModel):
     @field_validator("password")
     @classmethod
     def password_fits(cls, password: str) -> str:
-        is_hex_key = len(password) == 64 and all(character in "0123456789abcdefABCDEF" for character in password)
-        if password == "" or is_hex_key:
-            return password
-        if not 8 <= len(password) <= 63:
-            raise ValueError("a Wi-Fi password has 8 to 63 characters")
-        if any(not 0x20 <= ord(character) <= 0x7E for character in password):
-            raise ValueError("a Wi-Fi password holds printable ASCII characters only")
+        return password if password == "" else check_wifi_password(password)
+
+
+def check_wifi_password(password: str) -> str:
+    """WPA2's rules: 8 to 63 printable ASCII characters, or 64 hex digits."""
+    is_hex_key = len(password) == 64 and all(character in "0123456789abcdefABCDEF" for character in password)
+    if is_hex_key:
         return password
+    if not 8 <= len(password) <= 63:
+        raise ValueError("a Wi-Fi password has 8 to 63 characters")
+    if any(not 0x20 <= ord(character) <= 0x7E for character in password):
+        raise ValueError("a Wi-Fi password holds printable ASCII characters only")
+    return password
 
 
 class WifiForgetWrite(BaseModel):
     ssid: str
+
+
+class AccessPointRead(BaseModel):
+    """The Pi's own access point. It never carries the key: anyone in
+    Bluetooth range can read this."""
+
+    ssid: str
+    # True while the key is still the public default, so the app asks the
+    # person to change it.
+    uses_default_key: bool
+
+
+class AccessPointKeyWrite(BaseModel):
+    """A new key for the access point. It applies at the access point's
+    next start, which is the Pi's next boot."""
+
+    key: str
+
+    @field_validator("key")
+    @classmethod
+    def key_fits(cls, key: str) -> str:
+        return check_wifi_password(key)
 
 
 class UpdateHistoryRead(BaseModel):
@@ -419,3 +446,62 @@ class FrontendPartRead(BaseModel):
     build: str
     index: int
     data: str
+
+
+LIBRARY_FORMAT = "deq-tune-library"
+LIBRARY_FORMAT_VERSION = 1
+
+
+class LibraryProfile(BaseModel):
+    """A custom profile in an export. It has no id: the importing database
+    gives it a new one."""
+
+    name: str
+    brand_name: str | None = None
+    car_model: str | None = None
+    speaker_type: str | None = None
+    supported_processors: list[str] = []
+    favorite: bool = False
+    data: TuningData
+
+
+class LibraryEqualizer(EqualizerGains):
+    name: str
+    favorite: bool = False
+
+
+class LibraryExport(BaseModel):
+    """A person's own library, as one file: the custom profiles, the custom
+    EQs, and the stars on factory presets. The factory presets themselves
+    come with every install, so the file names them only by their name."""
+
+    format: str = LIBRARY_FORMAT
+    version: int = LIBRARY_FORMAT_VERSION
+    profiles: list[LibraryProfile] = []
+    equalizers: list[LibraryEqualizer] = []
+    starred_factory_profiles: list[str] = []
+    starred_factory_equalizers: list[str] = []
+
+    @field_validator("format")
+    @classmethod
+    def is_a_library(cls, format_name: str) -> str:
+        if format_name != LIBRARY_FORMAT:
+            raise ValueError(f"this is not a {LIBRARY_FORMAT} file")
+        return format_name
+
+    @field_validator("version")
+    @classmethod
+    def is_a_known_version(cls, version: int) -> int:
+        if version > LIBRARY_FORMAT_VERSION:
+            raise ValueError(f"this file has version {version}; update the app to read it")
+        return version
+
+
+class LibraryImportRead(BaseModel):
+    """What an import added. An item that the library holds already, with
+    the same name and the same content, counts as skipped."""
+
+    profiles_added: int
+    equalizers_added: int
+    skipped: int
+    stars_added: int

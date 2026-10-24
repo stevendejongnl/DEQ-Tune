@@ -14,6 +14,7 @@ from app.active_profile import active_profile
 from app.active_profile_routes import router as active_profile_router
 from app.equalizer_routes import router as equalizer_router
 from app.equalizers import seed_factory_equalizers, star_default_equalizers
+from app.library_routes import router as library_router
 from app.bridge_routes import router as bridge_router
 from app.db import create_db_and_tables, engine
 from app.deq_device import device, link_keeper
@@ -64,6 +65,7 @@ app.include_router(active_profile_router, prefix="/api")
 app.include_router(equalizer_router, prefix="/api")
 app.include_router(wifi_router, prefix="/api")
 app.include_router(update_router, prefix="/api")
+app.include_router(library_router, prefix="/api")
 
 
 @app.get("/health")

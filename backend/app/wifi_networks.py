@@ -51,6 +51,13 @@ class VisibleNetwork:
     secured: bool
 
 
+@dataclass(frozen=True)
+class AccessPoint:
+    ssid: str
+    # True while the key is still the public default of configure-access-point.sh.
+    uses_default_key: bool
+
+
 class WifiNetworks:
     """Lists, saves and forgets the networks that the bridge joins.
 
@@ -84,6 +91,19 @@ class WifiNetworks:
         """Asks the bridge to join a saved network in range now, and not
         at the next timer run. The join itself happens after this returns."""
         self.run_helper("join")
+
+    def access_point(self) -> AccessPoint | None:
+        """The Pi's own access point, or None when the Pi has none."""
+        read = self.run_helper("access-point")
+        return None if read is None else AccessPoint(**read)
+
+    def set_access_point_key(self, key: str) -> AccessPoint | None:
+        """Saves a new access point key, for the access point's next start.
+
+        The key goes on stdin, as a network's password does.
+        """
+        read = self.run_helper("access-point-key", input_text=key + "\n")
+        return None if read is None else AccessPoint(**read)
 
     def run_helper(self, *arguments: str, input_text: str = "") -> object:
         try:

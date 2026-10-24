@@ -672,6 +672,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/wifi/access-point": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Access Point */
+        get: operations["read_access_point_api_wifi_access_point_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wifi/access-point/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Access Point Key */
+        put: operations["set_access_point_key_api_wifi_access_point_key_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/updates": {
         parameters: {
             query?: never;
@@ -723,6 +757,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/library/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Library Export */
+        get: operations["read_library_export_api_library_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Library File */
+        post: operations["import_library_file_api_library_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -744,6 +812,26 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AccessPointKeyWrite
+         * @description A new key for the access point. It applies at the access point's
+         *     next start, which is the Pi's next boot.
+         */
+        AccessPointKeyWrite: {
+            /** Key */
+            key: string;
+        };
+        /**
+         * AccessPointRead
+         * @description The Pi's own access point. It never carries the key: anyone in
+         *     Bluetooth range can read this.
+         */
+        AccessPointRead: {
+            /** Ssid */
+            ssid: string;
+            /** Uses Default Key */
+            uses_default_key: boolean;
+        };
         /**
          * ActiveEqualizerWrite
          * @description `None` plays the car profile with no EQ on top.
@@ -1121,6 +1209,97 @@ export interface components {
             selectedBank: number;
             /** Banks */
             banks: number[][];
+        };
+        /** LibraryEqualizer */
+        LibraryEqualizer: {
+            /** Gains */
+            gains: number[];
+            /** Name */
+            name: string;
+            /**
+             * Favorite
+             * @default false
+             */
+            favorite: boolean;
+        };
+        /**
+         * LibraryExport
+         * @description A person's own library, as one file: the custom profiles, the custom
+         *     EQs, and the stars on factory presets. The factory presets themselves
+         *     come with every install, so the file names them only by their name.
+         */
+        LibraryExport: {
+            /**
+             * Format
+             * @default deq-tune-library
+             */
+            format: string;
+            /**
+             * Version
+             * @default 1
+             */
+            version: number;
+            /**
+             * Profiles
+             * @default []
+             */
+            profiles: components["schemas"]["LibraryProfile"][];
+            /**
+             * Equalizers
+             * @default []
+             */
+            equalizers: components["schemas"]["LibraryEqualizer"][];
+            /**
+             * Starred Factory Profiles
+             * @default []
+             */
+            starred_factory_profiles: string[];
+            /**
+             * Starred Factory Equalizers
+             * @default []
+             */
+            starred_factory_equalizers: string[];
+        };
+        /**
+         * LibraryImportRead
+         * @description What an import added. An item that the library holds already, with
+         *     the same name and the same content, counts as skipped.
+         */
+        LibraryImportRead: {
+            /** Profiles Added */
+            profiles_added: number;
+            /** Equalizers Added */
+            equalizers_added: number;
+            /** Skipped */
+            skipped: number;
+            /** Stars Added */
+            stars_added: number;
+        };
+        /**
+         * LibraryProfile
+         * @description A custom profile in an export. It has no id: the importing database
+         *     gives it a new one.
+         */
+        LibraryProfile: {
+            /** Name */
+            name: string;
+            /** Brand Name */
+            brand_name?: string | null;
+            /** Car Model */
+            car_model?: string | null;
+            /** Speaker Type */
+            speaker_type?: string | null;
+            /**
+             * Supported Processors
+             * @default []
+             */
+            supported_processors: string[];
+            /**
+             * Favorite
+             * @default false
+             */
+            favorite: boolean;
+            data: components["schemas"]["TuningData"];
         };
         /**
          * LiveSimulationWrite
@@ -2455,6 +2634,59 @@ export interface operations {
             };
         };
     };
+    read_access_point_api_wifi_access_point_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessPointRead"];
+                };
+            };
+        };
+    };
+    set_access_point_key_api_wifi_access_point_key_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessPointKeyWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessPointRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_updates_api_updates_get: {
         parameters: {
             query?: never;
@@ -2524,6 +2756,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    read_library_export_api_library_export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryExport"];
+                };
+            };
+        };
+    };
+    import_library_file_api_library_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibraryExport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryImportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

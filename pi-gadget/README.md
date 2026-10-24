@@ -132,7 +132,10 @@ checks that the two still give the same bytes.
   and NetworkManager reports a misleading `no-secrets`.
 - **The access point's default key is public.** It is `deq-tune-bridge`,
   in `configure-access-point.sh`. Pass a key of your own for an install
-  that leaves the bench.
+  that leaves the bench, or set one in the app: Settings → Wi-Fi → The
+  Pi's access point. `deq-wifi-networks access-point-key` writes it into
+  the keyfile, and it applies at the access point's next start. The API
+  says only whether the key is the default, never the key.
 - **The BLE bridge needs no pairing yet.** Any device nearby can reach the
   API through it.
 

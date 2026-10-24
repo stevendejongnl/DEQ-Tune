@@ -5,6 +5,12 @@ Its JSON matches what the real helper printed on the Pi on 2026-10-14:
     saved    [{"ssid": "CloudSuite", "connected": true}, ...]
     visible  [{"ssid": "CloudSuite", "signal": 79, "secured": true}]
 
+and what `access-point` printed there on 2026-10-23:
+
+    {"ssid": "deq-tune", "uses_default_key": true}
+
+The real helper never prints the access point's key, so neither does this.
+
 It refuses as the real helper does: exit code 2, and the reason on stderr.
 """
 
@@ -24,6 +30,8 @@ class FakeWifiHelper:
     # What each `save` read on stdin, in order.
     passwords: list[str] = field(default_factory=list)
     join_requests: int = 0
+    # The access point's SSID and key, or None for a Pi without one.
+    access_point: dict[str, str] | None = None
 
     def __call__(self, command, input="", **_options) -> subprocess.CompletedProcess:
         verb, *arguments = command[3:]
@@ -54,7 +62,19 @@ class FakeWifiHelper:
                 raise PermissionError("The DEQ is connected, so the Pi cannot join a network now.")
             self.join_requests += 1
             return None
-        raise PermissionError("Use one of: saved, visible, save SSID, forget SSID, join.")
+        if verb == "access-point":
+            return self.access_point_read()
+        if verb == "access-point-key":
+            if self.access_point is None:
+                raise PermissionError("The Pi has no access point. Run configure-access-point.sh first.")
+            self.access_point["key"] = stdin_text.rstrip("\n")
+            return self.access_point_read()
+        raise PermissionError("Use one of: saved, visible, save SSID, forget SSID, join, access-point, access-point-key.")
+
+    def access_point_read(self) -> dict[str, object] | None:
+        if self.access_point is None:
+            return None
+        return {"ssid": self.access_point["ssid"], "uses_default_key": self.access_point["key"] == "deq-tune-bridge"}
 
     def saved_list(self) -> list[dict[str, object]]:
         return [{"ssid": ssid, "connected": connected} for ssid, connected in sorted(self.saved.items())]

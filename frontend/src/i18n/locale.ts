@@ -26,6 +26,12 @@ function isSupportedLocale(value: string): value is Locale {
   return (SUPPORTED_LOCALES as readonly string[]).includes(value);
 }
 
+/** The supported locale of a language tag such as "nl-NL", or null. */
+export function localeFromLanguageTag(languageTag: string): Locale | null {
+  const languageCode = languageTag.split("-")[0].toLowerCase();
+  return isSupportedLocale(languageCode) ? languageCode : null;
+}
+
 /** Picks the first browser language (e.g. "de-DE", "de") that matches a
  * supported locale, or DEFAULT_LOCALE if none match. */
 export function detectBrowserLocale(browserLanguages: readonly string[]): Locale {

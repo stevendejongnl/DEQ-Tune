@@ -22,6 +22,10 @@ import type {
   UpdateSettingsWriteDto,
   UpdatesDto,
   VolumeWriteDto,
+  AccessPointDto,
+  LibraryExportDto,
+  LibraryImportDto,
+  AccessPointKeyWriteDto,
   WifiDto,
   WifiForgetWriteDto,
   WifiNetworkWriteDto,
@@ -139,6 +143,17 @@ export interface WifiApi {
   saveWifiNetwork(ssid: string, password: string): Promise<WifiDto>;
   forgetWifiNetwork(ssid: string): Promise<WifiDto>;
   requestWifiJoin(): Promise<void>;
+  /** A 404 means the Pi has no access point. */
+  readAccessPoint(): Promise<AccessPointDto>;
+  /** The new key applies at the access point's next start, the Pi's next boot. */
+  setAccessPointKey(key: string): Promise<AccessPointDto>;
+}
+
+/** The person's own library as one file, to move it to another install.
+ * An import adds and never deletes, and skips what is there already. */
+export interface LibraryApi {
+  exportLibrary(): Promise<LibraryExportDto>;
+  importLibrary(library: LibraryExportDto): Promise<LibraryImportDto>;
 }
 
 /** The Pi's release updater. `requestUpdate` asks for one update now, also
@@ -150,7 +165,7 @@ export interface UpdatesApi {
 }
 
 export class DeqApiClient
-  implements ProfileApi, DeviceApi, EqualizerApi, BridgeApi, BridgeSystemApi, WifiApi, UpdatesApi
+  implements ProfileApi, DeviceApi, EqualizerApi, BridgeApi, BridgeSystemApi, WifiApi, UpdatesApi, LibraryApi
 {
   private baseUrl: string;
   private fetchImpl: FetchLike;
@@ -230,6 +245,24 @@ export class DeqApiClient
 
   async requestWifiJoin(): Promise<void> {
     await this.call("POST", "/wifi/join");
+  }
+
+  async readAccessPoint(): Promise<AccessPointDto> {
+    return typia.assert<AccessPointDto>(await this.call("GET", "/wifi/access-point"));
+  }
+
+  async setAccessPointKey(key: string): Promise<AccessPointDto> {
+    const validBody = typia.assert<AccessPointKeyWriteDto>({ key });
+    return typia.assert<AccessPointDto>(await this.call("PUT", "/wifi/access-point/key", validBody));
+  }
+
+  async exportLibrary(): Promise<LibraryExportDto> {
+    return typia.assert<LibraryExportDto>(await this.call("GET", "/library/export"));
+  }
+
+  async importLibrary(library: LibraryExportDto): Promise<LibraryImportDto> {
+    const validBody = typia.assert<LibraryExportDto>(library);
+    return typia.assert<LibraryImportDto>(await this.call("POST", "/library/import", validBody));
   }
 
   async readUpdates(): Promise<UpdatesDto> {

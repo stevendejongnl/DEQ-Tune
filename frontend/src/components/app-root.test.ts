@@ -6,6 +6,8 @@ import { sampleProfile } from "../dto/testing/sample-profile.ts";
 import { flushMicrotasks } from "../testing/flush-microtasks.ts";
 import { createFakeLocaleStorage } from "../i18n/testing/fake-locale-storage.ts";
 import { createFakeLayoutQuery, type FakeLayoutQuery } from "../testing/fake-layout-query.ts";
+import { createFakePageLocationStore, type FakePageLocationStore } from "../testing/fake-page-location-store.ts";
+import { FakePhoneAppApi } from "./testing/fake-phone-app-api.ts";
 import type { AppLayout } from "../layout-query.ts";
 import type { ProfileList } from "./profile-list.ts";
 import type { ProfileDto, ProfileUpdateDto } from "../dto/profile.dto.ts";
@@ -26,8 +28,13 @@ function withLibrary(api: FakeProfileApi): FakeProfileApi {
   return api;
 }
 
-async function mount(api: FakeProfileApi, layout: AppLayout = "desktop"): Promise<AppRoot> {
+async function mount(
+  api: FakeProfileApi,
+  layout: AppLayout = "desktop",
+  pageLocationStore: FakePageLocationStore = createFakePageLocationStore(),
+): Promise<AppRoot> {
   const element = document.createElement("app-root") as AppRoot;
+  element.pageLocationStore = pageLocationStore;
   element.api = api;
   element.localeStorage = createFakeLocaleStorage({});
   element.browserLanguages = ["en-US"];
@@ -287,6 +294,7 @@ describe("app-root", () => {
     element.localeStorage = createFakeLocaleStorage({});
     element.browserLanguages = ["ja-JP"];
     element.layoutQuery = createFakeLayoutQuery("desktop");
+    element.pageLocationStore = createFakePageLocationStore();
     document.body.append(element);
     await flushMicrotasks();
     await element.updateComplete;
@@ -302,9 +310,12 @@ describe("app-root", () => {
     element.localeStorage = storage;
     element.browserLanguages = ["en-US"];
     element.layoutQuery = createFakeLayoutQuery("desktop");
+    const pageLocationStore = createFakePageLocationStore();
+    element.pageLocationStore = pageLocationStore;
     document.body.append(element);
     await flushMicrotasks();
     await element.updateComplete;
+    expect(pageLocationStore.hash).not.toContain("lang=");
 
     element.shadowRoot!.querySelector<HTMLButtonElement>(".open-settings")!.click();
     await element.updateComplete;
@@ -321,6 +332,84 @@ describe("app-root", () => {
     const profileListText = queryProfileList(element).shadowRoot!.textContent;
     expect(profileListText).toContain("Meine Profile");
     expect(storage.getItem("deq-tune-locale")).toBe("de");
+    // The car app's copy and the Pi's page keep their own saved language.
+    // The hash carries the choice from one to the other.
+    expect(pageLocationStore.hash).toContain("lang=de");
+  });
+
+  it("takes over the language that the page location carries, and saves it", async () => {
+    const storage = createFakeLocaleStorage({ "deq-tune-locale": "en" });
+    const element = document.createElement("app-root") as AppRoot;
+    element.api = new FakeProfileApi([starredPreset({ id: 1 })]);
+    element.localeStorage = storage;
+    element.browserLanguages = ["en-US"];
+    element.layoutQuery = createFakeLayoutQuery("desktop");
+    element.pageLocationStore = createFakePageLocationStore("#page=sound&tab=audio&section=updates&lang=de");
+    document.body.append(element);
+    await flushMicrotasks();
+    await element.updateComplete;
+
+    expect(queryProfileList(element).shadowRoot!.textContent).toContain("Meine Profile");
+    expect(storage.getItem("deq-tune-locale")).toBe("de");
+  });
+
+  describe("Android's app language", () => {
+    async function mountInCarApp(phoneApp: FakePhoneAppApi, savedLocale: string) {
+      const storage = createFakeLocaleStorage({ "deq-tune-locale": savedLocale });
+      const element = document.createElement("app-root") as AppRoot;
+      element.api = new FakeProfileApi([starredPreset({ id: 1 })]);
+      element.localeStorage = storage;
+      element.browserLanguages = ["en-US"];
+      element.layoutQuery = createFakeLayoutQuery("desktop");
+      element.pageLocationStore = createFakePageLocationStore();
+      element.phoneApp = phoneApp;
+      document.body.append(element);
+      await flushMicrotasks();
+      await element.updateComplete;
+      return { element, storage };
+    }
+
+    it("wins over the page's saved language", async () => {
+      const { element, storage } = await mountInCarApp(new FakePhoneAppApi({ language: "de-DE" }), "en");
+
+      expect(queryProfileList(element).shadowRoot!.textContent).toContain("Meine Profile");
+      expect(storage.getItem("deq-tune-locale")).toBe("de");
+    });
+
+    it("leaves the saved language alone when Android has no choice", async () => {
+      const { storage } = await mountInCarApp(new FakePhoneAppApi({ language: null }), "nl");
+
+      expect(storage.getItem("deq-tune-locale")).toBe("nl");
+    });
+
+    it("follows a new choice that the car app reports", async () => {
+      const phoneApp = new FakePhoneAppApi({ language: null });
+      const { element } = await mountInCarApp(phoneApp, "en");
+
+      phoneApp.report({ language: "de" });
+      await element.updateComplete;
+
+      expect(queryProfileList(element).shadowRoot!.textContent).toContain("Meine Profile");
+    });
+
+    it("gets the language that the person picks in the app", async () => {
+      const phoneApp = new FakePhoneAppApi({ language: null });
+      const { element } = await mountInCarApp(phoneApp, "en");
+
+      element.shadowRoot!.querySelector<HTMLButtonElement>(".open-settings")!.click();
+      await element.updateComplete;
+      const settings = element.shadowRoot!.querySelector("settings-page")!;
+      settings.section = "language";
+      await settings.updateComplete;
+      const select = settings
+        .shadowRoot!.querySelector("locale-switcher")!
+        .shadowRoot!.querySelector("select") as HTMLSelectElement;
+      select.value = "nl";
+      select.dispatchEvent(new Event("change"));
+      await element.updateComplete;
+
+      expect(phoneApp.languagesSet).toEqual(["nl"]);
+    });
   });
 
   it("starts with the profiles drawer closed", async () => {
@@ -524,6 +613,40 @@ describe("app-root", () => {
     expect(element.shadowRoot!.querySelector("speaker-panel")).toBeNull();
   });
 
+  it("keeps the open phone tab in the page location", async () => {
+    const pageLocationStore = createFakePageLocationStore();
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]), "phone", pageLocationStore);
+    const eqTab = element.shadowRoot!.querySelectorAll(".tab")[1] as HTMLButtonElement;
+    await click(eqTab, element);
+
+    expect(pageLocationStore.hash).toBe("#page=sound&tab=eq&section=updates");
+  });
+
+  it("opens the tab that the page location names after a reload", async () => {
+    const pageLocationStore = createFakePageLocationStore("#page=sound&tab=eq&section=updates");
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]), "phone", pageLocationStore);
+
+    const eqTab = element.shadowRoot!.querySelectorAll(".tab")[1] as HTMLButtonElement;
+    expect(eqTab.getAttribute("aria-pressed")).toBe("true");
+    expect(element.shadowRoot!.querySelector("equalizer-editor")).not.toBeNull();
+  });
+
+  it("opens the settings section that the page location names after a reload", async () => {
+    const pageLocationStore = createFakePageLocationStore("#page=settings&tab=audio&section=wifi");
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]), "phone", pageLocationStore);
+
+    const settingsPage = element.shadowRoot!.querySelector("settings-page") as HTMLElement & { section: string };
+    expect(settingsPage.section).toBe("wifi");
+  });
+
+  it("does not open the phone app section outside the car app", async () => {
+    const pageLocationStore = createFakePageLocationStore("#page=settings&tab=audio&section=phone");
+    const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]), "phone", pageLocationStore);
+
+    const settingsPage = element.shadowRoot!.querySelector("settings-page") as HTMLElement & { section: string };
+    expect(settingsPage.section).toBe("updates");
+  });
+
   it("swaps the panel when another phone tab is pressed", async () => {
     const element = await mount(new FakeProfileApi([starredPreset({ id: 1 })]), "phone");
     await click(queryFirstChip(element), element);
@@ -697,6 +820,7 @@ describe("app-root", () => {
     element.localeStorage = createFakeLocaleStorage({});
     element.browserLanguages = ["en-US"];
     element.layoutQuery = layoutQuery;
+    element.pageLocationStore = createFakePageLocationStore();
     document.body.append(element);
     await flushMicrotasks();
     await element.updateComplete;
@@ -756,6 +880,7 @@ describe("app-root", () => {
       element.localeStorage = createFakeLocaleStorage({});
       element.browserLanguages = ["en-US"];
       element.layoutQuery = createFakeLayoutQuery(layout);
+      element.pageLocationStore = createFakePageLocationStore();
       element.scheduleFunction = schedule.schedule;
       element.cancelFunction = schedule.cancel;
       document.body.append(element);
