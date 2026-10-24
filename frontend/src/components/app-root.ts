@@ -337,6 +337,12 @@ export class AppRoot extends LitElement {
     return this.profiles.find((profile) => profile.id === this.selectedId);
   }
 
+  /** The access point form is on screen, so the dock notice that points
+   * to it would only cover it. */
+  private get showsWifiSettings(): boolean {
+    return this.page === "settings" && this.settingsSection === "wifi";
+  }
+
   private get isPhoneLayout(): boolean {
     return this.layout === "phone";
   }
@@ -478,7 +484,7 @@ export class AppRoot extends LitElement {
         @update-postponed=${(postponeEvent: CustomEvent<{ version: string }>) =>
           this.updatesController.postpone(postponeEvent.detail.version)}
         @update-requested=${() => this.updatesController.requestUpdate()}
-        .accessPointNotice=${this.accessPointKey.showsNotice}
+        .accessPointNotice=${this.accessPointKey.showsNotice && !this.showsWifiSettings}
         @access-point-key-requested=${() => this.openSettings("wifi")}
       ></notification-dock>
     `;

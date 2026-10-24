@@ -906,6 +906,18 @@ describe("app-root", () => {
       expect(element.shadowRoot!.querySelector("main settings-page")).not.toBeNull();
     });
 
+    it("hides the notice while the Wi-Fi settings, with the key form, are open", async () => {
+      const storage = createFakeLocaleStorage({ [ACCESS_POINT_SETUP_SKIPPED_KEY]: "true" });
+      const element = await mountWithAccessPoint(piOnTheDefaultKey(), storage);
+      await dock(element).updateComplete;
+
+      (dock(element).shadowRoot!.querySelector(".access-point .primary") as HTMLButtonElement).click();
+      await element.updateComplete;
+      await dock(element).updateComplete;
+
+      expect(dock(element).shadowRoot!.querySelector(".access-point")).toBeNull();
+    });
+
     it("shows the notice, not the setup, after an earlier Later", async () => {
       const storage = createFakeLocaleStorage({ [ACCESS_POINT_SETUP_SKIPPED_KEY]: "true" });
       const element = await mountWithAccessPoint(piOnTheDefaultKey(), storage);
