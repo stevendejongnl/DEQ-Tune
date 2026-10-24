@@ -88,14 +88,17 @@ test("the app loads with no console errors of its own", async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
-test("the header shows the unit and its firmware version without a click", async ({ page }) => {
+test("the header shows the unit without a click, and System shows its firmware version", async ({ page }) => {
   await openApp(page);
 
   await expect(page.locator(DEVICE_PILL)).toContainText("DEQ connected");
-  await expect(page.locator(DEVICE_PILL)).toContainText(FAKE_UNIT_FIRMWARE);
+  await expect(page.locator(DEVICE_PILL)).not.toContainText(FAKE_UNIT_FIRMWARE);
   // The backend connects by itself, so the header has no connect button.
-  // Its one button opens the Pi's system dialog.
+  // Its one button opens the System section of the settings page.
   await expect(page.getByRole("button", { name: /connect/i })).toHaveCount(0);
+
+  await page.locator(DEVICE_PILL).click();
+  await expect(page.locator("system-panel")).toContainText(FAKE_UNIT_FIRMWARE);
 });
 
 test("the backend connects again by itself after the link drops", async ({ request }) => {
@@ -119,7 +122,7 @@ test("the pill's dot has the accent colour while connected", async ({ page }) =>
 
 test("the connected state survives a reload, because the backend holds it", async ({ page }) => {
   await openApp(page);
-  await expect(page.locator(DEVICE_PILL)).toContainText(FAKE_UNIT_FIRMWARE);
+  await expect(page.locator(DEVICE_PILL)).toContainText("DEQ connected");
 
   await page.reload();
 
@@ -128,7 +131,7 @@ test("the connected state survives a reload, because the backend holds it", asyn
 
 test("an EQ from the library becomes the one that plays", async ({ page, request }) => {
   await openApp(page);
-  await expect(page.locator(DEVICE_PILL)).toContainText(FAKE_UNIT_FIRMWARE);
+  await expect(page.locator(DEVICE_PILL)).toContainText("DEQ connected");
 
   // The first tile is No EQ. The second is the first EQ of the library.
   const equalizerTile = page.locator("dsp-panel .tile").nth(1);
@@ -195,7 +198,7 @@ test("activating a profile puts it on the connected unit", async ({ page, reques
   const profiles = await (await request.get("/api/profiles")).json();
   await request.put("/api/active-profile", { data: { profile_id: profiles[profiles.length - 1].id } });
   await openApp(page);
-  await expect(page.locator(DEVICE_PILL)).toContainText(FAKE_UNIT_FIRMWARE);
+  await expect(page.locator(DEVICE_PILL)).toContainText("DEQ connected");
   await openFirstPreset(page);
 
   const activated = page.waitForResponse(
