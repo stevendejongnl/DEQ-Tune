@@ -201,6 +201,10 @@ class ResponseCharacteristic(Characteristic):
             self, bus, index, RESPONSE_UUID, ["notify"], service
         )
         self.chunk_payload = CHUNK_PAYLOAD
+        # The request side sets this. A client subscribes on each connect
+        # and unsubscribes when it goes, so each call marks a connection's
+        # start or end.
+        self.on_subscription_change = None
 
     def use_mtu(self, mtu):
         """Fits each chunk inside the MTU that BlueZ reports for the link.
@@ -224,11 +228,17 @@ class ResponseCharacteristic(Characteristic):
     def StartNotify(self):
         self.notifying = True
         log("client subscribed to replies")
+        self._tell_subscription_change()
 
     @dbus.service.method(GATT_CHRC_IFACE)
     def StopNotify(self):
         self.notifying = False
         log("client unsubscribed")
+        self._tell_subscription_change()
+
+    def _tell_subscription_change(self):
+        if self.on_subscription_change is not None:
+            self.on_subscription_change()
 
     def send(self, message):
         if not self.notifying:
@@ -262,6 +272,18 @@ class RequestCharacteristic(Characteristic):
             service,
         )
         self.response = response_characteristic
+        self.buffer = bytearray()
+        response_characteristic.on_subscription_change = self.drop_unfinished_request
+
+    def drop_unfinished_request(self):
+        """Forgets the chunks of a request that never got its last chunk.
+
+        A client that goes away in the middle of a request leaves those
+        chunks here. The next client's first request was then appended to
+        them, failed to parse, and the car app showed a JSON error once.
+        """
+        if self.buffer:
+            log("dropping %d bytes of an unfinished request" % len(self.buffer))
         self.buffer = bytearray()
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="aya{sv}")

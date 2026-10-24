@@ -132,11 +132,15 @@ checks that the two still give the same bytes.
 - **The access point's default key is public.** It is `deq-tune-bridge`,
   in `configure-access-point.sh`. Pass a key of your own for an install
   that leaves the bench, or set one in the app: Settings → Wi-Fi → The
-  Pi's access point. `deq-wifi-networks access-point-key` writes it into
+  Pi's access point. The app also asks for one at its first start while
+  the default key is in use. `deq-wifi-networks access-point-key` writes it into
   the keyfile, and it applies at the access point's next start. The API
   says only whether the key is the default, never the key.
 - **The BLE bridge needs no pairing yet.** Any device nearby can reach the
   API through it.
+- **The BLE bridge forgets a half-received request when a client
+  subscribes or goes.** A request that lost its last chunk stayed in the
+  buffer before, and the next client's first request failed to parse.
 
 ## Playing our own audio
 
