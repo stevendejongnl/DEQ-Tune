@@ -80,6 +80,9 @@ Measured on the desk on 2026-10-25 (boot 17 is the desk test):
 - `alive_s` is the uptime at the last save. The board saves every ten
   seconds, so it is up to ten seconds short.
 - `bus_at_ms` is the uptime when a host first showed up on the USB port.
+- `trace` lists the first 32 bus events and SETUP packets in order. A
+  SETUP packet shows as `bmRequestType bRequest:wValue:wIndex:wLength` in
+  hex, so `8006:0200:0000:0020` is GET_DESCRIPTOR configuration, 32 bytes.
 - `reads` counts the host's descriptor reads: the device descriptor, the
   configuration descriptor and the strings (`string_indexes` has bit n
   set for each string n read). They show where a host stops when it never
@@ -152,7 +155,22 @@ answers:
   (`mounts=0`) and suspended the bus.
 
 So a car session needs the external supply, and the DEQ still stops
-during enumeration. The descriptor read counts exist to show where.
+during enumeration.
+
+The trace of the later sessions on 2026-10-25 shows where, the same each
+time:
+
+    RESET RESET  device(64)  RESET  SET_ADDRESS 1  device(18)
+    configuration(9)  configuration(32)  SUSPEND
+
+The DEQ reads the whole configuration descriptor and drops the board. It
+reads no strings and sends no `SET_CONFIGURATION` and no `GET_PROTOCOL`.
+Three configurations gave this same stop: the SM-T560's ADB interface
+with 64-byte bulk endpoints, the same with 512, and the Pi's own shape
+(the Android accessory interface 0xFF/0xFF/0x00, the strings "AOA" and
+"Android Accessory Interface", 512-byte bulk). The firmware keeps the
+Pi's shape. The one difference left from the Pi is the speed: the
+ESP32-S3 is full speed only. Not proven yet.
 
 ## Tests
 

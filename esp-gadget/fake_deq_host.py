@@ -71,6 +71,10 @@ READ_TIMEOUT_MS = 500
 STATUS_OK = bytes(4)
 
 
+STANDARD_OUT = 0x00
+SET_CONFIGURATION = 0x09
+
+
 def log(message: str) -> None:
     print(f"{time.strftime('%H:%M:%S')} {message}", flush=True)
 
@@ -91,7 +95,12 @@ def find_board(product_ids, wait_seconds: float):
 
 
 def run_handshake(board) -> None:
-    """Steps 2 to 4: the AOA handshake, as the DEQ sends it."""
+    """Steps 2 to 4: the AOA handshake, as the DEQ sends it.
+
+    The DEQ sends the AOA requests before it configures the device. The
+    laptop's kernel configures each new device by itself, so this first
+    sets configuration 0 to put the board back in that state."""
+    board.ctrl_transfer(STANDARD_OUT, SET_CONFIGURATION, 0, 0, None)
     version = int.from_bytes(bytes(board.ctrl_transfer(VENDOR_IN, GET_PROTOCOL, 0, 0, 2)), "little")
     log(f"stage 2: GET_PROTOCOL answered {version}")
     if version != 2:

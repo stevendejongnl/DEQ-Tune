@@ -116,7 +116,7 @@ typedef struct {
 
 // One boot's record in flash. The layout is fixed: a firmware change that
 // changes it must change RECORD_VERSION, so old records read as empty.
-#define RECORD_VERSION 2
+#define RECORD_VERSION 3
 typedef struct {
     uint8_t version;
     uint8_t reset_reason;
@@ -145,6 +145,7 @@ typedef struct {
     uint16_t last_refused_command;
     char manufacturer[24];
     char model[24];
+    deq_usb_trace_t trace;
 } boot_record_t;
 
 static session_t s_session;
@@ -234,6 +235,7 @@ static void save_report(void)
         .last_refusal = s_session.last_refusal,
         .last_refused_command = s_session.last_refused_command,
     };
+    deq_usb_device_trace(&record.trace);
     strlcpy(record.manufacturer, s_session.manufacturer, sizeof(record.manufacturer));
     strlcpy(record.model, s_session.model, sizeof(record.model));
 
@@ -267,6 +269,29 @@ static const char *reset_reason_name(uint8_t reason)
     }
 }
 
+// Prints the trace four entries to a line: a SETUP packet as its 8 bytes
+// in hex, a bus event by name.
+static void print_trace(const deq_usb_trace_t *trace)
+{
+    static const char *BUS_EVENTS[] = {"?", "RESET", "UNPLUGGED", "?", "SUSPEND", "RESUME"};
+    char line[160];
+    size_t used = 0;
+    uint8_t count = trace->count > DEQ_USB_TRACE_ENTRIES ? DEQ_USB_TRACE_ENTRIES : trace->count;
+    for (uint8_t index = 0; index < count; index++) {
+        const uint8_t *entry = trace->entries[index];
+        if (entry[0] == DEQ_USB_TRACE_BUS_EVENT) {
+            used += snprintf(line + used, sizeof(line) - used, " %s", entry[1] <= 5 ? BUS_EVENTS[entry[1]] : "?");
+        } else {
+            used += snprintf(line + used, sizeof(line) - used, " %02x%02x:%02x%02x:%02x%02x:%02x%02x", entry[0],
+                             entry[1], entry[3], entry[2], entry[5], entry[4], entry[7], entry[6]);
+        }
+        if (index % 4 == 3 || index == count - 1) {
+            ESP_LOGI(TAG, "REPORT   trace%s", line);
+            used = 0;
+        }
+    }
+}
+
 static void print_record(const boot_record_t *record)
 {
     uint8_t stage = record->stage > STAGE_HOLD ? STAGE_NONE : record->stage;
@@ -277,6 +302,7 @@ static void print_record(const boot_record_t *record)
              record->bus_at_ms, record->mounts, record->suspends, record->resumes, record->unmounts);
     ESP_LOGI(TAG, "REPORT   reads: device=%u configuration=%u string=%u string_indexes=0x%04x", record->device_reads,
              record->configuration_reads, record->string_reads, record->string_indexes);
+    print_trace(&record->trace);
     if (stage < STAGE_AOA) {
         return;
     }
@@ -537,6 +563,7 @@ void app_main(void)
     save_report();
     stage_t shown = STAGE_NONE;
     deq_usb_descriptor_reads_t saved_reads = deq_usb_device_descriptor_reads();
+    uint8_t saved_trace_count = 0;
     int64_t saved_at = esp_timer_get_time();
     while (true) {
         if (tud_connected() && s_session.stage < STAGE_BUS) {
@@ -545,7 +572,10 @@ void app_main(void)
         }
         bool alive_due = esp_timer_get_time() - saved_at >= ALIVE_SAVE_SECONDS * 1000000LL;
         deq_usb_descriptor_reads_t reads = deq_usb_device_descriptor_reads();
-        bool reads_changed = memcmp(&reads, &saved_reads, sizeof(reads)) != 0;
+        deq_usb_trace_t trace;
+        deq_usb_device_trace(&trace);
+        bool reads_changed = memcmp(&reads, &saved_reads, sizeof(reads)) != 0 || trace.count != saved_trace_count;
+        saved_trace_count = trace.count;
         if (s_session.stage != shown || s_session.changed || reads_changed || alive_due) {
             saved_reads = reads;
             shown = s_session.stage;

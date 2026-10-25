@@ -9,6 +9,8 @@
 #include "freertos/task.h"
 #include "tinyusb.h"
 #include "tusb.h"
+#include "device/dcd.h"
+#include "esp_attr.h"
 
 static const char *TAG = "deq_usb";
 
@@ -54,6 +56,13 @@ esp_err_t tinyusb_set_descriptors(const tinyusb_config_t *config);
 // speed, which the ESP32-S3 does not have. The Pi reproduced the DEQ's
 // old refusal at high speed, so speed was never the cause of it.
 #define BULK_PACKET_BYTES 64
+// The tablet-mode configuration claims the high-speed packet size of the
+// SM-T560 and the Pi. Full speed allows 64, so a host that configures
+// this configuration cannot use these endpoints. The DEQ does not
+// configure it: it reads it and sends the AOA requests. An experiment
+// tests whether the DEQ refuses the full-speed value: with 64, it read
+// this descriptor and went quiet (car session of 2026-10-25).
+#define TABLET_BULK_PACKET_BYTES 512
 
 static const tusb_desc_device_t s_tablet_device = {
     .bLength = sizeof(tusb_desc_device_t),
@@ -74,11 +83,15 @@ static const tusb_desc_device_t s_tablet_device = {
 
 #define TABLET_CONFIG_BYTES (TUD_CONFIG_DESC_LEN + 9 + 7 + 7)
 static const uint8_t s_tablet_config[TABLET_CONFIG_BYTES] = {
-    TUD_CONFIG_DESCRIPTOR(1, 1, 0, TABLET_CONFIG_BYTES, 0xC0, 500),
-    // interface 0: ADB (vendor 0xFF, subclass 0x42, protocol 0x01)
-    9, TUSB_DESC_INTERFACE, 0, 0, 2, 0xFF, 0x42, 0x01, 0,
-    7, TUSB_DESC_ENDPOINT, 0x81, TUSB_XFER_BULK, U16_TO_U8S_LE(BULK_PACKET_BYTES), 0,
-    7, TUSB_DESC_ENDPOINT, 0x01, TUSB_XFER_BULK, U16_TO_U8S_LE(BULK_PACKET_BYTES), 0,
+    // The Pi's shape, which the DEQ accepts: configuration string "AOA"
+    // (4), and the Android accessory interface (vendor 0xFF, subclass 0xFF,
+    // protocol 0) with its string (5), as pi-gadget/f_accessory builds it.
+    // The SM-T560's ADB interface (0xFF/0x42/0x01, no strings) made the DEQ
+    // read this descriptor and go quiet (car sessions of 2026-10-25).
+    TUD_CONFIG_DESCRIPTOR(1, 1, 4, TABLET_CONFIG_BYTES, 0xC0, 500),
+    9, TUSB_DESC_INTERFACE, 0, 0, 2, 0xFF, 0xFF, 0x00, 5,
+    7, TUSB_DESC_ENDPOINT, 0x81, TUSB_XFER_BULK, U16_TO_U8S_LE(TABLET_BULK_PACKET_BYTES), 0,
+    7, TUSB_DESC_ENDPOINT, 0x01, TUSB_XFER_BULK, U16_TO_U8S_LE(TABLET_BULK_PACKET_BYTES), 0,
 };
 
 // ---------------------------------------------------------------------
@@ -167,6 +180,8 @@ static const char *s_strings[] = {
     "SAMSUNG",
     "SAMSUNG_Android",
     "0000000000000000",
+    "AOA",
+    "Android Accessory Interface",
 };
 
 // ---------------------------------------------------------------------
@@ -420,6 +435,63 @@ deq_usb_descriptor_reads_t deq_usb_device_descriptor_reads(void)
         .string_indexes = s_descriptor_reads.string_indexes,
     };
     return reads;
+}
+
+// ---------------------------------------------------------------------
+// The trace. The linker wraps TinyUSB's dcd_event_handler, which the
+// controller's interrupt calls for each bus event and SETUP packet. The
+// wrapper copies the first DEQ_USB_TRACE_ENTRIES of them and passes each
+// one on. It runs in the interrupt, so it only copies bytes.
+// ---------------------------------------------------------------------
+
+static deq_usb_trace_t s_trace;
+
+void __real_dcd_event_handler(dcd_event_t const *event, bool in_isr);
+
+static void IRAM_ATTR trace_bus_event(uint8_t event_id)
+{
+    uint8_t *entry = s_trace.entries[s_trace.count++];
+    memset(entry, 0, 8);
+    entry[0] = DEQ_USB_TRACE_BUS_EVENT;
+    entry[1] = event_id;
+}
+
+static void IRAM_ATTR trace_setup(tusb_control_request_t const *request)
+{
+    uint8_t *entry = s_trace.entries[s_trace.count++];
+    entry[0] = request->bmRequestType;
+    entry[1] = request->bRequest;
+    entry[2] = (uint8_t)(request->wValue & 0xFF);
+    entry[3] = (uint8_t)(request->wValue >> 8);
+    entry[4] = (uint8_t)(request->wIndex & 0xFF);
+    entry[5] = (uint8_t)(request->wIndex >> 8);
+    entry[6] = (uint8_t)(request->wLength & 0xFF);
+    entry[7] = (uint8_t)(request->wLength >> 8);
+}
+
+void IRAM_ATTR __wrap_dcd_event_handler(dcd_event_t const *event, bool in_isr)
+{
+    if (s_trace.count < DEQ_USB_TRACE_ENTRIES) {
+        switch (event->event_id) {
+        case DCD_EVENT_SETUP_RECEIVED:
+            trace_setup(&event->setup_received);
+            break;
+        case DCD_EVENT_BUS_RESET:
+        case DCD_EVENT_UNPLUGGED:
+        case DCD_EVENT_SUSPEND:
+        case DCD_EVENT_RESUME:
+            trace_bus_event((uint8_t)event->event_id);
+            break;
+        default:
+            break;
+        }
+    }
+    __real_dcd_event_handler(event, in_isr);
+}
+
+void deq_usb_device_trace(deq_usb_trace_t *trace)
+{
+    *trace = s_trace;
 }
 
 void tud_mount_cb(void)

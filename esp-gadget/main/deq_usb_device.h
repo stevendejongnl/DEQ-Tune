@@ -62,6 +62,17 @@ typedef struct {
     uint16_t string_indexes; // bit n: the host read string n (n above 15 sets bit 15)
 } deq_usb_descriptor_reads_t;
 
+// The first bus events and SETUP packets of a boot, in order. A SETUP entry
+// holds the 8 bytes of the request as sent (bmRequestType, bRequest,
+// wValue, wIndex, wLength, little endian). A bus event entry starts with
+// 0xFF, then the event: 1 reset, 2 unplugged, 4 suspend, 5 resume.
+#define DEQ_USB_TRACE_ENTRIES 32
+#define DEQ_USB_TRACE_BUS_EVENT 0xFF
+typedef struct {
+    uint8_t count;
+    uint8_t entries[DEQ_USB_TRACE_ENTRIES][8];
+} deq_usb_trace_t;
+
 esp_err_t deq_usb_device_start(deq_usb_event_cb_t on_event, deq_usb_bytes_cb_t on_bytes);
 
 // True once the DEQ configured the accessory and its endpoints are open.
@@ -72,6 +83,8 @@ bool deq_usb_device_is_ready(void);
 bool deq_usb_device_send(const uint8_t *data, size_t length);
 
 deq_usb_descriptor_reads_t deq_usb_device_descriptor_reads(void);
+
+void deq_usb_device_trace(deq_usb_trace_t *trace);
 
 #ifdef __cplusplus
 }
