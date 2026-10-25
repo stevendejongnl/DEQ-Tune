@@ -383,6 +383,7 @@ usbd_class_driver_t const *usbd_app_driver_get_cb(uint8_t *driver_count)
 
 void tud_mount_cb(void)
 {
+    report(DEQ_USB_EVENT_MOUNTED, s_state.accessory_presented, NULL);
     if (s_state.accessory_presented) {
         s_state.configured = true;
         report(DEQ_USB_EVENT_CONFIGURED, 0, NULL);
@@ -393,6 +394,16 @@ void tud_umount_cb(void)
 {
     s_state.configured = false;
     report(DEQ_USB_EVENT_UNMOUNTED, 0, NULL);
+}
+
+void tud_suspend_cb(bool remote_wakeup_enabled)
+{
+    report(DEQ_USB_EVENT_SUSPENDED, remote_wakeup_enabled, NULL);
+}
+
+void tud_resume_cb(void)
+{
+    report(DEQ_USB_EVENT_RESUMED, 0, NULL);
 }
 
 // The received bytes wait in the vendor class's FIFO.

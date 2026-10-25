@@ -19,14 +19,17 @@
 //
 // The result goes three ways, so a car session needs no laptop:
 //   - the RGB LED shows the stage reached (see stage_colour)
-//   - flash (NVS) keeps a report, which the next boot prints
+//   - flash (NVS) keeps one record per boot for the last RECORD_SLOTS
+//     boots, and each boot prints the ones before it
 //   - UART0, the board's COM port, logs every step live
 #include <inttypes.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "deq_frame.h"
 #include "deq_usb_device.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -43,6 +46,11 @@ static const char *TAG = "probe";
 #define KEEPALIVE_SECONDS 9
 #define REPLY_WAIT_MS 2000
 #define COLD_START_GAP_MS 100
+// A car session can power the board up several times. Each boot keeps
+// its own record, so a later boot does not overwrite the one that shows
+// the problem.
+#define RECORD_SLOTS 8
+#define ALIVE_SAVE_SECONDS 10
 
 typedef enum {
     STAGE_NONE = 0,
@@ -95,11 +103,48 @@ typedef struct {
     volatile uint16_t last_refused_command;
     volatile bool sync_answered;
     volatile int32_t sync_status;
+    volatile uint16_t mounts;
+    volatile uint16_t suspends;
+    volatile uint16_t resumes;
+    volatile uint16_t unmounts;
+    volatile bool changed;
+    uint32_t bus_at_ms;
+    uint32_t held_s;
     char manufacturer[64];
     char model[64];
 } session_t;
 
+// One boot's record in flash. The layout is fixed: a firmware change that
+// changes it must change RECORD_VERSION, so old records read as empty.
+#define RECORD_VERSION 1
+typedef struct {
+    uint8_t version;
+    uint8_t reset_reason;
+    uint8_t stage;
+    uint8_t strings;
+    uint32_t boot;
+    uint32_t alive_s;
+    uint32_t bus_at_ms;
+    uint16_t mounts;
+    uint16_t suspends;
+    uint16_t resumes;
+    uint16_t unmounts;
+    uint32_t audio_mode;
+    uint32_t unhandled_request;
+    uint32_t held_s;
+    uint32_t replies_ok;
+    uint32_t replies_refused;
+    uint32_t unanswered_keepalives;
+    uint32_t notifications;
+    int32_t sync_status;
+    int32_t last_refusal;
+    uint16_t last_refused_command;
+    char manufacturer[24];
+    char model[24];
+} boot_record_t;
+
 static session_t s_session;
+static uint32_t s_boot;
 static led_strip_handle_t s_led;
 static deq_frame_joiner_t s_joiner;
 
@@ -150,94 +195,125 @@ static void reach(stage_t stage)
 // The report in flash
 // ---------------------------------------------------------------------
 
-static void save_report(uint32_t seconds_held)
+static void record_key(uint32_t boot, char *key, size_t key_size)
 {
+    snprintf(key, key_size, "boot%u", (unsigned)(boot % RECORD_SLOTS));
+}
+
+static void save_report(void)
+{
+    boot_record_t record = {
+        .version = RECORD_VERSION,
+        .reset_reason = (uint8_t)esp_reset_reason(),
+        .stage = (uint8_t)s_session.stage,
+        .strings = (uint8_t)s_session.strings,
+        .boot = s_boot,
+        .alive_s = (uint32_t)(esp_timer_get_time() / 1000000),
+        .bus_at_ms = s_session.bus_at_ms,
+        .mounts = s_session.mounts,
+        .suspends = s_session.suspends,
+        .resumes = s_session.resumes,
+        .unmounts = s_session.unmounts,
+        .audio_mode = s_session.audio_mode,
+        .unhandled_request = s_session.unhandled_request,
+        .held_s = s_session.held_s,
+        .replies_ok = s_session.replies_ok,
+        .replies_refused = s_session.replies_refused,
+        .unanswered_keepalives = s_session.unanswered_keepalives,
+        .notifications = s_session.notifications,
+        .sync_status = s_session.sync_answered ? s_session.sync_status : INT32_MIN,
+        .last_refusal = s_session.last_refusal,
+        .last_refused_command = s_session.last_refused_command,
+    };
+    strlcpy(record.manufacturer, s_session.manufacturer, sizeof(record.manufacturer));
+    strlcpy(record.model, s_session.model, sizeof(record.model));
+
     nvs_handle_t storage;
     if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &storage) != ESP_OK) {
         return;
     }
-    nvs_set_u8(storage, "stage", (uint8_t)s_session.stage);
-    uint8_t best = 0;
-    nvs_get_u8(storage, "best", &best);
-    if (s_session.stage > best) {
-        nvs_set_u8(storage, "best", (uint8_t)s_session.stage);
-    }
-    nvs_set_u32(storage, "held_s", seconds_held);
-    nvs_set_u32(storage, "replies_ok", s_session.replies_ok);
-    nvs_set_u32(storage, "refused", s_session.replies_refused);
-    nvs_set_i32(storage, "last_refusal", s_session.last_refusal);
-    nvs_set_u16(storage, "refused_cmd", s_session.last_refused_command);
-    nvs_set_u32(storage, "notifications", s_session.notifications);
-    nvs_set_u32(storage, "unanswered", s_session.unanswered_keepalives);
-    nvs_set_u32(storage, "audio_mode", s_session.audio_mode);
-    nvs_set_u32(storage, "unhandled", s_session.unhandled_request);
-    nvs_set_i32(storage, "sync_status", s_session.sync_answered ? s_session.sync_status : INT32_MIN);
-    if (s_session.manufacturer[0] != '\0') {
-        nvs_set_str(storage, "manufacturer", s_session.manufacturer);
-        nvs_set_str(storage, "model", s_session.model);
-    }
+    char key[16];
+    record_key(s_boot, key, sizeof(key));
+    nvs_set_blob(storage, key, &record, sizeof(record));
     nvs_commit(storage);
     nvs_close(storage);
 }
 
-// Prints the report of the boot before this one, the one a car session
-// left behind. Opening the COM port resets the board, so this is what a
-// laptop sees first.
-static void print_last_report(void)
+static const char *reset_reason_name(uint8_t reason)
+{
+    switch ((esp_reset_reason_t)reason) {
+    case ESP_RST_POWERON: return "poweron";
+    case ESP_RST_EXT: return "external";
+    case ESP_RST_SW: return "software";
+    case ESP_RST_PANIC: return "panic";
+    case ESP_RST_INT_WDT: return "interrupt-watchdog";
+    case ESP_RST_TASK_WDT: return "task-watchdog";
+    case ESP_RST_WDT: return "watchdog";
+    case ESP_RST_DEEPSLEEP: return "deepsleep";
+    case ESP_RST_BROWNOUT: return "brownout";
+    case ESP_RST_SDIO: return "sdio";
+    case ESP_RST_USB: return "usb";
+    case ESP_RST_JTAG: return "jtag";
+    default: return "unknown";
+    }
+}
+
+static void print_record(const boot_record_t *record)
+{
+    uint8_t stage = record->stage > STAGE_HOLD ? STAGE_NONE : record->stage;
+    ESP_LOGI(TAG,
+             "REPORT boot=%" PRIu32 " reset=%s alive_s=%" PRIu32 " stage=%u(%s) bus_at_ms=%" PRIu32
+             " mounts=%u suspends=%u resumes=%u unmounts=%u",
+             record->boot, reset_reason_name(record->reset_reason), record->alive_s, stage, STAGE_NAMES[stage],
+             record->bus_at_ms, record->mounts, record->suspends, record->resumes, record->unmounts);
+    if (stage < STAGE_AOA) {
+        return;
+    }
+    ESP_LOGI(TAG,
+             "REPORT   host=\"%s\" model=\"%s\" strings=%u audio_mode=%" PRIu32 " unhandled_request=%" PRIu32,
+             record->manufacturer, record->model, record->strings, record->audio_mode, record->unhandled_request);
+    if (stage < STAGE_CONFIGURED) {
+        return;
+    }
+    if (record->sync_status == INT32_MIN) {
+        ESP_LOGI(TAG, "REPORT   sync=no-reply");
+    } else {
+        ESP_LOGI(TAG, "REPORT   sync_status=%" PRId32, record->sync_status);
+    }
+    ESP_LOGI(TAG,
+             "REPORT   held_s=%" PRIu32 " replies_ok=%" PRIu32 " refused=%" PRIu32 " last_refusal=%" PRId32
+             " on 0x%02x unanswered_keepalives=%" PRIu32 " notifications=%" PRIu32,
+             record->held_s, record->replies_ok, record->replies_refused, record->last_refusal,
+             record->last_refused_command, record->unanswered_keepalives, record->notifications);
+}
+
+// Counts this boot and prints the records of the boots before it, oldest
+// first. Opening the COM port resets the board, so this is what a laptop
+// sees first.
+static void print_earlier_boots(void)
 {
     nvs_handle_t storage;
     if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &storage) != ESP_OK) {
         return;
     }
-    uint32_t boots = 0;
-    nvs_get_u32(storage, "boots", &boots);
-    nvs_set_u32(storage, "boots", boots + 1);
+    nvs_get_u32(storage, "boots", &s_boot);
+    nvs_set_u32(storage, "boots", s_boot + 1);
     nvs_commit(storage);
 
-    uint8_t stage = 0, best = 0;
-    uint32_t held = 0, ok = 0, refused = 0, notifications = 0, audio_mode = 0, unhandled = 0, unanswered = 0;
-    int32_t last_refusal = 0, sync_status = INT32_MIN;
-    uint16_t refused_command = 0;
-    char manufacturer[64] = "", model[64] = "";
-    size_t text_length = sizeof(manufacturer);
-    nvs_get_u8(storage, "stage", &stage);
-    nvs_get_u8(storage, "best", &best);
-    nvs_get_u32(storage, "held_s", &held);
-    nvs_get_u32(storage, "replies_ok", &ok);
-    nvs_get_u32(storage, "refused", &refused);
-    nvs_get_i32(storage, "last_refusal", &last_refusal);
-    nvs_get_u16(storage, "refused_cmd", &refused_command);
-    nvs_get_u32(storage, "notifications", &notifications);
-    nvs_get_u32(storage, "unanswered", &unanswered);
-    nvs_get_u32(storage, "audio_mode", &audio_mode);
-    nvs_get_u32(storage, "unhandled", &unhandled);
-    nvs_get_i32(storage, "sync_status", &sync_status);
-    nvs_get_str(storage, "manufacturer", manufacturer, &text_length);
-    text_length = sizeof(model);
-    nvs_get_str(storage, "model", model, &text_length);
+    uint32_t first = s_boot > RECORD_SLOTS ? s_boot - RECORD_SLOTS : 0;
+    for (uint32_t boot = first; boot < s_boot; boot++) {
+        char key[16];
+        record_key(boot, key, sizeof(key));
+        boot_record_t record;
+        size_t length = sizeof(record);
+        if (nvs_get_blob(storage, key, &record, &length) != ESP_OK || length != sizeof(record) ||
+            record.version != RECORD_VERSION || record.boot != boot) {
+            continue;
+        }
+        print_record(&record);
+    }
+    ESP_LOGI(TAG, "REPORT this boot is %" PRIu32, s_boot);
     nvs_close(storage);
-
-    if (stage > STAGE_HOLD) {
-        stage = STAGE_NONE;
-    }
-    if (best > STAGE_HOLD) {
-        best = STAGE_NONE;
-    }
-    ESP_LOGI(TAG, "REPORT boot=%" PRIu32 " last_stage=%u(%s) best_stage=%u(%s) held_s=%" PRIu32, boots, stage,
-             STAGE_NAMES[stage], best, STAGE_NAMES[best], held);
-    ESP_LOGI(TAG, "REPORT host=\"%s\" model=\"%s\" audio_mode=%" PRIu32 " unhandled_request=%" PRIu32, manufacturer,
-             model, audio_mode, unhandled);
-    if (sync_status == INT32_MIN) {
-        ESP_LOGI(TAG, "REPORT sync=no-reply replies_ok=%" PRIu32 " refused=%" PRIu32 " notifications=%" PRIu32, ok,
-                 refused, notifications);
-        ESP_LOGI(TAG, "REPORT unanswered_keepalives=%" PRIu32, unanswered);
-    } else {
-        ESP_LOGI(TAG,
-                 "REPORT sync_status=%" PRId32 " replies_ok=%" PRIu32 " refused=%" PRIu32
-                 " last_refusal=%" PRId32 " on 0x%02x notifications=%" PRIu32,
-                 sync_status, ok, refused, last_refusal, refused_command, notifications);
-        ESP_LOGI(TAG, "REPORT unanswered_keepalives=%" PRIu32, unanswered);
-    }
 }
 
 // ---------------------------------------------------------------------
@@ -287,7 +363,24 @@ static void on_usb_event(deq_usb_event_t event, uint32_t value, const char *text
         ESP_LOGI(TAG, "audio alternate %" PRIu32, value);
         break;
     case DEQ_USB_EVENT_UNMOUNTED:
+        s_session.unmounts++;
+        s_session.changed = true;
         ESP_LOGW(TAG, "the host went away");
+        break;
+    case DEQ_USB_EVENT_MOUNTED:
+        s_session.mounts++;
+        s_session.changed = true;
+        ESP_LOGI(TAG, "configured by the host (%s)", value ? "accessory" : "tablet");
+        break;
+    case DEQ_USB_EVENT_SUSPENDED:
+        s_session.suspends++;
+        s_session.changed = true;
+        ESP_LOGI(TAG, "bus suspended");
+        break;
+    case DEQ_USB_EVENT_RESUMED:
+        s_session.resumes++;
+        s_session.changed = true;
+        ESP_LOGI(TAG, "bus resumed");
         break;
     case DEQ_USB_EVENT_UNHANDLED_REQUEST:
         s_session.unhandled_request = value;
@@ -391,7 +484,8 @@ static void converse(void)
         if (held >= HOLD_STAGE_SECONDS && s_session.stage == STAGE_SYNC) {
             reach(STAGE_HOLD);
         }
-        save_report(held);
+        s_session.held_s = held;
+        save_report();
         show_stage();
     }
     ESP_LOGW(TAG, "the link ended");
@@ -419,27 +513,35 @@ void app_main(void)
         nvs_flash_erase();
         nvs_flash_init();
     }
-    print_last_report();
     memset(&s_session, 0, sizeof(s_session));
+    print_earlier_boots();
     deq_frame_joiner_reset(&s_joiner);
     start_led();
     show_stage();
     ESP_ERROR_CHECK(deq_usb_device_start(on_usb_event, on_usb_bytes));
     ESP_LOGI(TAG, "waiting for a host on the USB-OTG port");
 
+    // The first record says that this boot happened, even when the board
+    // loses power before a host shows up.
+    save_report();
     stage_t shown = STAGE_NONE;
+    int64_t saved_at = esp_timer_get_time();
     while (true) {
-        if (tud_connected()) {
+        if (tud_connected() && s_session.stage < STAGE_BUS) {
+            s_session.bus_at_ms = (uint32_t)(esp_timer_get_time() / 1000);
             reach(STAGE_BUS);
         }
-        if (s_session.stage != shown) {
+        bool alive_due = esp_timer_get_time() - saved_at >= ALIVE_SAVE_SECONDS * 1000000LL;
+        if (s_session.stage != shown || s_session.changed || alive_due) {
             shown = s_session.stage;
+            s_session.changed = false;
             show_stage();
-            save_report(0);
+            save_report();
+            saved_at = esp_timer_get_time();
         }
         if (deq_usb_device_is_ready()) {
             converse();
-            save_report(0);
+            save_report();
         }
         vTaskDelay(pdMS_TO_TICKS(100));
     }

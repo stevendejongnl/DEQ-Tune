@@ -76,11 +76,15 @@ def log(message: str) -> None:
 
 
 def find_board(product_ids, wait_seconds: float):
-    """Returns the board once it shows one of these product ids, or None."""
+    """Returns the board once it shows one of these product ids, or None.
+
+    An Android phone or tablet on the same laptop can show the same ids.
+    The ESP32-S3's USB runs at full speed only, so a high-speed device is
+    never the board, and this function leaves it alone."""
     give_up = time.monotonic() + wait_seconds
     while time.monotonic() < give_up:
         for device in usb.core.find(find_all=True, idVendor=GOOGLE_VENDOR_ID):
-            if device.idProduct in product_ids:
+            if device.idProduct in product_ids and device.speed == usb.util.SPEED_FULL:
                 return device
         time.sleep(0.1)
     return None

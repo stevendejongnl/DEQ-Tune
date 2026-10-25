@@ -41,6 +41,9 @@ typedef enum {
     DEQ_USB_EVENT_AUDIO_ALTERNATE,     // the host chose an audio alternate
     DEQ_USB_EVENT_UNMOUNTED,           // the host went away
     DEQ_USB_EVENT_UNHANDLED_REQUEST,   // a control request this file does not know
+    DEQ_USB_EVENT_MOUNTED,             // the host configured the device, in either mode
+    DEQ_USB_EVENT_SUSPENDED,           // the host stopped the bus traffic
+    DEQ_USB_EVENT_RESUMED,             // the bus traffic came back
 } deq_usb_event_t;
 
 // `value` is the string index, the audio mode, the alternate setting or

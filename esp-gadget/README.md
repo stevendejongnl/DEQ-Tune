@@ -58,19 +58,35 @@ It copies the three things the DEQ requires, which the Pi found (see
 
 ## The report
 
-Each stage, the frame counts, the DEQ's strings and the longest link go
-into flash (NVS). The next boot prints the report on the COM port, so a car
-session needs no laptop: plug the COM cable in at home and read it.
+Each boot keeps its own record in flash (NVS), for the last eight boots.
+The record holds the reset reason, how long the board stayed up, the stage
+reached, the bus events, the DEQ's strings and the frame counts. Each boot
+prints the earlier records on the COM port, oldest first. So a car session
+needs no laptop: plug the COM cable in at home and read them. A car can
+power the board up several times, and a later boot does not overwrite the
+one that shows the problem.
 
-    REPORT boot=9 last_stage=7(hold) best_stage=7(hold) held_s=72
-    REPORT host="laptop" model="fake-deq-host" audio_mode=1 unhandled_request=0
-    REPORT sync_status=0 replies_ok=18 refused=0 last_refusal=0 on 0x00 notifications=0
-    REPORT unanswered_keepalives=15
+Measured on the desk on 2026-10-25 (boot 17 is the desk test):
 
-`held_s` counts from the first frame to the last answered keepalive. A
-keepalive with no reply in two seconds adds one to `unanswered_keepalives`
-and does not extend `held_s`. So a DEQ that goes quiet does not look like a
-held link.
+    REPORT boot=16 reset=poweron alive_s=647 stage=0(none) bus_at_ms=0 mounts=0 suspends=0 resumes=0 unmounts=0
+    REPORT boot=17 reset=poweron alive_s=91 stage=6(sync) bus_at_ms=1047 mounts=2 suspends=1 resumes=0 unmounts=0
+    REPORT   host="laptop" model="fake-deq-host" strings=6 audio_mode=1 unhandled_request=0
+    REPORT   sync_status=0
+    REPORT   held_s=18 replies_ok=12 refused=0 last_refusal=0 on 0x00 unanswered_keepalives=4 notifications=0
+    REPORT this boot is 19
+
+- `reset` tells a power loss (`poweron`, `brownout`) from a crash
+  (`panic`, a watchdog).
+- `alive_s` is the uptime at the last save. The board saves every ten
+  seconds, so it is up to ten seconds short.
+- `bus_at_ms` is the uptime when a host first showed up on the USB port.
+- `mounts` counts each time the host configured the board, in tablet mode
+  and in accessory mode. `suspends` counts the gaps in bus traffic. A
+  re-enumeration after START gives one.
+- `held_s` counts from the first frame to the last answered keepalive. A
+  keepalive with no reply in two seconds adds one to
+  `unanswered_keepalives` and does not extend `held_s`. So a DEQ that goes
+  quiet does not look like a held link.
 
 `host` and `model` are the first two strings the host sent. A real DEQ sends
 `Pioneer` and a model such as `DEQ-1000A-MZ`. The desk test sends `laptop`.
@@ -98,19 +114,31 @@ with STATUS 0. Run it with the backend's environment, which has the codec:
     cd backend && uv run --extra usb python ../esp-gadget/fake_deq_host.py --seconds 110
 
 `--answer-seconds 75` stops the answers after 75 seconds and keeps reading,
-as a DEQ that goes quiet.
+as a DEQ that goes quiet. The script only takes a full-speed device. A
+phone or tablet on the same laptop shows the same `18d1:4ee7`, but it runs
+at high speed, so the script leaves it alone.
 
 Measured on 2026-10-24: every stage passed. The board came back as
 `18d1:2d04` with interfaces 0 and 1 audio and 2 the accessory, sent the
 whole cold start, and kept up a keepalive every nine seconds. The laptop
 took the audio function as a sound card and recorded two seconds of the
 stream at the full rate (352,246 of 352,800 bytes). A run with
-`--seconds 110 --answer-seconds 75` gave the report above: stage 7 at 72
-seconds, then each later keepalive counted as unanswered.
+`--seconds 110 --answer-seconds 75` reached stage 7 at 72 seconds, and
+each later keepalive counted as unanswered.
 
 So the desk proves the board's side. Only a car session can show the real
 DEQ's side: whether it configures the accessory (stage 5) and answers
 (stages 6 and 7).
+
+## The first car session (2026-10-24)
+
+The board was on the DEQ's USB-A port with a plain USB-A to USB-C cable,
+so the DEQ powered it. The DEQ showed its error at once. The board's old
+report (one record, before the per-boot records) said: four boots, and the
+last one reached stage 1 only. A host was on the bus, but no AOA request
+came. The cause is not known yet. One guess is power: the DEQ's port
+powers the whole board, and the Pi had its own supply. The per-boot
+records exist to answer that in the next session.
 
 ## Tests
 
