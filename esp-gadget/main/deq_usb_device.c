@@ -381,6 +381,47 @@ usbd_class_driver_t const *usbd_app_driver_get_cb(uint8_t *driver_count)
 // Mount, and the accessory's bulk data
 // ---------------------------------------------------------------------
 
+// ---------------------------------------------------------------------
+// Descriptor reads. The linker wraps esp_tinyusb's callbacks (see
+// CMakeLists.txt), so each read passes through here first.
+// ---------------------------------------------------------------------
+
+static volatile deq_usb_descriptor_reads_t s_descriptor_reads;
+
+uint8_t const *__real_tud_descriptor_device_cb(void);
+uint8_t const *__real_tud_descriptor_configuration_cb(uint8_t index);
+uint16_t const *__real_tud_descriptor_string_cb(uint8_t index, uint16_t language_id);
+
+uint8_t const *__wrap_tud_descriptor_device_cb(void)
+{
+    s_descriptor_reads.device++;
+    return __real_tud_descriptor_device_cb();
+}
+
+uint8_t const *__wrap_tud_descriptor_configuration_cb(uint8_t index)
+{
+    s_descriptor_reads.configuration++;
+    return __real_tud_descriptor_configuration_cb(index);
+}
+
+uint16_t const *__wrap_tud_descriptor_string_cb(uint8_t index, uint16_t language_id)
+{
+    s_descriptor_reads.string++;
+    s_descriptor_reads.string_indexes |= (uint16_t)(1u << (index > 15 ? 15 : index));
+    return __real_tud_descriptor_string_cb(index, language_id);
+}
+
+deq_usb_descriptor_reads_t deq_usb_device_descriptor_reads(void)
+{
+    deq_usb_descriptor_reads_t reads = {
+        .device = s_descriptor_reads.device,
+        .configuration = s_descriptor_reads.configuration,
+        .string = s_descriptor_reads.string,
+        .string_indexes = s_descriptor_reads.string_indexes,
+    };
+    return reads;
+}
+
 void tud_mount_cb(void)
 {
     report(DEQ_USB_EVENT_MOUNTED, s_state.accessory_presented, NULL);

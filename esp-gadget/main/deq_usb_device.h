@@ -53,6 +53,15 @@ typedef void (*deq_usb_event_cb_t)(deq_usb_event_t event, uint32_t value, const 
 // Called with each chunk of bytes the DEQ writes to the accessory.
 typedef void (*deq_usb_bytes_cb_t)(const uint8_t *data, size_t length);
 
+// How often the host read each descriptor. These counts show where a host
+// stops when it never configures the device.
+typedef struct {
+    uint16_t device;
+    uint16_t configuration;
+    uint16_t string;
+    uint16_t string_indexes; // bit n: the host read string n (n above 15 sets bit 15)
+} deq_usb_descriptor_reads_t;
+
 esp_err_t deq_usb_device_start(deq_usb_event_cb_t on_event, deq_usb_bytes_cb_t on_bytes);
 
 // True once the DEQ configured the accessory and its endpoints are open.
@@ -61,6 +70,8 @@ bool deq_usb_device_is_ready(void);
 // Writes one whole frame to the DEQ. Returns false when the accessory is
 // not ready or the write did not fit.
 bool deq_usb_device_send(const uint8_t *data, size_t length);
+
+deq_usb_descriptor_reads_t deq_usb_device_descriptor_reads(void);
 
 #ifdef __cplusplus
 }

@@ -80,6 +80,11 @@ Measured on the desk on 2026-10-25 (boot 17 is the desk test):
 - `alive_s` is the uptime at the last save. The board saves every ten
   seconds, so it is up to ten seconds short.
 - `bus_at_ms` is the uptime when a host first showed up on the USB port.
+- `reads` counts the host's descriptor reads: the device descriptor, the
+  configuration descriptor and the strings (`string_indexes` has bit n
+  set for each string n read). They show where a host stops when it never
+  configures the board. A desk run gives `device=4 configuration=6
+  string=12 string_indexes=0x000f`.
 - `mounts` counts each time the host configured the board, in tablet mode
   and in accessory mode. `suspends` counts the gaps in bus traffic. A
   re-enumeration after START gives one.
@@ -136,9 +141,18 @@ The board was on the DEQ's USB-A port with a plain USB-A to USB-C cable,
 so the DEQ powered it. The DEQ showed its error at once. The board's old
 report (one record, before the per-boot records) said: four boots, and the
 last one reached stage 1 only. A host was on the bus, but no AOA request
-came. The cause is not known yet. One guess is power: the DEQ's port
-powers the whole board, and the Pi had its own supply. The per-boot
-records exist to answer that in the next session.
+came. The second session (2026-10-25), with the per-boot records, gave two
+answers:
+
+- On the DEQ's power alone, each boot lost power within about one second
+  of the DEQ seeing the board (`alive_s=0`, `reset=poweron`, four tries).
+  The DEQ's port cannot run the DevKit, and the DEQ flashes red.
+- With the COM port on an external USB supply, the board stayed up. The
+  DEQ showed up on the bus at 3.5 s, never configured the board
+  (`mounts=0`) and suspended the bus.
+
+So a car session needs the external supply, and the DEQ still stops
+during enumeration. The descriptor read counts exist to show where.
 
 ## Tests
 

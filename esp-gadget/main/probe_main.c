@@ -116,7 +116,7 @@ typedef struct {
 
 // One boot's record in flash. The layout is fixed: a firmware change that
 // changes it must change RECORD_VERSION, so old records read as empty.
-#define RECORD_VERSION 1
+#define RECORD_VERSION 2
 typedef struct {
     uint8_t version;
     uint8_t reset_reason;
@@ -129,6 +129,10 @@ typedef struct {
     uint16_t suspends;
     uint16_t resumes;
     uint16_t unmounts;
+    uint16_t device_reads;
+    uint16_t configuration_reads;
+    uint16_t string_reads;
+    uint16_t string_indexes;
     uint32_t audio_mode;
     uint32_t unhandled_request;
     uint32_t held_s;
@@ -202,7 +206,12 @@ static void record_key(uint32_t boot, char *key, size_t key_size)
 
 static void save_report(void)
 {
+    deq_usb_descriptor_reads_t reads = deq_usb_device_descriptor_reads();
     boot_record_t record = {
+        .device_reads = reads.device,
+        .configuration_reads = reads.configuration,
+        .string_reads = reads.string,
+        .string_indexes = reads.string_indexes,
         .version = RECORD_VERSION,
         .reset_reason = (uint8_t)esp_reset_reason(),
         .stage = (uint8_t)s_session.stage,
@@ -266,6 +275,8 @@ static void print_record(const boot_record_t *record)
              " mounts=%u suspends=%u resumes=%u unmounts=%u",
              record->boot, reset_reason_name(record->reset_reason), record->alive_s, stage, STAGE_NAMES[stage],
              record->bus_at_ms, record->mounts, record->suspends, record->resumes, record->unmounts);
+    ESP_LOGI(TAG, "REPORT   reads: device=%u configuration=%u string=%u string_indexes=0x%04x", record->device_reads,
+             record->configuration_reads, record->string_reads, record->string_indexes);
     if (stage < STAGE_AOA) {
         return;
     }
@@ -525,6 +536,7 @@ void app_main(void)
     // loses power before a host shows up.
     save_report();
     stage_t shown = STAGE_NONE;
+    deq_usb_descriptor_reads_t saved_reads = deq_usb_device_descriptor_reads();
     int64_t saved_at = esp_timer_get_time();
     while (true) {
         if (tud_connected() && s_session.stage < STAGE_BUS) {
@@ -532,7 +544,10 @@ void app_main(void)
             reach(STAGE_BUS);
         }
         bool alive_due = esp_timer_get_time() - saved_at >= ALIVE_SAVE_SECONDS * 1000000LL;
-        if (s_session.stage != shown || s_session.changed || alive_due) {
+        deq_usb_descriptor_reads_t reads = deq_usb_device_descriptor_reads();
+        bool reads_changed = memcmp(&reads, &saved_reads, sizeof(reads)) != 0;
+        if (s_session.stage != shown || s_session.changed || reads_changed || alive_due) {
+            saved_reads = reads;
             shown = s_session.stage;
             s_session.changed = false;
             show_stage();
