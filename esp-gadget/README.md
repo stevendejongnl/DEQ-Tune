@@ -5,6 +5,10 @@ fraction of a Pi. This directory holds the **link probe**: firmware that
 answers the DEQ's accessory handshake the way `pi-gadget/` does, holds a
 conversation, and records how far it got.
 
+**Result (2026-10-26): the ESP32-S3 cannot replace the Pi.** The DEQ
+needs a high-speed USB device, and the ESP32-S3's USB is full speed only.
+See "The first car session (2026-10-24)" below.
+
 The probe proves the USB link only. The backend (profiles, the EQ maths,
 the API) is Python and runs on the Pi. An ESP-only setup needs that logic
 somewhere else, which is a separate decision.
@@ -176,7 +180,10 @@ with 64-byte bulk endpoints, the same with 512, and the Pi's own shape
 (the Android accessory interface 0xFF/0xFF/0x00, the strings "AOA" and
 "Android Accessory Interface", 512-byte bulk). The firmware keeps the
 Pi's shape. The one difference left from the Pi is the speed: the
-ESP32-S3 is full speed only. Not proven yet.
+ESP32-S3 is full speed only. A test settled it on 2026-10-26: the DEQ
+drops the Pi at full speed at the same point, and takes it at high
+speed (see `pi-gadget/README.md`). So the ESP32-S3 cannot do this job.
+A replacement for the Pi needs a board with high-speed USB device support.
 
 ## Tests
 

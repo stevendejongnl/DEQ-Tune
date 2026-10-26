@@ -113,11 +113,15 @@ back with a keepalive, so a backend restart keeps the DEQ session.
 `MAX_SPEED` is the bus speed the gadget offers, `"high-speed"` by
 default. `"full-speed"` exists for one test: the ESP32-S3 is full speed
 only, and the DEQ drops it after it reads the configuration descriptor
-(see `esp-gadget/README.md`). The test asks whether the DEQ drops the Pi
-at full speed too. Not run yet. Before the handshake, the log shows each
-change of the controller's state and speed (`USB state: addressed, speed
-full-speed`), so a host that reads the descriptors and goes away shows as
-`addressed` and then `suspended`.
+(see `esp-gadget/README.md`). The test asked whether the DEQ drops the
+Pi at full speed too. It does. On 2026-10-26, at full speed, the kernel
+log showed `new device is full-speed` and `new address 1`, and then
+nothing: no accessory handshake, and the DEQ in its error state. At high
+speed the handshake came within a second. Before the handshake, the
+gadget log shows each change of the controller's state and speed (`USB
+state: addressed, speed full-speed`). The state log polls, so a host
+that drops the device within a poll can leave no line there. `dmesg`
+shows each enumeration.
 
 `build_frame` repeats the backend's encoder, because the Pi runs this one
 file with no backend beside it. `backend/app/test_pi_gadget_encoder.py`
@@ -125,10 +129,11 @@ checks that the two still give the same bytes.
 
 ## Traps
 
-- **Do not restart the gadget service while a DEQ session is live.** It
-  wedges the USB controller (`dwc2_hsotg_txfifo_flush: timeout`), and the
-  DEQ starts no new handshake until it is power cycled. A backend restart
-  is safe.
+- **A gadget restart ends a live DEQ session.** The DEQ enumerates the
+  new gadget within a second and handshakes again, with no replug
+  (measured twice on 2026-10-26). An older gadget wedged the USB
+  controller here (`dwc2_hsotg_txfifo_flush: timeout`) until the DEQ was
+  power cycled. A backend restart keeps the session.
 - **Do not add a network function to the gadget.** Extra interfaces
   change the interface numbering, and the DEQ depends on it. The USB port
   is not a way in.
@@ -145,7 +150,7 @@ checks that the two still give the same bytes.
   the default key is in use. `deq-wifi-networks access-point-key` writes it into
   the keyfile, and restarts the Pi 5 seconds later so the key applies. A reboot
   is safe during a DEQ session (measured 2026-10-24: the DEQ handshakes again,
-  as after a replug). Only a gadget service restart wedges the link. The API
+  as after a replug). The API
   says only whether the key is the default, never the key.
 - **The BLE bridge needs no pairing yet.** Any device nearby can reach the
   API through it.
