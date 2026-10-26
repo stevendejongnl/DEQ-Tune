@@ -31,6 +31,7 @@ describe("settings-page", () => {
       "Backup",
       "Community",
       "System",
+      "Display",
       "Language",
     ]);
     expect(buttons[0].getAttribute("aria-pressed")).toBe("true");

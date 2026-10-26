@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import "./eq-editor.ts";
-import type { EqEditor } from "./eq-editor.ts";
+import { pointerInChart, type EqEditor } from "./eq-editor.ts";
 import { EQ_BAND_FREQUENCIES } from "../eq-bands.ts";
 import type { AppLayout } from "../layout-query.ts";
 
@@ -292,5 +292,25 @@ describe("eq-editor", () => {
     await click(element, chips[3] as HTMLElement);
 
     expect(chips[3].getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
+describe("pointerInChart", () => {
+  it("turns screen pixels into chart pixels under CSS zoom", () => {
+    const frame = document.createElement("div");
+    frame.getBoundingClientRect = () => new DOMRect(100, 50, 744, 360);
+    Object.defineProperty(frame, "currentCSSZoom", { value: 1.2 });
+
+    const point = pointerInChart(new MouseEvent("pointermove", { clientX: 220, clientY: 170 }), frame);
+
+    expect(point.x).toBeCloseTo(100);
+    expect(point.y).toBeCloseTo(100);
+  });
+
+  it("leaves the pixels alone with no zoom", () => {
+    const frame = document.createElement("div");
+    frame.getBoundingClientRect = () => new DOMRect(10, 20, 620, 300);
+
+    expect(pointerInChart(new MouseEvent("pointermove", { clientX: 40, clientY: 70 }), frame)).toEqual({ x: 30, y: 50 });
   });
 });

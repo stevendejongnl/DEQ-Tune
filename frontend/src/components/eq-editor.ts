@@ -481,11 +481,11 @@ export class EqEditor extends LitElement {
     }
     const frame = event.currentTarget as HTMLElement;
     const box = chartBox(this.layout, this.chartWidth);
-    const bounds = frame.getBoundingClientRect();
-    const band = nearestBand(box, event.clientX - bounds.left);
+    const pointer = pointerInChart(event, frame);
+    const band = nearestBand(box, pointer.x);
     const dotY = gainY(box, this.gainOf(band));
     this.selectedBand = band;
-    this.drag = { band, pointerId: event.pointerId, grabOffsetY: event.clientY - bounds.top - dotY };
+    this.drag = { band, pointerId: event.pointerId, grabOffsetY: pointer.y - dotY };
     this.emitEditStart();
     // A test environment can lack pointer capture. A browser always has it.
     frame.setPointerCapture?.(event.pointerId);
@@ -496,8 +496,7 @@ export class EqEditor extends LitElement {
    * touch does not drag. */
   private selectNearestBand(event: MouseEvent): void {
     const box = chartBox(this.layout, this.chartWidth);
-    const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    this.selectedBand = nearestBand(box, event.clientX - bounds.left);
+    this.selectedBand = nearestBand(box, pointerInChart(event, event.currentTarget as HTMLElement).x);
   }
 
   /** Starts one step of undo: a drag, a tap on − or +, a slider move or a
@@ -514,8 +513,7 @@ export class EqEditor extends LitElement {
     event.preventDefault();
     const frame = event.currentTarget as HTMLElement;
     const box = chartBox(this.layout, this.chartWidth);
-    const pointerY = event.clientY - frame.getBoundingClientRect().top;
-    this.changeGain(drag.band, gainFromY(box, pointerY - drag.grabOffsetY));
+    this.changeGain(drag.band, gainFromY(box, pointerInChart(event, frame).y - drag.grabOffsetY));
   }
 
   private endDrag(event: PointerEvent): void {
@@ -546,6 +544,21 @@ export class EqEditor extends LitElement {
     }
     this.dispatchEvent(new CustomEvent("gain-change", { detail: { band, value } }));
   }
+}
+
+/**
+ * Where a pointer is on the chart, in the chart's own pixels.
+ *
+ * The pointer and `getBoundingClientRect` speak screen pixels. The chart's
+ * geometry speaks layout pixels. The two differ under CSS `zoom`, which the
+ * large-text display mode sets: at 1.2, a drag would move the gain 1.2
+ * times too far and pick the wrong band. `currentCSSZoom` gives the factor.
+ * A browser without it does not apply `zoom` that way, so 1 is right there.
+ */
+export function pointerInChart(event: MouseEvent, frame: HTMLElement): { x: number; y: number } {
+  const bounds = frame.getBoundingClientRect();
+  const zoom = (frame as HTMLElement & { currentCSSZoom?: number }).currentCSSZoom ?? 1;
+  return { x: (event.clientX - bounds.left) / zoom, y: (event.clientY - bounds.top) / zoom };
 }
 
 declare global {

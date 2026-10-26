@@ -330,5 +330,19 @@
   "speakerModeFrontRear": "Voor en achter",
   "speakerModeFrontRearSubwoofer": "Voor, achter en subwoofer",
   "speakerModeFrontRearSubwoofers": "Voor, en een subwoofer op elke achteruitgang",
-  "speakerModeFrontSubwoofer": "Voor en subwoofer"
+  "speakerModeFrontSubwoofer": "Voor en subwoofer",
+  "settingsSectionDisplay": "Weergave",
+  "displayIntro": "Hoe de app eruitziet op dit apparaat. \"Volg het apparaat\" gebruikt de instelling van deze browser of telefoon. Zonder instelling blijft de app donker.",
+  "displayFollowDevice": "Volg het apparaat",
+  "displayNormal": "Normaal",
+  "displaySchemeLabel": "Kleuren",
+  "displaySchemeDark": "Donker",
+  "displaySchemeLight": "Licht",
+  "displayContrastLabel": "Contrast",
+  "displayContrastMore": "Hoog",
+  "displayTextLabel": "Tekstgrootte",
+  "displayTextLarge": "Groot",
+  "displayReadingLabel": "Lezen",
+  "displayReadingEasy": "Makkelijk lezen",
+  "displayReadingHint": "Makkelijk lezen gebruikt een lettertype dat gemaakt is om makkelijk te lezen, met meer ruimte tussen letters, woorden en regels. Het helpt mensen met dyslexie."
 }

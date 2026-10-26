@@ -18,6 +18,7 @@ import type { UpdateRequestState } from "./updates-controller.ts";
 import "./access-point-settings.ts";
 import "./wifi-settings.ts";
 import "./bluetooth-settings.ts";
+import "./display-settings.ts";
 
 /** Where people translate the app, and the guide for it. */
 export const WEBLATE_PROJECT_URL = "https://hosted.weblate.org/projects/deq-tune/";
@@ -31,6 +32,7 @@ export type SettingsSection =
   | "backup"
   | "community"
   | "system"
+  | "display"
   | "language";
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
@@ -41,6 +43,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   "backup",
   "community",
   "system",
+  "display",
   "language",
 ];
 
@@ -58,6 +61,7 @@ function sectionTitle(strings: UiStrings, section: SettingsSection): string {
     backup: strings.settingsSectionBackup,
     community: strings.settingsSectionCommunity,
     system: strings.settingsSectionSystem,
+    display: strings.settingsSectionDisplay,
     language: strings.settingsSectionLanguage,
   }[section];
 }
@@ -160,6 +164,8 @@ export class SettingsPage extends LitElement {
       case "system":
         return html`<system-panel .api=${this.api} .locale=${this.locale} .pageBuild=${this.pageBuild}
           .firmwareVersion=${this.firmwareVersion}></system-panel>`;
+      case "display":
+        return html`<display-settings .locale=${this.locale}></display-settings>`;
       case "language":
         return this.renderLanguage(strings);
     }

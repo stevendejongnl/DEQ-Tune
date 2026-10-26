@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Lexend:wght@400;500;600;700&display=swap");
 
 :root {
   /* surfaces, back → front */
@@ -38,6 +38,106 @@
   --radius-sm: 6px;  --radius: 10px;  --radius-md: 12px;  --radius-lg: 16px;  --radius-pill: 999px;
   color-scheme: dark;
 }
+/* Display modes (STE-55). `display/display-mode.ts` sets these data
+   attributes on <html>: the device's own setting, or the person's choice in
+   Settings → Display. Dark above is the fallback. */
+
+/* Light: the same warm palette, inverted. The amber is darker, so text in
+   it and white text on it keep at least 4.5:1. */
+:root[data-scheme="light"] {
+  --color-background: #f6f2ea;
+  --color-sidebar:    #efe9df;
+  --color-card:       #fbf8f2;
+  --color-inset:      #f1ebe1;
+  --color-badge:      #e6dfd3;
+  --color-divider:    #ddd5c8;
+  --color-border:     #d3cabb;
+  --color-border-strong: #bfb5a5;
+  --color-grid:       #ddd5c8;
+  --color-zero:       #a99f90;
+  --color-idle:       #b3a999;
+  --color-outline:    #8c8273;
+  --color-foreground: #1f1b16;
+  --color-text-2:     #3e372f;
+  --color-muted-foreground: #6b6256;
+  --color-accent:     #9a5800;
+  --color-on-accent:  #ffffff;
+  --color-reference:  #2a6f93;
+  --color-warn-bg:    #fbeedd;
+  --color-warn-border:#e2b77a;
+  color-scheme: light;
+}
+
+/* More contrast, dark: black surfaces, white text, lines a person can see
+   in sunlight. */
+:root[data-contrast="more"] {
+  --color-background: #000000;
+  --color-sidebar:    #000000;
+  --color-card:       #0b0b0b;
+  --color-inset:      #161616;
+  --color-badge:      #242424;
+  --color-divider:    #8a8a8a;
+  --color-border:     #a6a6a6;
+  --color-border-strong: #c8c8c8;
+  --color-grid:       #5c5c5c;
+  --color-zero:       #b0b0b0;
+  --color-idle:       #9a9a9a;
+  --color-outline:    #d0d0d0;
+  --color-foreground: #ffffff;
+  --color-text-2:     #f2f2f2;
+  --color-muted-foreground: #dedede;
+  --color-accent:     #ffb84d;
+  --color-on-accent:  #000000;
+  --color-reference:  #8fd3ff;
+  --color-warn-bg:    #2a1a00;
+  --color-warn-border:#ffb84d;
+}
+
+/* More contrast, light: white surfaces, black text, dark lines. */
+:root[data-scheme="light"][data-contrast="more"] {
+  --color-background: #ffffff;
+  --color-sidebar:    #ffffff;
+  --color-card:       #ffffff;
+  --color-inset:      #f0f0f0;
+  --color-badge:      #e0e0e0;
+  --color-divider:    #5a5a5a;
+  --color-border:     #3d3d3d;
+  --color-border-strong: #1f1f1f;
+  --color-grid:       #9a9a9a;
+  --color-zero:       #3d3d3d;
+  --color-idle:       #6a6a6a;
+  --color-outline:    #2a2a2a;
+  --color-foreground: #000000;
+  --color-text-2:     #0d0d0d;
+  --color-muted-foreground: #262626;
+  --color-accent:     #7a4300;
+  --color-on-accent:  #ffffff;
+  --color-reference:  #004a73;
+  --color-warn-bg:    #fff1d6;
+  --color-warn-border:#7a4300;
+}
+
+/* Large text: the whole page grows, controls with it, so nothing in the car
+   needs a sharper eye or a finer finger. Every size in the app is in px,
+   so a font size alone would not reach them. */
+:root[data-text="large"] body {
+  zoom: 1.2;
+}
+
+/* Easy reading, for people with dyslexia: one typeface made for reading
+   ease everywhere, also for the numbers, and wider spacing. */
+:root[data-reading="easy"] {
+  --font-display: "Lexend", system-ui, sans-serif;
+  --font-sans:    "Lexend", system-ui, sans-serif;
+  --font-mono:    "Lexend", system-ui, sans-serif;
+  letter-spacing: 0.03em;
+  word-spacing: 0.12em;
+
+  & body {
+    line-height: 1.7;
+  }
+}
+
 button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 input[type=range] { accent-color: var(--color-accent); }
 

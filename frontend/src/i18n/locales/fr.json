@@ -330,5 +330,19 @@
     "speakerModeFrontRear": "Avant et arrière",
     "speakerModeFrontRearSubwoofer": "Avant, arrière et caisson de basses",
     "speakerModeFrontRearSubwoofers": "Avant, et un caisson sur chaque sortie arrière",
-    "speakerModeFrontSubwoofer": "Avant et caisson de basses"
+    "speakerModeFrontSubwoofer": "Avant et caisson de basses",
+    "settingsSectionDisplay": "Affichage",
+    "displayIntro": "L'apparence de l'app sur cet appareil. « Comme l'appareil » utilise le réglage de ce navigateur ou de ce téléphone. Sans réglage, l'app reste sombre.",
+    "displayFollowDevice": "Comme l'appareil",
+    "displayNormal": "Normal",
+    "displaySchemeLabel": "Couleurs",
+    "displaySchemeDark": "Sombre",
+    "displaySchemeLight": "Clair",
+    "displayContrastLabel": "Contraste",
+    "displayContrastMore": "Élevé",
+    "displayTextLabel": "Taille du texte",
+    "displayTextLarge": "Grande",
+    "displayReadingLabel": "Lecture",
+    "displayReadingEasy": "Lecture facile",
+    "displayReadingHint": "La lecture facile utilise une police conçue pour faciliter la lecture, avec plus d'espace entre les lettres, les mots et les lignes. Elle aide les personnes dyslexiques."
 }

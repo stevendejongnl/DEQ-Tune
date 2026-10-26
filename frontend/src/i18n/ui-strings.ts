@@ -7,6 +7,20 @@ import spanish from "./locales/es.json";
 import dutch from "./locales/nl.json";
 
 export type UiStrings = {
+  settingsSectionDisplay: string;
+  displayIntro: string;
+  displayFollowDevice: string;
+  displayNormal: string;
+  displaySchemeLabel: string;
+  displaySchemeDark: string;
+  displaySchemeLight: string;
+  displayContrastLabel: string;
+  displayContrastMore: string;
+  displayTextLabel: string;
+  displayTextLarge: string;
+  displayReadingLabel: string;
+  displayReadingEasy: string;
+  displayReadingHint: string;
   crossoverSpeakerModeLabel: string;
   crossoverSpeakerModeHint: string;
   speakerModeFront: string;

@@ -330,5 +330,19 @@
     "speakerModeFrontRear": "フロントとリア",
     "speakerModeFrontRearSubwoofer": "フロント、リア、サブウーファー",
     "speakerModeFrontRearSubwoofers": "フロントと、リア出力ごとのサブウーファー",
-    "speakerModeFrontSubwoofer": "フロントとサブウーファー"
+    "speakerModeFrontSubwoofer": "フロントとサブウーファー",
+    "settingsSectionDisplay": "表示",
+    "displayIntro": "この端末でのアプリの見た目です。「端末に合わせる」はこのブラウザやスマートフォンの設定を使います。設定がない場合は暗いままです。",
+    "displayFollowDevice": "端末に合わせる",
+    "displayNormal": "標準",
+    "displaySchemeLabel": "配色",
+    "displaySchemeDark": "ダーク",
+    "displaySchemeLight": "ライト",
+    "displayContrastLabel": "コントラスト",
+    "displayContrastMore": "高",
+    "displayTextLabel": "文字サイズ",
+    "displayTextLarge": "大",
+    "displayReadingLabel": "読みやすさ",
+    "displayReadingEasy": "読みやすく表示",
+    "displayReadingHint": "読みやすく表示すると、読みやすさを考えた書体を使い、文字・単語・行の間隔を広げます。ディスレクシアの方に役立ちます。"
 }

@@ -330,5 +330,19 @@
     "speakerModeFrontRear": "Delanteros y traseros",
     "speakerModeFrontRearSubwoofer": "Delanteros, traseros y subwoofer",
     "speakerModeFrontRearSubwoofers": "Delanteros, y un subwoofer en cada salida trasera",
-    "speakerModeFrontSubwoofer": "Delanteros y subwoofer"
+    "speakerModeFrontSubwoofer": "Delanteros y subwoofer",
+    "settingsSectionDisplay": "Pantalla",
+    "displayIntro": "Cómo se ve la app en este dispositivo. «Como el dispositivo» usa el ajuste de este navegador o teléfono. Sin ajuste, la app sigue oscura.",
+    "displayFollowDevice": "Como el dispositivo",
+    "displayNormal": "Normal",
+    "displaySchemeLabel": "Colores",
+    "displaySchemeDark": "Oscuro",
+    "displaySchemeLight": "Claro",
+    "displayContrastLabel": "Contraste",
+    "displayContrastMore": "Alto",
+    "displayTextLabel": "Tamaño del texto",
+    "displayTextLarge": "Grande",
+    "displayReadingLabel": "Lectura",
+    "displayReadingEasy": "Lectura fácil",
+    "displayReadingHint": "La lectura fácil usa una tipografía pensada para leer con facilidad, con más espacio entre letras, palabras y líneas. Ayuda a las personas con dislexia."
 }

@@ -330,5 +330,19 @@
   "speakerModeFrontRear": "Front and rear",
   "speakerModeFrontRearSubwoofer": "Front, rear and subwoofer",
   "speakerModeFrontRearSubwoofers": "Front, and a subwoofer on each rear output",
-  "speakerModeFrontSubwoofer": "Front and subwoofer"
+  "speakerModeFrontSubwoofer": "Front and subwoofer",
+  "settingsSectionDisplay": "Display",
+  "displayIntro": "How the app looks on this device. \"Follow the device\" uses the setting of this browser or phone. Without one, the app stays dark.",
+  "displayFollowDevice": "Follow the device",
+  "displayNormal": "Normal",
+  "displaySchemeLabel": "Colours",
+  "displaySchemeDark": "Dark",
+  "displaySchemeLight": "Light",
+  "displayContrastLabel": "Contrast",
+  "displayContrastMore": "High",
+  "displayTextLabel": "Text size",
+  "displayTextLarge": "Large",
+  "displayReadingLabel": "Reading",
+  "displayReadingEasy": "Easy reading",
+  "displayReadingHint": "Easy reading uses a typeface made for reading ease, and more space between letters, words and lines. It helps people with dyslexia."
 }

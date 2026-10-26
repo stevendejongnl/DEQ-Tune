@@ -330,5 +330,19 @@
     "speakerModeFrontRear": "Vorne und hinten",
     "speakerModeFrontRearSubwoofer": "Vorne, hinten und Subwoofer",
     "speakerModeFrontRearSubwoofers": "Vorne, und ein Subwoofer an jedem hinteren Ausgang",
-    "speakerModeFrontSubwoofer": "Vorne und Subwoofer"
+    "speakerModeFrontSubwoofer": "Vorne und Subwoofer",
+    "settingsSectionDisplay": "Anzeige",
+    "displayIntro": "Wie die App auf diesem Gerät aussieht. „Wie das Gerät“ nutzt die Einstellung dieses Browsers oder Handys. Ohne Einstellung bleibt die App dunkel.",
+    "displayFollowDevice": "Wie das Gerät",
+    "displayNormal": "Normal",
+    "displaySchemeLabel": "Farben",
+    "displaySchemeDark": "Dunkel",
+    "displaySchemeLight": "Hell",
+    "displayContrastLabel": "Kontrast",
+    "displayContrastMore": "Hoch",
+    "displayTextLabel": "Textgröße",
+    "displayTextLarge": "Groß",
+    "displayReadingLabel": "Lesen",
+    "displayReadingEasy": "Leichtes Lesen",
+    "displayReadingHint": "Leichtes Lesen nutzt eine Schrift, die das Lesen leicht macht, und mehr Abstand zwischen Buchstaben, Wörtern und Zeilen. Es hilft Menschen mit Legasthenie."
 }
