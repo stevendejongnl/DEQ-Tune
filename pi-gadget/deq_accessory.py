@@ -120,6 +120,15 @@ ACCESSORY_ONLY_PRODUCT_ID = 0x2D00
 # configfs allows only while the UDC is unbound.
 AUDIO_FIRST = True
 
+# The bus speed this gadget offers the DEQ: "high-speed" or "full-speed".
+#
+# **Leave it "high-speed".** "full-speed" exists for one test. The
+# ESP32-S3 is full speed only, and the DEQ drops it right after it reads
+# the configuration descriptor (car sessions of 2026-10-25), with the
+# Pi's own descriptors copied. If the DEQ also drops the Pi at full speed,
+# the speed is the reason. `./deq pi speed full|high` sets this line.
+MAX_SPEED = "high-speed"
+
 # Which way the audio flows, and this was wrong until 2026-10-07.
 #
 # The gadget must be a SOURCE: audio goes device to host, the Pi to the
@@ -594,7 +603,17 @@ def find_udc():
 
 def bind_gadget():
     write_file(f"{GADGET_ROOT}/UDC", find_udc())
-    log(f"Bound to {find_udc()}")
+    log(f"Bound to {find_udc()}, max speed {MAX_SPEED}")
+
+
+def read_udc_attribute(name):
+    """Returns one attribute of the controller, such as its state or the
+    speed it negotiated, or "unknown" when the kernel does not have it."""
+    try:
+        with open(f"/sys/class/udc/{find_udc()}/{name}") as handle:
+            return handle.read().strip()
+    except (OSError, RuntimeError):
+        return "unknown"
 
 
 def unbind_gadget():
@@ -644,6 +663,7 @@ def create_gadget():
     write_file(f"{GADGET_ROOT}/bDeviceClass", "0x00")
     write_file(f"{GADGET_ROOT}/bDeviceSubClass", "0x00")
     write_file(f"{GADGET_ROOT}/bDeviceProtocol", f"0x{DEVICE_PROTOCOL:02X}")
+    write_file(f"{GADGET_ROOT}/max_speed", MAX_SPEED)
 
     os.makedirs(f"{GADGET_ROOT}/strings/0x409", exist_ok=True)
     write_file(f"{GADGET_ROOT}/strings/0x409/manufacturer", MANUFACTURER)
@@ -818,11 +838,20 @@ def wait_for_start_request(accessory_descriptor):
     it happened. Android watches a uevent for it. Polling the ioctl is
     the same answer with far less machinery.
     """
+    # The controller's state says how far a host got when it never asks for
+    # accessory mode: "addressed" and then "suspended" means that it read
+    # the descriptors and dropped the device.
+    last_state = None
     while True:
+        state = read_udc_attribute("state")
+        if state != last_state:
+            log(f"USB state: {state}, speed {read_udc_attribute('current_speed')}")
+            last_state = state
         if fcntl.ioctl(accessory_descriptor, ACCESSORY_IS_START_REQUESTED):
             audio_mode = fcntl.ioctl(accessory_descriptor,
                                      ACCESSORY_GET_AUDIO_MODE)
-            log(f"The DEQ asked for accessory mode, audio mode {audio_mode}.")
+            log(f"The DEQ asked for accessory mode, audio mode {audio_mode}, "
+                f"speed {read_udc_attribute('current_speed')}.")
             log("The strings the DEQ sent:")
             log_host_strings(accessory_descriptor)
             return

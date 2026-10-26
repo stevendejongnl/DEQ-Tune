@@ -110,6 +110,15 @@ link to the backend. While a backend holds the socket, the gadget sends
 nothing of its own. When the backend detaches, the gadget takes the link
 back with a keepalive, so a backend restart keeps the DEQ session.
 
+`MAX_SPEED` is the bus speed the gadget offers, `"high-speed"` by
+default. `"full-speed"` exists for one test: the ESP32-S3 is full speed
+only, and the DEQ drops it after it reads the configuration descriptor
+(see `esp-gadget/README.md`). The test asks whether the DEQ drops the Pi
+at full speed too. Not run yet. Before the handshake, the log shows each
+change of the controller's state and speed (`USB state: addressed, speed
+full-speed`), so a host that reads the descriptors and goes away shows as
+`addressed` and then `suspended`.
+
 `build_frame` repeats the backend's encoder, because the Pi runs this one
 file with no backend beside it. `backend/app/test_pi_gadget_encoder.py`
 checks that the two still give the same bytes.

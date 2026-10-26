@@ -112,6 +112,12 @@ Needs ESP-IDF 5.3 or later for `esp32s3`. Measured with v5.3.1, esp_tinyusb
     idf.py -p /dev/ttyACM0 monitor
 
 Opening the COM port resets the board, and the report comes first.
+`read_records.py` resets the board and prints only the records:
+
+    python esp-gadget/read_records.py /dev/ttyACM0
+
+It needs pyserial, which ESP-IDF's Python has. (It replaces a scratch
+script that read the records through 2026-10-25. Not yet run itself.)
 
 ## The desk test
 
