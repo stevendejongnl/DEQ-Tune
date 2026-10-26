@@ -23,8 +23,8 @@ time the access point starts, so the helper also restarts the Pi,
 REBOOT_DELAY_SECONDS later. The delay lets the backend's reply reach the
 phone first. A restart is safe during a DEQ session: measured on
 2026-10-24, the DEQ handshook again by itself 40 seconds after a reboot
-with the link up, as after a replug. Only a restart of the gadget service
-alone wedges the USB link.
+with the link up, as after a replug. A restart of the gadget service
+alone is safe too (measured 2026-10-26).
 
 The password comes on stdin and goes into a keyfile that only root can
 read. It never goes on a command line, because every user on the Pi can
