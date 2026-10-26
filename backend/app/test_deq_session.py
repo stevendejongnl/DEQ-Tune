@@ -41,13 +41,13 @@ from app.deq_session import (
     ReplyMismatchError,
     SessionTimeoutError,
     cancelled_band_gains_db,
-    crossover_slot_inputs,
     selected_band_gains_db,
     speaker_distances_mm,
 )
 from app.eq_data import TuningData
 from app.deq_transport import TransportTimeout
 from app.testing.fake_deq import FAKE_SERIAL, FakeDeq
+from app.unit_crossover import UnsupportedSpeakerModeError
 
 
 def test_start_sends_the_apps_own_connect_order():
@@ -224,39 +224,73 @@ def test_write_tuning_sends_four_blocks_under_the_right_config_ids():
     ]
 
 
-def test_a_push_keeps_the_crossover_slots_a_profile_does_not_speak_for():
-    """A profile carries a front and a rear high-pass filter, and nothing else.
-    The other slots belong to the person, who sets them on the unit's own
-    filter screen.
-
-    Pass in those slots would write identity biquads over a crossover that
-    somebody set. The unit would then disagree with itself: the blob would name
-    a frequency and a slope while the audio ran unfiltered. These are the
-    values a real unit held on 2026-10-08."""
-    fake = FakeDeq()
-    fake.configuration.crossovers[2] = BlobCrossoverSetting(frequency=5, slope=3)
-    fake.configuration.crossovers[3] = BlobCrossoverSetting(frequency=3, slope=4)
-
-    DeqSession(fake).write_tuning(load_factory_tuning(), layout="network")
-
-    # Read the slots back out of the block that went on the wire. Slots 2 and 3
-    # live in block 5, two biquads each. An untouched slot leaves an identity
-    # biquad, so a kept setting is one that is not identity.
-    crossover_write = [
+def _sent_crossover(fake: FakeDeq) -> bytes:
+    """Returns the body of the last crossover write, after its CONFIG_ID."""
+    return [
         one
         for one in fake.exchanges
         if one.request.command_id == 0x05
-        and int.from_bytes(one.request.body[:4], "little") == CONFIG_ID_CROSSOVER_NETWORK
-    ][-1]
-    expected = build_crossover_payload(
-        "network",
+        and int.from_bytes(one.request.body[:4], "little")
+        in (CONFIG_ID_CROSSOVER_STANDARD, CONFIG_ID_CROSSOVER_NETWORK)
+    ][-1].request.body[4:]
+
+
+def _standard_payload(cutoff_positions: list[int], slopes: list[int]) -> bytes:
+    return build_crossover_payload(
+        "standard",
         crossover_slot_settings(
-            "network",
-            [0, 0, 5, 3, 0],
-            [FilterSlope.PASS, FilterSlope.PASS, FilterSlope(3), FilterSlope(4), FilterSlope.PASS],
+            "standard", cutoff_positions, [FilterSlope(slope) for slope in slopes]
         ),
     )
-    assert crossover_write.request.body[4:] == expected
+
+
+def test_a_push_keeps_the_units_subwoofer_low_pass():
+    """A profile carries a front and a rear high-pass filter, and nothing else.
+    The subwoofer's low pass belongs to the person, who sets it on the unit's
+    own filter screen.
+
+    The car's mode, STANDARD_FL_FR_RL_RR_SW, sends that low pass in slot 4.
+    These are the values a real unit held on 2026-10-08: the rear subwoofer
+    entry at 5 and 3, which this mode does not use, and the subwoofer at 3
+    and 4, which is 50 Hz at 24 dB per octave."""
+    fake = FakeDeq()
+    fake.configuration.crossovers[2] = BlobCrossoverSetting(frequency=5, slope=3)
+    fake.configuration.crossovers[3] = BlobCrossoverSetting(frequency=3, slope=4)
+    tuning = load_factory_tuning()
+
+    DeqSession(fake).write_tuning(tuning)
+
+    front, rear = tuning.filter.front, tuning.filter.rear
+    assert _sent_crossover(fake) == _standard_payload(
+        [int(front.cutoff_hpf), int(rear.cutoff_hpf), 0, 0, 3],
+        [int(front.slope_hpf), int(rear.slope_hpf), 0, 0, 4],
+    )
+
+
+def test_a_push_without_a_subwoofer_leaves_slot_four_on_pass():
+    """STANDARD_FL_FR_RL_RR drives no subwoofer, so the app sends no low
+    pass, whatever the blob still stores for one."""
+    fake = FakeDeq()
+    fake.configuration.speaker_mode = 2
+    fake.configuration.crossovers[3] = BlobCrossoverSetting(frequency=3, slope=4)
+    tuning = load_factory_tuning()
+
+    DeqSession(fake).write_tuning(tuning)
+
+    front, rear = tuning.filter.front, tuning.filter.rear
+    assert _sent_crossover(fake) == _standard_payload(
+        [int(front.cutoff_hpf), int(rear.cutoff_hpf), 0, 0, 0],
+        [int(front.slope_hpf), int(rear.slope_hpf), 0, 0, 0],
+    )
+
+
+def test_a_network_mode_push_raises():
+    """The blob reader knows only the STANDARD form, so a NETWORK unit's
+    crossover has no map yet. A push must say so, not guess."""
+    fake = FakeDeq()
+    fake.configuration.speaker_mode = 7
+    with pytest.raises(UnsupportedSpeakerModeError):
+        DeqSession(fake).write_crossover(load_factory_tuning())
 
 
 def test_a_push_sends_the_profiles_levels_and_keeps_the_units_subwoofer():
@@ -284,20 +318,21 @@ def test_a_push_sends_the_profiles_levels_and_keeps_the_units_subwoofer():
 
 
 def test_a_push_still_sends_the_profiles_own_high_pass_filters():
-    """The unit's stored crossover fills the other slots, and must not
-    reach back into the two the profile owns."""
+    """The unit's stored filters fill the other slots, and must not reach
+    back into the two the profile owns. The profile's fields are positions:
+    9 and 2 mean 200 Hz at 12 dB per octave, not 9 Hz."""
     fake = FakeDeq()
-    fake.configuration.crossovers[0] = BlobCrossoverSetting(frequency=9, slope=4)
-    fake.configuration.crossovers[1] = BlobCrossoverSetting(frequency=9, slope=4)
-    session = DeqSession(fake)
-
+    fake.configuration.crossovers[0] = BlobCrossoverSetting(frequency=4, slope=4)
+    fake.configuration.crossovers[1] = BlobCrossoverSetting(frequency=4, slope=4)
     tuning = load_factory_tuning()
-    cutoff_positions, slopes = crossover_slot_inputs(tuning)
-    from_profile = (list(cutoff_positions), list(slopes))
-    session.fill_unset_slots_from_unit(cutoff_positions, slopes)
+    tuning.filter.front.cutoff_hpf = 7
+    tuning.filter.front.slope_hpf = 1
+    tuning.filter.rear.cutoff_hpf = 9
+    tuning.filter.rear.slope_hpf = 2
 
-    assert cutoff_positions[:2] == from_profile[0][:2]
-    assert slopes[:2] == from_profile[1][:2]
+    DeqSession(fake).write_crossover(tuning)
+
+    assert _sent_crossover(fake) == _standard_payload([7, 9, 0, 0, 0], [1, 2, 0, 0, 0])
 
 
 def test_the_equalizer_block_matches_what_deq_dsp_builds():
@@ -326,25 +361,6 @@ def test_distances_come_through_in_millimetres_with_five_slots():
     assert len(distances_mm) == 5
     assert distances_mm[0] == round(tuning.speakers["FL"].timeAlignmentCm * 10)
     assert distances_mm[4] == max(distances_mm)
-
-
-def test_the_crossover_reads_the_profiles_positions_not_hertz():
-    """`cutoff_hpf` is an index into the cutoff table, not a frequency. A
-    factory preset's rear filter stores 9 and 2, meaning 200 Hz at 12 dB."""
-    tuning = load_factory_tuning()
-    tuning.filter.rear.cutoff_hpf = 9
-    tuning.filter.rear.slope_hpf = 2
-
-    cutoff_positions, slopes = crossover_slot_inputs(tuning)
-
-    assert cutoff_positions[1] == 9
-    assert slopes[1] is FilterSlope.SLOPE_12
-    assert slopes[2:] == [FilterSlope.PASS] * 3
-
-
-def test_an_unknown_layout_raises():
-    with pytest.raises(ValueError, match="unknown crossover layout"):
-        DeqSession(FakeDeq()).write_crossover(load_factory_tuning(), "quadraphonic")
 
 
 def test_a_profile_selecting_a_bank_it_does_not_have_raises():

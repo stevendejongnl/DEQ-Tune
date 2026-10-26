@@ -32,6 +32,7 @@ from dataclasses import dataclass
 
 from app.deq_blob import (
     BANK_A,
+    CrossoverSetting as StoredFilter,
     BANK_B,
     STANDARD_BLOB_BYTES,
     UserConfiguration,
@@ -40,11 +41,9 @@ from app.deq_blob import (
 )
 from app.deq_enums import AUDIO_SOURCE, EQ_STYLE, LIVE_SIMULATION
 from app.deq_dsp import (
-    CROSSOVER_SLOT_COUNT,
     LEVEL_BLOCK_BYTES,
     TIME_ALIGNMENT_SLOT_COUNT,
     WIDE_BAND_COUNT,
-    FilterSlope,
     SpeakerLevel,
     build_crossover_payload,
     build_equalizer_payload,
@@ -53,6 +52,7 @@ from app.deq_dsp import (
     convert_wide_bands_to_equalizer_bands,
     crossover_slot_settings,
 )
+from app.unit_crossover import STORED_FRONT, STORED_REAR, crossover_slot_inputs
 from app.deq_protocol import (
     CONFIG_ID_BYTES,
     TRANSACTION_ID_BYTES,
@@ -140,10 +140,6 @@ CONFIG_ID_TIME_ALIGNMENT = 10
 CONFIG_ID_CROSSOVER_STANDARD = 11
 CONFIG_ID_CROSSOVER_NETWORK = 12
 CONFIG_ID_EQUALIZER = 13
-
-# The slots a profile speaks for: the front and rear high-pass filters.
-# Every other slot belongs to the unit's own settings blob.
-PROFILE_CROSSOVER_SLOT_COUNT = 2
 
 # A crossover layout and the CONFIG_ID that carries it.
 CROSSOVER_CONFIG_IDS = {
@@ -481,7 +477,7 @@ class DeqSession:
             config_id.to_bytes(4, "little") + configuration,
         )
 
-    def write_tuning(self, tuning: TuningData, layout: str = "standard") -> None:
+    def write_tuning(self, tuning: TuningData) -> None:
         """Sends one profile's whole DSP state to the unit.
 
         Four blocks of command 0x05, each under its own CONFIG_ID: the
@@ -498,7 +494,7 @@ class DeqSession:
         self.write_levels(tuning)
         self.write_equalizer(tuning)
         self.write_time_alignment(tuning)
-        self.write_crossover(tuning, layout)
+        self.write_crossover(tuning)
 
     def read_level_configuration(self) -> bytes:
         """Returns the level block that the unit holds now, 28 bytes.
@@ -554,51 +550,65 @@ class DeqSession:
             build_time_alignment_payload(distances_mm),
         )
 
-    def write_crossover(self, tuning: TuningData, layout: str) -> None:
-        """Sends the crossover for one speaker layout.
+    def write_crossover(self, tuning: TuningData) -> None:
+        """Sends the crossover: the profile's two filters, the unit's others.
 
-        A profile carries only a front and a rear high-pass filter, which are
-        slots 0 and 1. The other slots belong to the person, and the preset has
-        no say in them. Pioneer sets the factory high-pass per car model. It
-        leaves the rest to its own Filter screen, which writes the unit's
-        settings blob.
+        A profile carries only a front and a rear high-pass filter. Pioneer
+        sets them per car model. It leaves the other filters, such as the
+        subwoofer's low pass, to its own Filter screen, which writes the
+        unit's settings blob.
 
-        So the unit's stored crossover fills the slots that the profile does
-        not name. Pass in those slots would write identity biquads over a
-        crossover that somebody set. The unit would then disagree with itself:
-        the blob would still name a frequency and a slope while the audio ran
-        unfiltered. A real unit read slot 2 at slope 3 and slot 3 at slope 4 on
-        2026-10-08. So a real car uses this setting, and the case is no
-        hypothesis.
+        So the unit's stored filters fill everything the profile does not
+        name. Pass in their place would write identity biquads over a
+        crossover that somebody set. The unit would then disagree with
+        itself: the blob would still name a frequency and a slope while the
+        audio ran unfiltered. The car's unit stores a subwoofer low pass at
+        50 Hz and 24 dB per octave (read 2026-10-08).
+
+        The speaker mode in the blob decides which stored filter goes into
+        which slot. `unit_crossover.py` holds that map.
         """
-        if layout not in CROSSOVER_CONFIG_IDS:
-            raise ValueError(f"unknown crossover layout {layout!r}")
-        cutoff_positions, slopes = crossover_slot_inputs(tuning)
-        self.fill_unset_slots_from_unit(cutoff_positions, slopes)
+        configuration = self.read_user_configuration()
+        self.write_stored_crossover(
+            configuration.speaker_mode,
+            with_profile_filters(configuration.crossovers, profile_filters(tuning)),
+        )
+
+    def write_stored_filter(
+        self,
+        stored_index: int,
+        stored_filter: StoredFilter,
+        playing_profile_filters: tuple[StoredFilter, StoredFilter] | None,
+    ) -> UserConfiguration:
+        """Changes one stored filter on the unit, and makes the DSP play it.
+
+        The blob write keeps the filter across a power cycle, and the
+        crossover write makes it audible now. The crossover keeps the front
+        and rear filters of the profile that plays, because a push sent
+        those and the blob may still hold older ones. With no profile, the
+        blob's own front and rear filters go out.
+        """
+        configuration = self.read_user_configuration()
+        configuration.crossovers[stored_index] = stored_filter
+        self.write_user_configuration(configuration)
+        stored_filters = list(configuration.crossovers)
+        if playing_profile_filters is not None:
+            stored_filters = with_profile_filters(stored_filters, playing_profile_filters)
+        self.write_stored_crossover(configuration.speaker_mode, stored_filters)
+        return configuration
+
+    def write_stored_crossover(
+        self, speaker_mode: int, stored_filters: list[StoredFilter]
+    ) -> None:
+        """Sends the crossover that a speaker mode and its stored filters give."""
+        layout, cutoff_positions, slopes = crossover_slot_inputs(
+            speaker_mode, stored_filters
+        )
         settings = crossover_slot_settings(layout, cutoff_positions, slopes)
         self.write_coefficients(
             CROSSOVER_CONFIG_IDS[layout],
             build_crossover_payload(layout, settings),
         )
-
-    def fill_unset_slots_from_unit(
-        self, cutoff_positions: list[int], slopes: list[FilterSlope]
-    ) -> None:
-        """Puts the unit's own crossover into the slots a profile omits.
-
-        `crossover_slot_inputs` fills slots 0 and 1 from the profile and leaves
-        the rest at Pass. This function puts the values the unit already stores
-        in their place. So a push changes only the slots the profile names. It
-        edits both lists in place.
-
-        The blob holds four slots, and the unit addresses five. The fifth has
-        no stored value, so it stays as it came.
-        """
-        configuration = self.read_user_configuration()
-        for slot in range(PROFILE_CROSSOVER_SLOT_COUNT, len(configuration.crossovers)):
-            stored = configuration.crossovers[slot]
-            cutoff_positions[slot] = stored.frequency
-            slopes[slot] = FilterSlope(stored.slope)
 
     def select_eq_style(self, style_name: str) -> None:
         """Picks one of the unit's built-in EQ styles.
@@ -837,24 +847,27 @@ def profile_speaker_levels(tuning: TuningData) -> dict[str, SpeakerLevel]:
     }
 
 
-def crossover_slot_inputs(tuning: TuningData) -> tuple[list[int], list[FilterSlope]]:
-    """Returns one cutoff position and one slope per filter slot.
+def profile_filters(tuning: TuningData) -> tuple[StoredFilter, StoredFilter]:
+    """Returns a profile's front and rear high-pass filters, as the blob stores them.
 
-    The unit addresses five slots. The profile carries a front and a rear
-    high-pass filter, which are slots 0 and 1. It has no value for the other
-    three, so they stay at Pass and the unit leaves them alone.
-
-    Both profile fields are positions and not physical units. `cutoff_hpf` is
-    an index into the 11-entry cutoff table, and `slope_hpf` is the filter
-    order. A factory preset stores 9 and 2 for its rear filter, which is 200 Hz
-    at 12 dB per octave.
+    Both hold positions and not physical units: an index into the 11-entry
+    cutoff table and the filter order. A factory preset stores 9 and 2 for
+    its rear filter, which is 200 Hz at 12 dB per octave.
     """
-    cutoff_positions = [0] * CROSSOVER_SLOT_COUNT
-    slopes = [FilterSlope.PASS] * CROSSOVER_SLOT_COUNT
-    for slot, band in enumerate((tuning.filter.front, tuning.filter.rear)):
-        cutoff_positions[slot] = int(band.cutoff_hpf)
-        slopes[slot] = FilterSlope(int(band.slope_hpf))
-    return cutoff_positions, slopes
+    return tuple(
+        StoredFilter(frequency=int(band.cutoff_hpf), slope=int(band.slope_hpf))
+        for band in (tuning.filter.front, tuning.filter.rear)
+    )
+
+
+def with_profile_filters(
+    stored_filters: list[StoredFilter],
+    front_and_rear: tuple[StoredFilter, StoredFilter],
+) -> list[StoredFilter]:
+    """Returns the stored filters with a profile's front and rear put in."""
+    combined = list(stored_filters)
+    combined[STORED_FRONT], combined[STORED_REAR] = front_and_rear
+    return combined
 
 
 def read_field(reply: Message, offset: int, width: int) -> int:

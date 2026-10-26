@@ -6,7 +6,8 @@ one back out. Each field below follows the app's own writer and its JSON
 writer (`i/d/c.smali`), which names the profile key of every model field.
 
 The blob keeps a few things a profile does not: the subwoofer records, the
-two crossover slots past front and rear, and the lock. This module leaves
+stored filters past front and rear (such as the subwoofer's low pass),
+and the lock. This module leaves
 them on the unit. A push of the profile does not touch them either.
 """
 
@@ -108,8 +109,8 @@ def _filter_band(configuration: UserConfiguration, slot: int) -> FilterBand:
     """Reads one crossover slot as a profile's high-pass filter.
 
     The blob stores the same positions that a profile's `cutoff_hpf` and
-    `slope_hpf` hold. `DeqSession.fill_unset_slots_from_unit` reads the
-    blob's slots the same way.
+    `slope_hpf` hold. `DeqSession.write_crossover` turns a profile's band
+    into a stored filter the same way.
     """
     stored = configuration.crossovers[slot]
     return FilterBand(cutoff_hpf=stored.frequency, slope_hpf=stored.slope)
