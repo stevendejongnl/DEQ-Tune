@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type ConsoleMessage, type Page } from "@playwright/test";
 
 /**
  * The device flow, through a real browser and a real backend.
@@ -20,25 +20,20 @@ const PILL_DOT = "device-status .dot";
  * accessory string. The fake DEQ reports the same one. */
 const FAKE_UNIT_FIRMWARE = "2.02";
 
-/** Noise the Vite dev server makes, which says nothing about the app.
- *
- * Vite optimizes dependencies on the first load and answers a request that
- * was already in flight with `504 (Outdated Optimize Dep)`. The browser
- * fetches again and the page loads, so this is a race in the dev server's
- * cache warming, not an error the app caused. It appears on a cold CI
- * runner and not on a warm one, which made this test flaky until it was
- * filtered out.
- */
-const DEV_SERVER_NOISE = [/Outdated Optimize Dep/, /\[vite\] hot updated/];
+/** The e2e backend runs on a machine with no Wi-Fi helper. So its access
+ * point read answers 503 by design, and the app treats that answer as "no
+ * access point here". The browser still logs each failed load. */
+const EXPECTED_FAILED_LOADS = [/\/api\/wifi\/access-point$/];
 
-function isAppError(text: string): boolean {
-  return !DEV_SERVER_NOISE.some((pattern) => pattern.test(text));
+function isAppError(message: ConsoleMessage): boolean {
+  const resourceUrl = message.location().url;
+  return !EXPECTED_FAILED_LOADS.some((pattern) => pattern.test(resourceUrl));
 }
 
 async function openApp(page: Page): Promise<string[]> {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
-    if (message.type() === "error" && isAppError(message.text())) {
+    if (message.type() === "error" && isAppError(message)) {
       consoleErrors.push(message.text());
     }
   });

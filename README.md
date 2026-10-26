@@ -94,8 +94,10 @@ cd frontend && npm test
 Every test file lives next to the code it tests (`app/foo.py` → `app/test_foo.py`, `src/foo.ts` → `src/foo.test.ts`).
 
 The end-to-end tests run in a real browser, which is the only place real
-rendering and real CSS can be checked. They start the backend and the
-frontend themselves, with `DEQ_TRANSPORT=fake`, so they need no hardware:
+rendering and real CSS can be checked. They start the backend with
+`DEQ_TRANSPORT=fake`, so they need no hardware. They build the frontend and
+serve the build with `vite preview`, so they test the bundle that the Pi
+serves, and the whole run takes about 15 seconds:
 
 ```bash
 make e2e-install    # once, to fetch Chromium

@@ -20,12 +20,11 @@ export default defineConfig({
   testDir: "./e2e",
   // A failing assertion here is a real bug, not a flake to retry away.
   retries: 0,
-  // The frontend's `typia` transform compiles the module graph on the first
-  // request. That compile is the one slow step, and every test after it is
-  // fast. It took about twenty seconds once. On 2026-10-14 the main module
-  // alone took 72 s, and a first page load in each of two workers took about
-  // two minutes, past the old limit of 120 s.
-  timeout: 240_000,
+  // The tests load the built bundle, so a page load takes about a second.
+  // Against the Vite dev server, the `typia` transform compiled each module
+  // on its first request: the first page load took 165 s on 2026-10-26 and
+  // went past 240 s on 2026-10-24.
+  timeout: 60_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
   reporter: process.env.CI ? "list" : [["list"], ["html", { open: "never" }]],
@@ -49,9 +48,12 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: `npm run dev -- --port ${FRONTEND_PORT} --strictPort --host 127.0.0.1`,
-      // Vite answers 404 on an unknown path but the port is what matters,
-      // so wait for the port rather than for a URL to return 200.
+      // The build takes seconds. `vite preview` serves it with the dev
+      // server's /api proxy, so the tests run the code that the Pi serves.
+      command:
+        `npm run build && ` +
+        `npx vite preview --port ${FRONTEND_PORT} --strictPort --host 127.0.0.1`,
+      // Wait for the port, because the page's path is not what matters.
       port: FRONTEND_PORT,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
