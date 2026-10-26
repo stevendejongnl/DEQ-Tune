@@ -59,7 +59,7 @@ describe("library-backup", () => {
 
     expect(savedFiles.map((file) => file.fileName)).toEqual(["deq-tune-library-2026-10-23.json"]);
     expect(JSON.parse(savedFiles[0].text).profiles[0].name).toBe("Dusty");
-    expect(message(element)).toBe("Saved 1 profiles and 1 EQs.");
+    expect(message(element)).toBe("Saved. Profiles: 1. EQs: 1.");
   });
 
   it("says so when the person cancels the save", async () => {
@@ -82,7 +82,7 @@ describe("library-backup", () => {
     await element.updateComplete;
 
     expect(api.library.profiles.map((profile) => profile.name)).toEqual(["Dusty", "Mazda tweak"]);
-    expect(message(element)).toBe("Added 1 profiles and 1 EQs. 1 were there already.");
+    expect(message(element)).toBe("Added. Profiles: 1. EQs: 1. Already there: 1.");
     expect(imported).toBe(1);
   });
 
