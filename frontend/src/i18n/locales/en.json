@@ -276,5 +276,17 @@
   "settingsTranslationsTitle": "Translations",
   "settingsTranslationsText": "Volunteers translate the app on Weblate. Some languages are not complete yet: text that nobody translated shows in English. You can help, with no account on GitHub and no code.",
   "settingsTranslateLink": "Help translate on Weblate",
-  "settingsTranslatingGuideLink": "How translating works"
+  "settingsTranslatingGuideLink": "How translating works",
+  "settingsSectionBluetooth": "Bluetooth",
+  "bluetoothIntro": "The car app reaches the Pi over Bluetooth. A phone pairs with the Pi once. The Pi accepts a new phone only while pairing is open.",
+  "bluetoothOpenUntil": "Pairing is open until {time}. Open the car app on the new phone, or pair the phone with \"deq-tune\" in its Bluetooth settings.",
+  "bluetoothClosed": "Pairing is closed.",
+  "bluetoothPairNew": "Pair a new phone",
+  "bluetoothPairFailed": "The Pi did not open pairing. Try again.",
+  "bluetoothPairAtCarStart": "Open pairing when the car starts",
+  "bluetoothPairAtCarStartHint": "For {minutes} minutes after the DEQ connects. Switch it off once your phones are paired.",
+  "bluetoothPairedPhones": "Paired phones",
+  "bluetoothNoPhones": "No phone is paired yet.",
+  "bluetoothUnsupported": "This machine has no Bluetooth bridge.",
+  "bluetoothFailed": "Could not read the Bluetooth state from the Pi."
 }

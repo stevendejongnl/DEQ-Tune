@@ -27,6 +27,7 @@ describe("settings-page", () => {
     expect(buttons.map((button) => button.textContent!.trim())).toEqual([
       "Updates",
       "Wi-Fi",
+      "Bluetooth",
       "Backup",
       "Community",
       "System",
@@ -76,7 +77,7 @@ describe("settings-page", () => {
     clock += 200;
     buttons[2].click();
 
-    expect(sections).toEqual(["backup"]);
+    expect(sections).toEqual(["bluetooth"]);
   });
 
   it("links the language section to Weblate and the translation guide", async () => {
@@ -105,7 +106,7 @@ describe("settings-page", () => {
       sections.push((event as CustomEvent<{ section: string }>).detail.section),
     );
 
-    page.shadowRoot!.querySelectorAll<HTMLButtonElement>(".sections button")[4].click();
+    page.shadowRoot!.querySelectorAll<HTMLButtonElement>(".sections button")[5].click();
 
     expect(sections).toEqual(["system"]);
   });

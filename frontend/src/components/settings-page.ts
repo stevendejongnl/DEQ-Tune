@@ -1,6 +1,6 @@
 import { html, LitElement, nothing, type PropertyValues, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import type { BridgeSystemApi, LibraryApi, WifiApi } from "../api/client.ts";
+import type { BluetoothApi, BridgeSystemApi, LibraryApi, WifiApi } from "../api/client.ts";
 import { CommunityLibraryClient, type CommunityLibraryApi } from "../api/community-library.ts";
 import { phoneAppApi, type PhoneAppApi } from "../api/phone-app.ts";
 import { BUILD_ID } from "../build-id.ts";
@@ -17,17 +17,27 @@ import "./update-settings.ts";
 import type { UpdateRequestState } from "./updates-controller.ts";
 import "./access-point-settings.ts";
 import "./wifi-settings.ts";
+import "./bluetooth-settings.ts";
 
 /** Where people translate the app, and the guide for it. */
 export const WEBLATE_PROJECT_URL = "https://hosted.weblate.org/projects/deq-tune/";
 export const TRANSLATING_GUIDE_URL = "https://github.com/stevendejongnl/deq-tune/blob/main/TRANSLATING.md";
 
-export type SettingsSection = "phone" | "updates" | "wifi" | "backup" | "community" | "system" | "language";
+export type SettingsSection =
+  | "phone"
+  | "updates"
+  | "wifi"
+  | "bluetooth"
+  | "backup"
+  | "community"
+  | "system"
+  | "language";
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   "phone",
   "updates",
   "wifi",
+  "bluetooth",
   "backup",
   "community",
   "system",
@@ -44,6 +54,7 @@ function sectionTitle(strings: UiStrings, section: SettingsSection): string {
     phone: strings.settingsSectionPhone,
     updates: strings.settingsSectionUpdates,
     wifi: strings.settingsSectionWifi,
+    bluetooth: strings.settingsSectionBluetooth,
     backup: strings.settingsSectionBackup,
     community: strings.settingsSectionCommunity,
     system: strings.settingsSectionSystem,
@@ -56,7 +67,7 @@ function sectionTitle(strings: UiStrings, section: SettingsSection): string {
  * sections, and one card for the chosen section.
  *
  * It holds the car app's own settings (inside the car app only), the Pi's
- * updates, its Wi-Fi networks, the library backup, the community library,
+ * updates, its Wi-Fi networks, its Bluetooth pairing, the library backup, the community library,
  * its system statistics, and the app's language. app-root opens it from the header's gear button,
  * and opens the System section from the status pill. It fires
  * `section-change` ({ section }) and passes on `locale-change`. The
@@ -67,7 +78,7 @@ function sectionTitle(strings: UiStrings, section: SettingsSection): string {
 export class SettingsPage extends LitElement {
   static override styles = settingsPageStyles;
 
-  @property({ attribute: false }) api: (WifiApi & BridgeSystemApi & LibraryApi) | undefined;
+  @property({ attribute: false }) api: (WifiApi & BluetoothApi & BridgeSystemApi & LibraryApi) | undefined;
   @property({ type: String }) locale: Locale = "en";
   @property({ type: String }) section: SettingsSection = "updates";
   @property({ attribute: false }) updates: UpdatesDto | null = null;
@@ -138,6 +149,8 @@ export class SettingsPage extends LitElement {
           <wifi-settings .api=${this.api} .locale=${this.locale}></wifi-settings>
           <access-point-settings .api=${this.api} .locale=${this.locale}></access-point-settings>
         `;
+      case "bluetooth":
+        return html`<bluetooth-settings .api=${this.api} .locale=${this.locale}></bluetooth-settings>`;
       case "backup":
         return html`<library-backup .api=${this.api} .locale=${this.locale}
           .saveFile=${this.libraryFileSaver()}></library-backup>`;

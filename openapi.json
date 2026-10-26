@@ -1542,6 +1542,87 @@
         }
       }
     },
+    "/api/bluetooth": {
+      "get": {
+        "tags": [
+          "bluetooth"
+        ],
+        "summary": "Read Bluetooth",
+        "operationId": "read_bluetooth_api_bluetooth_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BluetoothPairingRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bluetooth/settings": {
+      "put": {
+        "tags": [
+          "bluetooth"
+        ],
+        "summary": "Write Settings",
+        "operationId": "write_settings_api_bluetooth_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BluetoothSettingsWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BluetoothPairingRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bluetooth/pairing-window": {
+      "post": {
+        "tags": [
+          "bluetooth"
+        ],
+        "summary": "Open Pairing Window",
+        "operationId": "open_pairing_window_api_bluetooth_pairing_window_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -1752,6 +1833,61 @@
         ],
         "title": "AudioStateRead",
         "description": "What the unit does with sound, read live from it.\n\nA separate model from `DeviceRead`, on purpose. The header polls that one,\nand it never opens a link. Every field here costs a request and a reply\nover USB. So the caller chooses when to ask for them.\n\nThis model exists because a tuning can apply without error and still give\nsilence, and nothing said so before. On 2026-10-09 a person applied\nprofiles and EQ styles in a car with no sound at all. The app could not\nshow whether the unit was on mute, near the bottom of its volume range, or\non a source that plays nothing."
+      },
+      "BluetoothPairingRead": {
+        "properties": {
+          "supported": {
+            "type": "boolean",
+            "title": "Supported"
+          },
+          "pairing_open": {
+            "type": "boolean",
+            "title": "Pairing Open",
+            "default": false
+          },
+          "seconds_left": {
+            "type": "integer",
+            "title": "Seconds Left",
+            "default": 0
+          },
+          "window_seconds": {
+            "type": "integer",
+            "title": "Window Seconds",
+            "default": 0
+          },
+          "pair_at_car_start": {
+            "type": "boolean",
+            "title": "Pair At Car Start",
+            "default": true
+          },
+          "bonded_phones": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Bonded Phones",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "supported"
+        ],
+        "title": "BluetoothPairingRead",
+        "description": "The BLE bridge's pairing window.\n\nA new phone can bond only while `pairing_open` is true. `supported` is\nfalse on a machine with no bridge, such as a laptop. Then every other\nfield keeps its default."
+      },
+      "BluetoothSettingsWrite": {
+        "properties": {
+          "pair_at_car_start": {
+            "type": "boolean",
+            "title": "Pair At Car Start"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pair_at_car_start"
+        ],
+        "title": "BluetoothSettingsWrite"
       },
       "BridgeNoticeRead": {
         "properties": {

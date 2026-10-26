@@ -396,3 +396,19 @@ export interface UpdatesDto {
 export interface UpdateSettingsWriteDto {
   automatic: boolean;
 }
+
+/** The BLE bridge's pairing window. A new phone can bond only while
+ * `pairing_open` is true. `supported` is false on a machine with no bridge,
+ * such as a laptop. */
+export interface BluetoothPairingDto {
+  supported: boolean;
+  pairing_open: boolean;
+  seconds_left: number;
+  window_seconds: number;
+  pair_at_car_start: boolean;
+  bonded_phones: string[];
+}
+
+export interface BluetoothSettingsWriteDto {
+  pair_at_car_start: boolean;
+}

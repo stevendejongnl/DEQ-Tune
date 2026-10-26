@@ -20,9 +20,11 @@
    It restarts the backend and waits for `/health`. A backend that does
    not answer gets the rollback copy back.
 5. It updates the gadget only while no DEQ session is live. A restart of
-   the gadget during a session wedges the USB controller. A backend restart
-   is safe, because the gadget keeps the link until the backend returns.
-   So a gadget change can wait for a later run, and the state file says so.
+   the gadget ends the session. The DEQ starts a new one within a second
+   (measured 2026-10-26), but the car's sound breaks for that moment. A
+   backend restart keeps the session, because the gadget keeps the link
+   until the backend returns. So a gadget change can wait for a later run,
+   and the state file says so.
 
 The person can switch automatic updates off in the settings file. Then a
 run still checks and writes the state, and an update happens only when

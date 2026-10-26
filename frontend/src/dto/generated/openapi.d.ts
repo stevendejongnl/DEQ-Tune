@@ -795,6 +795,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bluetooth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Bluetooth */
+        get: operations["read_bluetooth_api_bluetooth_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bluetooth/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Write Settings */
+        put: operations["write_settings_api_bluetooth_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bluetooth/pairing-window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open Pairing Window */
+        post: operations["open_pairing_window_api_bluetooth_pairing_window_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -910,6 +961,48 @@ export interface components {
             mute_state_wire: number;
             /** Driving */
             driving: boolean;
+        };
+        /**
+         * BluetoothPairingRead
+         * @description The BLE bridge's pairing window.
+         *
+         *     A new phone can bond only while `pairing_open` is true. `supported` is
+         *     false on a machine with no bridge, such as a laptop. Then every other
+         *     field keeps its default.
+         */
+        BluetoothPairingRead: {
+            /** Supported */
+            supported: boolean;
+            /**
+             * Pairing Open
+             * @default false
+             */
+            pairing_open: boolean;
+            /**
+             * Seconds Left
+             * @default 0
+             */
+            seconds_left: number;
+            /**
+             * Window Seconds
+             * @default 0
+             */
+            window_seconds: number;
+            /**
+             * Pair At Car Start
+             * @default true
+             */
+            pair_at_car_start: boolean;
+            /**
+             * Bonded Phones
+             * @default []
+             */
+            bonded_phones: string[];
+        };
+        /** BluetoothSettingsWrite */
+        BluetoothSettingsWrite: {
+            /** Pair At Car Start */
+            pair_at_car_start: boolean;
         };
         /**
          * BridgeNoticeRead
@@ -2813,6 +2906,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_bluetooth_api_bluetooth_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BluetoothPairingRead"];
+                };
+            };
+        };
+    };
+    write_settings_api_bluetooth_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BluetoothSettingsWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BluetoothPairingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_pairing_window_api_bluetooth_pairing_window_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

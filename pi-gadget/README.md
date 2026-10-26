@@ -19,7 +19,7 @@ car, so the car app carries the REST API over BLE.
 | `f_accessory/` | The Android kernel's accessory driver, vendored | built on the Pi, `make && sudo make install` |
 | `f_uac1_deq/` | A UAC1 audio driver with the descriptors of a real tablet | built on the Pi |
 | `deq-backend.service` | The backend, from `backend/` | `/home/deq/deq-tune/backend` |
-| `deq_ble_bridge.py`, `deq-ble-bridge.service` | The REST API over BLE GATT, for the car app | `/usr/local/bin/` |
+| `deq_ble_bridge.py`, `deq_ble_pairing.py`, `deq-ble-bridge.service` | The REST API over BLE GATT, for the car app, and the rules for when a phone may pair | `/usr/local/bin/` |
 | `deq-access-point.sh`, `.service`, `configure-access-point.sh` | A Wi-Fi access point beside the client link | `/usr/local/bin/` |
 | `deq_portal.py`, `deq-portal.service`, `deq-portal-dns.conf` | A captive portal that opens the app on a phone | `/usr/local/bin/` |
 | `deq_wifi_networks.py` | The root helper behind the web app's Wi-Fi dialog | `/usr/local/bin/deq-wifi-networks` |
@@ -156,8 +156,21 @@ checks that the two still give the same bytes.
   is safe during a DEQ session (measured 2026-10-24: the DEQ handshakes again,
   as after a replug). The API
   says only whether the key is the default, never the key.
-- **The BLE bridge needs no pairing yet.** Any device nearby can reach the
-  API through it.
+- **The BLE bridge needs a bonded phone.** Its request and response
+  characteristics need an encrypted link (`encrypt-write`,
+  `encrypt-notify`). The bridge registers its own pairing agent
+  (`NoInputNoOutput`, because the Pi has no screen and no keys). The agent
+  lets a new phone bond only while a pairing window is open, and the
+  adapter is pairable only then. A window lasts 5 minutes. It opens when a
+  DEQ session starts (the car starts), when the bridge starts, from the web
+  app's Settings → Bluetooth → "Pair a new phone", and from `touch
+  /home/deq/deq-ble-pairing-request`. The window at a car start can be
+  switched off in the same settings section. `deq_ble_pairing.py` holds
+  these rules. Its files sit in `/home/deq`: `deq-ble-settings.json` and
+  the request, which the backend writes, and `deq-ble-state.json`, which
+  the bridge writes. Tested in the car on 2026-10-26: a Pixel bonded in
+  the window at a car start, wireless Android Auto kept working, and the
+  phone connected again with no popup after the window closed.
 - **The BLE bridge forgets a half-received request when a client
   subscribes or goes.** A request that lost its last chunk stayed in the
   buffer before, and the next client's first request failed to parse.

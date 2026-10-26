@@ -276,5 +276,17 @@
   "settingsTranslationsTitle": "Vertalingen",
   "settingsTranslationsText": "Vrijwilligers vertalen de app op Weblate. Sommige talen zijn nog niet af: tekst die nog niemand vertaalde staat in het Engels. Je kunt helpen, zonder GitHub-account en zonder code.",
   "settingsTranslateLink": "Help vertalen op Weblate",
-  "settingsTranslatingGuideLink": "Hoe vertalen werkt"
+  "settingsTranslatingGuideLink": "Hoe vertalen werkt",
+  "settingsSectionBluetooth": "Bluetooth",
+  "bluetoothIntro": "De auto-app bereikt de Pi via Bluetooth. Een telefoon koppelt één keer met de Pi. De Pi accepteert een nieuwe telefoon alleen zolang koppelen open staat.",
+  "bluetoothOpenUntil": "Koppelen staat open tot {time}. Open de auto-app op de nieuwe telefoon, of koppel de telefoon met \"deq-tune\" in zijn Bluetooth-instellingen.",
+  "bluetoothClosed": "Koppelen is gesloten.",
+  "bluetoothPairNew": "Nieuwe telefoon koppelen",
+  "bluetoothPairFailed": "De Pi heeft koppelen niet geopend. Probeer het opnieuw.",
+  "bluetoothPairAtCarStart": "Koppelen openen als de auto start",
+  "bluetoothPairAtCarStartHint": "{minutes} minuten nadat de DEQ verbindt. Zet het uit zodra je telefoons gekoppeld zijn.",
+  "bluetoothPairedPhones": "Gekoppelde telefoons",
+  "bluetoothNoPhones": "Er is nog geen telefoon gekoppeld.",
+  "bluetoothUnsupported": "Deze machine heeft geen Bluetooth-brug.",
+  "bluetoothFailed": "Kon de Bluetooth-status niet van de Pi lezen."
 }

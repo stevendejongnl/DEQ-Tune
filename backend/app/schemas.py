@@ -429,6 +429,26 @@ class UpdateSettingsWrite(BaseModel):
     automatic: bool
 
 
+class BluetoothPairingRead(BaseModel):
+    """The BLE bridge's pairing window.
+
+    A new phone can bond only while `pairing_open` is true. `supported` is
+    false on a machine with no bridge, such as a laptop. Then every other
+    field keeps its default.
+    """
+
+    supported: bool
+    pairing_open: bool = False
+    seconds_left: int = 0
+    window_seconds: int = 0
+    pair_at_car_start: bool = True
+    bonded_phones: list[str] = []
+
+
+class BluetoothSettingsWrite(BaseModel):
+    pair_at_car_start: bool
+
+
 class FrontendBundleRead(BaseModel):
     """The web app that the bridge serves, as a base64 zip in parts.
 

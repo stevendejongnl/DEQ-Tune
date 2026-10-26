@@ -38,9 +38,18 @@ The bridge echoes `id`, so the client can match replies to calls. A request that
 never reaches the backend still gets a response, with a status of 0 and
 the reason in `body`, because a client waiting forever is worse than a
 client told it failed.
+
+Pairing
+-------
+The request and response characteristics need an encrypted link, so only
+a bonded phone reaches the API. The bridge registers its own pairing agent,
+and the agent accepts a phone only while a pairing window is open.
+`deq_ble_pairing.py` holds the rules for that window.
 """
 
 import json
+import os
+import sys
 import threading
 import urllib.error
 import urllib.request
@@ -51,6 +60,10 @@ import dbus.mainloop.glib
 import dbus.service
 from gi.repository import GLib
 
+# The installer puts deq_ble_pairing.py beside this file.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import deq_ble_pairing  # noqa: E402
+
 BLUEZ = "org.bluez"
 ADAPTER_IFACE = "org.bluez.Adapter1"
 GATT_MANAGER_IFACE = "org.bluez.GattManager1"
@@ -58,6 +71,9 @@ LE_ADVERTISING_MANAGER_IFACE = "org.bluez.LEAdvertisingManager1"
 GATT_SERVICE_IFACE = "org.bluez.GattService1"
 GATT_CHRC_IFACE = "org.bluez.GattCharacteristic1"
 LE_ADVERTISEMENT_IFACE = "org.bluez.LEAdvertisement1"
+AGENT_IFACE = "org.bluez.Agent1"
+AGENT_MANAGER_IFACE = "org.bluez.AgentManager1"
+DEVICE_IFACE = "org.bluez.Device1"
 DBUS_OM_IFACE = "org.freedesktop.DBus.ObjectManager"
 DBUS_PROP_IFACE = "org.freedesktop.DBus.Properties"
 
@@ -70,6 +86,11 @@ INFO_UUID = "de900003" + BASE
 BACKEND = "http://127.0.0.1:8420"
 BACKEND_TIMEOUT_SECONDS = 10
 LOCAL_NAME = "deq-tune"
+AGENT_PATH = "/nl/madebysteven/deq/agent"
+# The Pi has no screen and no keys. With this capability, a phone pairs
+# with "Just Works" and the agent decides only whether to allow it.
+AGENT_CAPABILITY = "NoInputNoOutput"
+TICK_SECONDS = 1
 
 # Conservative, and chosen rather than negotiated. BlueZ exposes the
 # connection's MTU only once a client subscribes, and getting that wrong
@@ -96,6 +117,10 @@ class InvalidArgsException(dbus.exceptions.DBusException):
 
 class NotSupportedException(dbus.exceptions.DBusException):
     _dbus_error_name = "org.bluez.Error.NotSupported"
+
+
+class RejectedException(dbus.exceptions.DBusException):
+    _dbus_error_name = "org.bluez.Error.Rejected"
 
 
 class Application(dbus.service.Object):
@@ -198,7 +223,7 @@ class ResponseCharacteristic(Characteristic):
 
     def __init__(self, bus, index, service):
         Characteristic.__init__(
-            self, bus, index, RESPONSE_UUID, ["notify"], service
+            self, bus, index, RESPONSE_UUID, ["notify", "encrypt-notify"], service
         )
         self.chunk_payload = CHUNK_PAYLOAD
         # The request side sets this. A client subscribes on each connect
@@ -268,7 +293,7 @@ class RequestCharacteristic(Characteristic):
             bus,
             index,
             REQUEST_UUID,
-            ["write", "write-without-response"],
+            ["write", "write-without-response", "encrypt-write"],
             service,
         )
         self.response = response_characteristic
@@ -368,6 +393,129 @@ class InfoCharacteristic(Characteristic):
         return dbus.Array(info.encode("utf-8"), signature="y")
 
 
+class PairingAgent(dbus.service.Object):
+    """Answers BlueZ's pairing questions: yes while the window is open.
+
+    BlueZ asks the default agent before a phone bonds. Outside the window,
+    the adapter is not pairable either, so this is the second of two locks.
+    """
+
+    def __init__(self, bus, window):
+        self.window = window
+        self.bus = bus
+        dbus.service.Object.__init__(self, bus, AGENT_PATH)
+
+    def allow_new_phone(self, device):
+        if self.window.is_open():
+            log("pairing window open: allowing %s" % device)
+            return
+        log("pairing window closed: refusing %s" % device)
+        raise RejectedException("the pairing window is closed")
+
+    def is_paired(self, device):
+        properties = dbus.Interface(self.bus.get_object(BLUEZ, device), DBUS_PROP_IFACE)
+        return bool(properties.Get(DEVICE_IFACE, "Paired"))
+
+    @dbus.service.method(AGENT_IFACE)
+    def Release(self):
+        log("BlueZ released the pairing agent")
+
+    @dbus.service.method(AGENT_IFACE, in_signature="o")
+    def RequestAuthorization(self, device):
+        self.allow_new_phone(device)
+
+    @dbus.service.method(AGENT_IFACE, in_signature="ou")
+    def RequestConfirmation(self, device, passkey):
+        self.allow_new_phone(device)
+
+    @dbus.service.method(AGENT_IFACE, in_signature="os")
+    def AuthorizeService(self, device, uuid):
+        if self.is_paired(device):
+            return
+        self.allow_new_phone(device)
+
+    # The Pi can show no passkey and type none, so these refuse.
+    @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="s")
+    def RequestPinCode(self, device):
+        raise RejectedException("this Pi has no keypad")
+
+    @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="u")
+    def RequestPasskey(self, device):
+        raise RejectedException("this Pi has no keypad")
+
+    @dbus.service.method(AGENT_IFACE, in_signature="ouq")
+    def DisplayPasskey(self, device, passkey, entered):
+        pass
+
+    @dbus.service.method(AGENT_IFACE, in_signature="os")
+    def DisplayPinCode(self, device, pincode):
+        raise RejectedException("this Pi has no screen")
+
+    @dbus.service.method(AGENT_IFACE)
+    def Cancel(self):
+        log("pairing cancelled")
+
+
+class PairingControl:
+    """Opens and closes the pairing window, and reports it.
+
+    `tick()` runs once a second on the main loop. It takes a pending request
+    from the web app or SSH, opens a window when a DEQ session starts, keeps the adapter's Pairable switch in step
+    with the window, and rewrites the state file when it changes.
+    """
+
+    def __init__(self, bus, adapter, window):
+        self.bus = bus
+        self.window = window
+        self.car_start = deq_ble_pairing.CarStartWatch(deq_ble_pairing.SESSION_SOCKET.exists())
+        self.adapter_properties = dbus.Interface(bus.get_object(BLUEZ, adapter), DBUS_PROP_IFACE)
+        self.pairable = None
+        self.last_state = None
+
+    def open_window(self, reason):
+        self.window.open()
+        log("pairing window open for %ds (%s)" % (deq_ble_pairing.PAIRING_WINDOW_SECONDS, reason))
+        self.adapter_properties.Set(
+            ADAPTER_IFACE, "PairableTimeout", dbus.UInt32(deq_ble_pairing.PAIRING_WINDOW_SECONDS)
+        )
+        self.set_pairable(True)
+
+    def set_pairable(self, pairable):
+        if pairable == self.pairable:
+            return
+        self.adapter_properties.Set(ADAPTER_IFACE, "Pairable", dbus.Boolean(pairable))
+        self.pairable = pairable
+        if not pairable:
+            log("pairing window closed")
+
+    def bonded_phones(self):
+        manager = dbus.Interface(self.bus.get_object(BLUEZ, "/"), DBUS_OM_IFACE)
+        names = []
+        for interfaces in manager.GetManagedObjects().values():
+            device = interfaces.get(DEVICE_IFACE)
+            if device and device.get("Bonded", device.get("Paired", False)):
+                names.append(str(device.get("Alias") or device.get("Address")))
+        return names
+
+    def tick(self):
+        try:
+            if deq_ble_pairing.take_request():
+                self.open_window("asked for")
+            if self.car_start.started(deq_ble_pairing.SESSION_SOCKET.exists()):
+                if deq_ble_pairing.pair_at_car_start():
+                    self.open_window("car start")
+            if not self.window.is_open():
+                self.set_pairable(False)
+            state = deq_ble_pairing.build_state(self.window, self.bonded_phones())
+            if state != self.last_state:
+                deq_ble_pairing.write_state(state)
+                self.last_state = state
+        except Exception as error:
+            # One failed tick must not stop the next one.
+            log("pairing tick failed: %s: %s" % (type(error).__name__, error))
+        return True
+
+
 class Advertisement(dbus.service.Object):
     def __init__(self, bus, index):
         self.path = "/nl/madebysteven/deq/advertisement%d" % index
@@ -432,6 +580,19 @@ def main():
         bus.get_object(BLUEZ, adapter), LE_ADVERTISING_MANAGER_IFACE
     )
     advertisement = Advertisement(bus, 0)
+
+    window = deq_ble_pairing.PairingWindow()
+    agent = PairingAgent(bus, window)
+    agent_manager = dbus.Interface(bus.get_object(BLUEZ, "/org/bluez"), AGENT_MANAGER_IFACE)
+    agent_manager.RegisterAgent(AGENT_PATH, AGENT_CAPABILITY)
+    agent_manager.RequestDefaultAgent(AGENT_PATH)
+    log("pairing agent registered (%s)" % AGENT_CAPABILITY)
+
+    pairing = PairingControl(bus, adapter, window)
+    if deq_ble_pairing.pair_at_car_start():
+        pairing.open_window("bridge start")
+    pairing.tick()
+    GLib.timeout_add_seconds(TICK_SECONDS, pairing.tick)
 
     loop = GLib.MainLoop()
 

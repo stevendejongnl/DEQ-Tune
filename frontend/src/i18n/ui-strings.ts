@@ -170,6 +170,18 @@ export type UiStrings = {
   systemUnitSection: string;
   systemUnitFirmware: string;
   settingsSectionCommunity: string;
+  settingsSectionBluetooth: string;
+  bluetoothIntro: string;
+  bluetoothOpenUntil: string;
+  bluetoothClosed: string;
+  bluetoothPairNew: string;
+  bluetoothPairFailed: string;
+  bluetoothPairAtCarStart: string;
+  bluetoothPairAtCarStartHint: string;
+  bluetoothPairedPhones: string;
+  bluetoothNoPhones: string;
+  bluetoothUnsupported: string;
+  bluetoothFailed: string;
   communityIntro: string;
   communityLoading: string;
   communityLoadFailed: string;

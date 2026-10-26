@@ -21,6 +21,8 @@ import type {
   UnitProfileCreateDto,
   UpdateSettingsWriteDto,
   UpdatesDto,
+  BluetoothPairingDto,
+  BluetoothSettingsWriteDto,
   VolumeWriteDto,
   AccessPointDto,
   LibraryExportDto,
@@ -164,8 +166,26 @@ export interface UpdatesApi {
   requestUpdate(): Promise<void>;
 }
 
+/** The BLE bridge's pairing window. `requestPairingWindow` asks the
+ * bridge to let a new phone pair for a few minutes. A 503 means the
+ * machine has no bridge. */
+export interface BluetoothApi {
+  readBluetooth(): Promise<BluetoothPairingDto>;
+  setPairAtCarStart(pairAtCarStart: boolean): Promise<BluetoothPairingDto>;
+  requestPairingWindow(): Promise<void>;
+}
+
 export class DeqApiClient
-  implements ProfileApi, DeviceApi, EqualizerApi, BridgeApi, BridgeSystemApi, WifiApi, UpdatesApi, LibraryApi
+  implements
+    ProfileApi,
+    DeviceApi,
+    EqualizerApi,
+    BridgeApi,
+    BridgeSystemApi,
+    WifiApi,
+    UpdatesApi,
+    LibraryApi,
+    BluetoothApi
 {
   private baseUrl: string;
   private fetchImpl: FetchLike;
@@ -276,6 +296,19 @@ export class DeqApiClient
 
   async requestUpdate(): Promise<void> {
     await this.call("POST", "/updates/request");
+  }
+
+  async readBluetooth(): Promise<BluetoothPairingDto> {
+    return typia.assert<BluetoothPairingDto>(await this.call("GET", "/bluetooth"));
+  }
+
+  async setPairAtCarStart(pairAtCarStart: boolean): Promise<BluetoothPairingDto> {
+    const validBody = typia.assert<BluetoothSettingsWriteDto>({ pair_at_car_start: pairAtCarStart });
+    return typia.assert<BluetoothPairingDto>(await this.call("PUT", "/bluetooth/settings", validBody));
+  }
+
+  async requestPairingWindow(): Promise<void> {
+    await this.call("POST", "/bluetooth/pairing-window");
   }
 
   async connectDevice(): Promise<DeviceDto> {
