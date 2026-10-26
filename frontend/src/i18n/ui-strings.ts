@@ -7,6 +7,24 @@ import spanish from "./locales/es.json";
 import dutch from "./locales/nl.json";
 
 export type UiStrings = {
+  communityShareGuide: string;
+  communityShareFailed: string;
+  communityShareNothing: string;
+  communityShareItem: string;
+  communityShareEqualizers: string;
+  communityShareProfiles: string;
+  communityShareAuthor: string;
+  communityShareDescription: string;
+  communityShareDescriptionHint: string;
+  communityShareBrand: string;
+  communityShareModel: string;
+  communityShareInvalid: string;
+  communityShareMake: string;
+  communityShareStepsPrefilled: string;
+  communityShareStepsPaste: string;
+  communityShareOpenGithub: string;
+  communityShareCopy: string;
+  communityShareCopied: string;
   factoryPresets: string;
   myProfiles: string;
   duplicate: string;

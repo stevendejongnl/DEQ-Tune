@@ -2,7 +2,6 @@ import { html, LitElement, nothing, svg, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { LibraryApi } from "../api/client.ts";
 import {
-  COMMUNITY_CONTRIBUTING_URL,
   CommunityLibraryClient,
   entryCar,
   entryMatches,
@@ -15,6 +14,7 @@ import type { Locale } from "../i18n/locale.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import { communityLibraryStyles } from "./community-library.styles.ts";
 import { busyStyles } from "./busy.styles.ts";
+import "./community-share-form.ts";
 
 type KindFilter = "all" | "equalizer" | "profile";
 type LoadState = "loading" | "failed" | "ready";
@@ -98,9 +98,7 @@ export class CommunityLibrary extends LitElement {
     return html`
       <p class="intro">${strings.communityIntro}</p>
       ${this.renderBody(strings)}
-      <p class="hint">
-        <a href=${COMMUNITY_CONTRIBUTING_URL} target="_blank" rel="noopener">${strings.communityContribute}</a>
-      </p>
+      <community-share-form .api=${this.api} .locale=${this.locale}></community-share-form>
     `;
   }
 
