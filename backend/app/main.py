@@ -20,6 +20,7 @@ from app.bluetooth_routes import router as bluetooth_router
 from app.bridge_routes import router as bridge_router
 from app.db import create_db_and_tables, engine
 from app.deq_device import device, link_keeper
+from app.crossover_routes import router as crossover_router
 from app.device_routes import router as device_router
 from app.paths import DIST_DIR
 from app.request_log import RequestLog
@@ -69,6 +70,7 @@ app.add_middleware(RequestLog)
 
 app.include_router(router, prefix="/api")
 app.include_router(device_router, prefix="/api")
+app.include_router(crossover_router, prefix="/api")
 app.include_router(bridge_router, prefix="/api")
 app.include_router(active_profile_router, prefix="/api")
 app.include_router(equalizer_router, prefix="/api")

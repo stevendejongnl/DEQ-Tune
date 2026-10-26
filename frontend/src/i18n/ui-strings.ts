@@ -7,6 +7,13 @@ import spanish from "./locales/es.json";
 import dutch from "./locales/nl.json";
 
 export type UiStrings = {
+  crossoverSpeakerModeLabel: string;
+  crossoverSpeakerModeHint: string;
+  speakerModeFront: string;
+  speakerModeFrontRear: string;
+  speakerModeFrontRearSubwoofer: string;
+  speakerModeFrontRearSubwoofers: string;
+  speakerModeFrontSubwoofer: string;
   communityShareGuide: string;
   communityShareFailed: string;
   communityShareNothing: string;
@@ -25,6 +32,23 @@ export type UiStrings = {
   communityShareOpenGithub: string;
   communityShareCopy: string;
   communityShareCopied: string;
+  crossoverTitle: string;
+  crossoverIntro: string;
+  crossoverNotConnected: string;
+  crossoverUnsupported: string;
+  crossoverFailed: string;
+  crossoverSaveFailed: string;
+  crossoverSpeakerFront: string;
+  crossoverSpeakerRear: string;
+  crossoverSpeakerRearSubwoofer: string;
+  crossoverSpeakerSubwoofer: string;
+  crossoverHighPass: string;
+  crossoverLowPass: string;
+  crossoverFromProfile: string;
+  crossoverCutoffLabel: string;
+  crossoverSlopeLabel: string;
+  crossoverSlopePass: string;
+  crossoverSlopeValue: string;
   factoryPresets: string;
   myProfiles: string;
   duplicate: string;

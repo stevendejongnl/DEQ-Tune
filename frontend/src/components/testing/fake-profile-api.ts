@@ -1,4 +1,10 @@
-import type { DeviceApi, EqualizerApi, ProfileApi, UpdatesApi } from "../../api/client.ts";
+import type {
+  CrossoverApi,
+  DeviceApi,
+  EqualizerApi,
+  ProfileApi,
+  UpdatesApi,
+} from "../../api/client.ts";
 import type {
   ActiveProfileDto,
   AudioStateDto,
@@ -10,8 +16,11 @@ import type {
   ProfileCreateDto,
   ProfileDto,
   ProfileUpdateDto,
+  CrossoverFilterWriteDto,
+  SpeakerModeWriteDto,
   TuningDataDto,
 } from "../../dto/profile.dto.ts";
+import { FakeCrossoverApi } from "./fake-crossover-api.ts";
 import { FakeDeviceApi } from "./fake-device-api.ts";
 import { FakeUpdatesApi } from "./fake-updates-api.ts";
 
@@ -23,8 +32,25 @@ import { FakeUpdatesApi } from "./fake-updates-api.ts";
  * holds a `FakeDeviceApi` and forwards the device calls to it. Read
  * `device` in a test to see what the app sent to the unit.
  */
-export class FakeProfileApi implements ProfileApi, DeviceApi, EqualizerApi, UpdatesApi {
+export class FakeProfileApi
+  implements ProfileApi, DeviceApi, EqualizerApi, UpdatesApi, CrossoverApi
+{
   readonly device = new FakeDeviceApi();
+  /** The unit's crossover, for the Filter panel on the Car page. */
+  readonly crossover = new FakeCrossoverApi();
+
+  readCrossover(): ReturnType<CrossoverApi["readCrossover"]> {
+    return this.crossover.readCrossover();
+  }
+
+  writeCrossoverFilter(body: CrossoverFilterWriteDto): ReturnType<CrossoverApi["writeCrossoverFilter"]> {
+    return this.crossover.writeCrossoverFilter(body);
+  }
+
+  changeSpeakerMode(body: SpeakerModeWriteDto): ReturnType<CrossoverApi["changeSpeakerMode"]> {
+    return this.crossover.changeSpeakerMode(body);
+  }
+
   /** The Pi's updater. It starts as a machine with no updater. */
   readonly updates = new FakeUpdatesApi();
 

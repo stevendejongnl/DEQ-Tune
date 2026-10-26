@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 from app.deq_enums import AUDIO_SOURCE, EQ_STYLE, LIVE_SIMULATION
@@ -525,3 +527,59 @@ class LibraryImportRead(BaseModel):
     equalizers_added: int
     skipped: int
     stars_added: int
+
+
+class CrossoverFilterRead(BaseModel):
+    """One filter of the unit's crossover, as a Filter screen shows it.
+
+    `cutoff_position` indexes `cutoffs_hz`, which holds the 11 cutoffs this
+    filter offers. A high-range filter offers 1250 Hz to 12.5 kHz, the others
+    25 Hz to 250 Hz. `slope` is the filter order: 0 is Pass, 1 to 4 are 6 to
+    24 dB per octave.
+
+    `owner` says who sets the filter. A car profile carries the front and
+    rear high-pass filters, so a push replaces them, and this screen only
+    shows them. The unit keeps the others, such as the subwoofer's low pass.
+    """
+
+    speaker: Literal["front", "rear", "rear_subwoofer", "subwoofer"]
+    kind: Literal["high_pass", "low_pass"]
+    owner: Literal["profile", "unit"]
+    cutoff_position: int
+    slope: int
+    cutoffs_hz: list[float]
+
+
+StandardSpeakerMode = Literal[
+    "STANDARD_FL_FR",
+    "STANDARD_FL_FR_RL_RR",
+    "STANDARD_FL_FR_RL_RR_SW",
+    "STANDARD_FL_FR_RLSW_RRSW",
+    "STANDARD_FL_FR_SW",
+]
+
+
+class CrossoverRead(BaseModel):
+    """The filters that the unit's speaker mode uses, in slot order.
+
+    `speaker_modes` lists the modes a person can switch to. The NETWORK
+    modes are not among them: this app cannot read their settings blob.
+    """
+
+    speaker_mode: str
+    speaker_modes: list[StandardSpeakerMode]
+    filters: list[CrossoverFilterRead]
+
+
+class SpeakerModeWrite(BaseModel):
+    """The speaker mode to move the unit to."""
+
+    speaker_mode: StandardSpeakerMode
+
+
+class CrossoverFilterWrite(BaseModel):
+    """A new setting for one filter that the unit keeps."""
+
+    speaker: Literal["rear_subwoofer", "subwoofer"]
+    cutoff_position: int = Field(ge=0, le=10)
+    slope: int = Field(ge=0, le=4)

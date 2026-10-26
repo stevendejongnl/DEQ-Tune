@@ -52,7 +52,12 @@ from app.deq_dsp import (
     convert_wide_bands_to_equalizer_bands,
     crossover_slot_settings,
 )
-from app.unit_crossover import STORED_FRONT, STORED_REAR, crossover_slot_inputs
+from app.unit_crossover import (
+    STORED_FRONT,
+    STORED_REAR,
+    crossover_map,
+    crossover_slot_inputs,
+)
 from app.deq_protocol import (
     CONFIG_ID_BYTES,
     TRANSACTION_ID_BYTES,
@@ -114,6 +119,7 @@ COMMAND_CRASH_REPORT = 0x15
 COMMAND_SYSTEM_ERROR_FLAGS = 0x17
 COMMAND_SELF_SAVE_CONFIGURATION_ENABLE = 0x19
 COMMAND_PLAY_READY_NOTIFICATION = 0x1A
+COMMAND_SET_SYSTEM_MUTE_STATE = 0x1B
 COMMAND_GET_SYSTEM_MUTE_STATE = 0x1C
 COMMAND_SET_USB_CONDITIONER_TABLE = 0x1F
 COMMAND_GET_USB_CONDITIONER_TABLE = 0x20
@@ -136,6 +142,8 @@ COMMAND_SYNC = COMMAND_CONNECT
 # The 2080 and the two crossover sizes match `conformance/flows.json` byte for
 # byte. So a test checks the mapping, and nobody assumes it.
 CONFIG_ID_LEVELS = 0
+# The switches block: RearSWEnabled, then three zero bytes.
+CONFIG_ID_SWITCHES = 9
 CONFIG_ID_TIME_ALIGNMENT = 10
 CONFIG_ID_CROSSOVER_STANDARD = 11
 CONFIG_ID_CROSSOVER_NETWORK = 12
@@ -486,15 +494,68 @@ class DeqSession:
         CONFIG_ID carries which, and in what order. The levels go first, as
         in the app's own full push.
 
-        The app sends a fifth block, CONFIG_ID 9. It holds RearSWEnabled and
-        three zeros. The app sends it only when the speaker mode changes
-        between STANDARD and NETWORK. A profile push never changes that mode,
-        so this method does not send it.
+        The app sends a fifth block, CONFIG_ID 9, with a speaker-mode change.
+        A profile push never changes that mode, so this method does not send
+        it. `change_speaker_mode` does.
         """
         self.write_levels(tuning)
         self.write_equalizer(tuning)
         self.write_time_alignment(tuning)
         self.write_crossover(tuning)
+
+    def change_speaker_mode(
+        self, speaker_mode: int, tuning: TuningData | None
+    ) -> UserConfiguration:
+        """Moves the unit to another STANDARD speaker mode, as the app does.
+
+        The app's `setCurrentSpeakerLayout` sends a full push inside a system
+        mute: sound off, the levels, the delays, the crossover, the
+        equalizer, the switches block, sound on (emulator, 2026-10-26). This
+        method does the same. It also writes the new mode into the settings
+        blob first. The app leaves that to a later save, but this backend
+        reads the mode from the blob for each push.
+
+        With no tuning, no profile is active, so only the crossover and the
+        switches go out, from the unit's own stored filters.
+
+        A mode with no crossover map, such as a NETWORK mode, raises
+        UnsupportedSpeakerModeError before anything goes to the unit.
+        """
+        layout = crossover_map(speaker_mode).layout
+        self.set_system_mute(True)
+        try:
+            configuration = self.read_user_configuration()
+            configuration.speaker_mode = speaker_mode
+            self.write_user_configuration(configuration)
+            if tuning is None:
+                self.write_stored_crossover(speaker_mode, configuration.crossovers)
+            else:
+                self.write_levels(tuning)
+                self.write_time_alignment(tuning)
+                self.write_crossover(tuning)
+                self.write_equalizer(tuning)
+            self.write_switches(rear_subwoofer_enabled=layout == "standard_rear")
+        finally:
+            self.set_system_mute(False)
+        return configuration
+
+    def set_system_mute(self, muted: bool) -> None:
+        """Writes the system mute (0x1b): a boolean, 1 is sound off."""
+        self.exchange(
+            COMMAND_SET_SYSTEM_MUTE_STATE,
+            (1 if muted else 0).to_bytes(4, "little"),
+        )
+
+    def write_switches(self, rear_subwoofer_enabled: bool) -> None:
+        """Sends CONFIG_ID 9: RearSWEnabled, then three zero bytes.
+
+        The flag is true only in STANDARD_FL_FR_RLSW_RRSW (`x.b()` in the
+        APK). The app sent `00000000` for the other STANDARD modes.
+        """
+        self.write_coefficients(
+            CONFIG_ID_SWITCHES,
+            bytes([1 if rear_subwoofer_enabled else 0, 0, 0, 0]),
+        )
 
     def read_level_configuration(self) -> bytes:
         """Returns the level block that the unit holds now, 28 bytes.

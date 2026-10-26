@@ -715,6 +715,110 @@
         }
       }
     },
+    "/api/device/crossover": {
+      "get": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Read Crossover",
+        "description": "Reads the unit's crossover, with the active profile's two filters.",
+        "operationId": "read_crossover_api_device_crossover_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrossoverRead"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Write Crossover Filter",
+        "description": "Changes one filter that the unit keeps, and plays it at once.\n\nA filter that the unit's speaker mode does not use answers 409. The unit\nwould store it and play nothing different.",
+        "operationId": "write_crossover_filter_api_device_crossover_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrossoverFilterWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrossoverRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/device/crossover/speaker-mode": {
+      "put": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Change Speaker Mode",
+        "description": "Moves the unit to another speaker mode, and sends the push that goes with it.",
+        "operationId": "change_speaker_mode_api_device_crossover_speaker_mode_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpeakerModeWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrossoverRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/bridge": {
       "get": {
         "tags": [
@@ -2315,6 +2419,131 @@
         ],
         "title": "ChannelBankData"
       },
+      "CrossoverFilterRead": {
+        "properties": {
+          "speaker": {
+            "type": "string",
+            "enum": [
+              "front",
+              "rear",
+              "rear_subwoofer",
+              "subwoofer"
+            ],
+            "title": "Speaker"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "high_pass",
+              "low_pass"
+            ],
+            "title": "Kind"
+          },
+          "owner": {
+            "type": "string",
+            "enum": [
+              "profile",
+              "unit"
+            ],
+            "title": "Owner"
+          },
+          "cutoff_position": {
+            "type": "integer",
+            "title": "Cutoff Position"
+          },
+          "slope": {
+            "type": "integer",
+            "title": "Slope"
+          },
+          "cutoffs_hz": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Cutoffs Hz"
+          }
+        },
+        "type": "object",
+        "required": [
+          "speaker",
+          "kind",
+          "owner",
+          "cutoff_position",
+          "slope",
+          "cutoffs_hz"
+        ],
+        "title": "CrossoverFilterRead",
+        "description": "One filter of the unit's crossover, as a Filter screen shows it.\n\n`cutoff_position` indexes `cutoffs_hz`, which holds the 11 cutoffs this\nfilter offers. A high-range filter offers 1250 Hz to 12.5 kHz, the others\n25 Hz to 250 Hz. `slope` is the filter order: 0 is Pass, 1 to 4 are 6 to\n24 dB per octave.\n\n`owner` says who sets the filter. A car profile carries the front and\nrear high-pass filters, so a push replaces them, and this screen only\nshows them. The unit keeps the others, such as the subwoofer's low pass."
+      },
+      "CrossoverFilterWrite": {
+        "properties": {
+          "speaker": {
+            "type": "string",
+            "enum": [
+              "rear_subwoofer",
+              "subwoofer"
+            ],
+            "title": "Speaker"
+          },
+          "cutoff_position": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Cutoff Position"
+          },
+          "slope": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 0.0,
+            "title": "Slope"
+          }
+        },
+        "type": "object",
+        "required": [
+          "speaker",
+          "cutoff_position",
+          "slope"
+        ],
+        "title": "CrossoverFilterWrite",
+        "description": "A new setting for one filter that the unit keeps."
+      },
+      "CrossoverRead": {
+        "properties": {
+          "speaker_mode": {
+            "type": "string",
+            "title": "Speaker Mode"
+          },
+          "speaker_modes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "STANDARD_FL_FR",
+                "STANDARD_FL_FR_RL_RR",
+                "STANDARD_FL_FR_RL_RR_SW",
+                "STANDARD_FL_FR_RLSW_RRSW",
+                "STANDARD_FL_FR_SW"
+              ]
+            },
+            "type": "array",
+            "title": "Speaker Modes"
+          },
+          "filters": {
+            "items": {
+              "$ref": "#/components/schemas/CrossoverFilterRead"
+            },
+            "type": "array",
+            "title": "Filters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "speaker_mode",
+          "speaker_modes",
+          "filters"
+        ],
+        "title": "CrossoverRead",
+        "description": "The filters that the unit's speaker mode uses, in slot order.\n\n`speaker_modes` lists the modes a person can switch to. The NETWORK\nmodes are not among them: this app cannot read their settings blob."
+      },
       "DeqEnumValueRead": {
         "properties": {
           "name": {
@@ -3226,6 +3455,27 @@
           "levelDBExtended"
         ],
         "title": "Speaker"
+      },
+      "SpeakerModeWrite": {
+        "properties": {
+          "speaker_mode": {
+            "type": "string",
+            "enum": [
+              "STANDARD_FL_FR",
+              "STANDARD_FL_FR_RL_RR",
+              "STANDARD_FL_FR_RL_RR_SW",
+              "STANDARD_FL_FR_RLSW_RRSW",
+              "STANDARD_FL_FR_SW"
+            ],
+            "title": "Speaker Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "speaker_mode"
+        ],
+        "title": "SpeakerModeWrite",
+        "description": "The speaker mode to move the unit to."
       },
       "TimeAlignment": {
         "properties": {

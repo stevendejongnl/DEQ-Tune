@@ -412,3 +412,44 @@ export interface BluetoothPairingDto {
 export interface BluetoothSettingsWriteDto {
   pair_at_car_start: boolean;
 }
+
+/** One filter of the unit's crossover. `cutoff_position` indexes
+ * `cutoffs_hz`. `slope` is the filter order: 0 is Pass, 1 to 4 are 6 to
+ * 24 dB per octave. A car profile owns the front and rear filters, and the
+ * unit keeps the others. */
+export interface CrossoverFilterDto {
+  speaker: "front" | "rear" | "rear_subwoofer" | "subwoofer";
+  kind: "high_pass" | "low_pass";
+  owner: "profile" | "unit";
+  cutoff_position: number;
+  slope: number;
+  cutoffs_hz: number[];
+}
+
+/** A speaker mode this app can move the unit to. */
+export type StandardSpeakerMode =
+  | "STANDARD_FL_FR"
+  | "STANDARD_FL_FR_RL_RR"
+  | "STANDARD_FL_FR_RL_RR_SW"
+  | "STANDARD_FL_FR_RLSW_RRSW"
+  | "STANDARD_FL_FR_SW";
+
+/** The filters that the unit's speaker mode uses, in slot order, and the
+ * modes a person can switch to. */
+export interface CrossoverDto {
+  speaker_mode: string;
+  speaker_modes: StandardSpeakerMode[];
+  filters: CrossoverFilterDto[];
+}
+
+/** The speaker mode to move the unit to. */
+export interface SpeakerModeWriteDto {
+  speaker_mode: StandardSpeakerMode;
+}
+
+/** A new setting for one filter that the unit keeps. */
+export interface CrossoverFilterWriteDto {
+  speaker: "rear_subwoofer" | "subwoofer";
+  cutoff_position: number;
+  slope: number;
+}

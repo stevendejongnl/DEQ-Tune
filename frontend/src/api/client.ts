@@ -7,6 +7,9 @@ import type {
   AudioStateDto,
   BridgeDto,
   BridgeSystemDto,
+  CrossoverDto,
+  CrossoverFilterWriteDto,
+  SpeakerModeWriteDto,
   DeviceDto,
   DeviceOptionsDto,
   EqualizerCreateDto,
@@ -175,6 +178,13 @@ export interface BluetoothApi {
   requestPairingWindow(): Promise<void>;
 }
 
+/** The unit's crossover, for the Filter screen. */
+export interface CrossoverApi {
+  readCrossover(): Promise<CrossoverDto>;
+  writeCrossoverFilter(body: CrossoverFilterWriteDto): Promise<CrossoverDto>;
+  changeSpeakerMode(body: SpeakerModeWriteDto): Promise<CrossoverDto>;
+}
+
 export class DeqApiClient
   implements
     ProfileApi,
@@ -185,7 +195,8 @@ export class DeqApiClient
     WifiApi,
     UpdatesApi,
     LibraryApi,
-    BluetoothApi
+    BluetoothApi,
+    CrossoverApi
 {
   private baseUrl: string;
   private fetchImpl: FetchLike;
@@ -239,6 +250,20 @@ export class DeqApiClient
 
   async readDevice(): Promise<DeviceDto> {
     return typia.assert<DeviceDto>(await this.call("GET", "/device"));
+  }
+
+  async readCrossover(): Promise<CrossoverDto> {
+    return typia.assert<CrossoverDto>(await this.call("GET", "/device/crossover"));
+  }
+
+  async writeCrossoverFilter(body: CrossoverFilterWriteDto): Promise<CrossoverDto> {
+    const validBody = typia.assert<CrossoverFilterWriteDto>(body);
+    return typia.assert<CrossoverDto>(await this.call("PUT", "/device/crossover", validBody));
+  }
+
+  async changeSpeakerMode(body: SpeakerModeWriteDto): Promise<CrossoverDto> {
+    const validBody = typia.assert<SpeakerModeWriteDto>(body);
+    return typia.assert<CrossoverDto>(await this.call("PUT", "/device/crossover/speaker-mode", validBody));
   }
 
   async readBridge(): Promise<BridgeDto> {

@@ -2,6 +2,7 @@ import { html, LitElement, nothing, type PropertyValues, type TemplateResult } f
 import { customElement, property, state } from "lit/decorators.js";
 import {
   DeqApiClient,
+  type CrossoverApi,
   type DeviceApi,
   type EqualizerApi,
   type ProfileApi,
@@ -52,6 +53,7 @@ import { countEdits } from "../tuning-edit-count.ts";
 import "./profile-list.ts";
 import "./eq-editor.ts";
 import "./speaker-panel.ts";
+import "./crossover-panel.ts";
 import "./bridge-notices.ts";
 import "./device-status.ts";
 import "./dsp-panel.ts";
@@ -172,7 +174,8 @@ function isTypingInAField(): boolean {
 export class AppRoot extends LitElement {
   static override styles = [appRootStyles, undoButtonStyles, busyStyles];
 
-  @property({ attribute: false }) api: ProfileApi & DeviceApi & EqualizerApi & UpdatesApi = new DeqApiClient();
+  @property({ attribute: false }) api: ProfileApi & DeviceApi & EqualizerApi & UpdatesApi & CrossoverApi =
+    new DeqApiClient();
   @property({ attribute: false }) accessPointApi: Pick<WifiApi, "readAccessPoint" | "setAccessPointKey"> =
     new DeqApiClient();
   @property({ attribute: false }) localeStorage: LocaleStorage = browserLocaleStorage;
@@ -700,7 +703,9 @@ export class AppRoot extends LitElement {
     if (this.page === "car") {
       return html`
         ${this.renderCarHeading(strings)}
-        <div class="panels car">${this.renderSpeakerPanel()} ${this.renderCarCorrection(strings)}</div>
+        <div class="panels car">
+          ${this.renderSpeakerPanel()} ${this.renderCarCorrection(strings)} ${this.renderCrossoverPanel()}
+        </div>
       `;
     }
     return html`
@@ -771,7 +776,7 @@ export class AppRoot extends LitElement {
     if (this.phoneTab === "car") {
       return html`
         ${this.renderCarHeading(strings)} ${this.renderSpeakerPanel()}
-        ${this.renderCarCorrection(strings)}
+        ${this.renderCarCorrection(strings)} ${this.renderCrossoverPanel()}
       `;
     }
     if (this.phoneTab === "audio") {
@@ -888,6 +893,20 @@ export class AppRoot extends LitElement {
           @gain-change=${(gainChangeEvent: CustomEvent<{ band: number; value: number }>) =>
             this.changeGain(gainChangeEvent.detail.band, gainChangeEvent.detail.value)}
         ></eq-editor>
+      </div>
+    `;
+  }
+
+  /** The unit's crossover. It belongs to the unit and not to a profile, so
+   * it shows whichever car profile is open. */
+  private renderCrossoverPanel(): TemplateResult {
+    return html`
+      <div class="area-filters">
+        <crossover-panel
+          .api=${this.api}
+          .connected=${this.unitConnected}
+          .locale=${this.locale}
+        ></crossover-panel>
       </div>
     `;
   }

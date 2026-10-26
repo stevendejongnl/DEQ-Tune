@@ -368,6 +368,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/device/crossover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Crossover
+         * @description Reads the unit's crossover, with the active profile's two filters.
+         */
+        get: operations["read_crossover_api_device_crossover_get"];
+        /**
+         * Write Crossover Filter
+         * @description Changes one filter that the unit keeps, and plays it at once.
+         *
+         *     A filter that the unit's speaker mode does not use answers 409. The unit
+         *     would store it and play nothing different.
+         */
+        put: operations["write_crossover_filter_api_device_crossover_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device/crossover/speaker-mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Speaker Mode
+         * @description Moves the unit to another speaker mode, and sends the push that goes with it.
+         */
+        put: operations["change_speaker_mode_api_device_crossover_speaker_mode_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bridge": {
         parameters: {
             query?: never;
@@ -1136,6 +1183,72 @@ export interface components {
             gain: number[];
         };
         /**
+         * CrossoverFilterRead
+         * @description One filter of the unit's crossover, as a Filter screen shows it.
+         *
+         *     `cutoff_position` indexes `cutoffs_hz`, which holds the 11 cutoffs this
+         *     filter offers. A high-range filter offers 1250 Hz to 12.5 kHz, the others
+         *     25 Hz to 250 Hz. `slope` is the filter order: 0 is Pass, 1 to 4 are 6 to
+         *     24 dB per octave.
+         *
+         *     `owner` says who sets the filter. A car profile carries the front and
+         *     rear high-pass filters, so a push replaces them, and this screen only
+         *     shows them. The unit keeps the others, such as the subwoofer's low pass.
+         */
+        CrossoverFilterRead: {
+            /**
+             * Speaker
+             * @enum {string}
+             */
+            speaker: "front" | "rear" | "rear_subwoofer" | "subwoofer";
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "high_pass" | "low_pass";
+            /**
+             * Owner
+             * @enum {string}
+             */
+            owner: "profile" | "unit";
+            /** Cutoff Position */
+            cutoff_position: number;
+            /** Slope */
+            slope: number;
+            /** Cutoffs Hz */
+            cutoffs_hz: number[];
+        };
+        /**
+         * CrossoverFilterWrite
+         * @description A new setting for one filter that the unit keeps.
+         */
+        CrossoverFilterWrite: {
+            /**
+             * Speaker
+             * @enum {string}
+             */
+            speaker: "rear_subwoofer" | "subwoofer";
+            /** Cutoff Position */
+            cutoff_position: number;
+            /** Slope */
+            slope: number;
+        };
+        /**
+         * CrossoverRead
+         * @description The filters that the unit's speaker mode uses, in slot order.
+         *
+         *     `speaker_modes` lists the modes a person can switch to. The NETWORK
+         *     modes are not among them: this app cannot read their settings blob.
+         */
+        CrossoverRead: {
+            /** Speaker Mode */
+            speaker_mode: string;
+            /** Speaker Modes */
+            speaker_modes: ("STANDARD_FL_FR" | "STANDARD_FL_FR_RL_RR" | "STANDARD_FL_FR_RL_RR_SW" | "STANDARD_FL_FR_RLSW_RRSW" | "STANDARD_FL_FR_SW")[];
+            /** Filters */
+            filters: components["schemas"]["CrossoverFilterRead"][];
+        };
+        /**
          * DeqEnumValueRead
          * @description One value the unit accepts, as the Pioneer app declares it.
          */
@@ -1494,6 +1607,17 @@ export interface components {
             timeAlignmentCm: number;
             /** Leveldbextended */
             levelDBExtended: number;
+        };
+        /**
+         * SpeakerModeWrite
+         * @description The speaker mode to move the unit to.
+         */
+        SpeakerModeWrite: {
+            /**
+             * Speaker Mode
+             * @enum {string}
+             */
+            speaker_mode: "STANDARD_FL_FR" | "STANDARD_FL_FR_RL_RR" | "STANDARD_FL_FR_RL_RR_SW" | "STANDARD_FL_FR_RLSW_RRSW" | "STANDARD_FL_FR_SW";
         };
         /** TimeAlignment */
         TimeAlignment: {
@@ -2219,6 +2343,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeviceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_crossover_api_device_crossover_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrossoverRead"];
+                };
+            };
+        };
+    };
+    write_crossover_filter_api_device_crossover_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrossoverFilterWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrossoverRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_speaker_mode_api_device_crossover_speaker_mode_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeakerModeWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrossoverRead"];
                 };
             };
             /** @description Validation Error */

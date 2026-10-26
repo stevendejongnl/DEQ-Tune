@@ -323,6 +323,9 @@ export const appRootStyles = css`
   .area-speakers {
     grid-area: speakers;
   }
+  .area-filters {
+    grid-area: filters;
+  }
   .area-style {
     grid-area: style;
     display: flex;
@@ -469,7 +472,8 @@ export const appRootStyles = css`
     .panels.car {
       grid-template-areas:
         "speakers speakers"
-        "correction correction";
+        "correction correction"
+        "filters filters";
     }
   }
 
@@ -527,7 +531,9 @@ export const appRootStyles = css`
     }
     .panels.car {
       grid-template-columns: 360px minmax(0, 1fr);
-      grid-template-areas: "speakers correction";
+      grid-template-areas:
+        "speakers correction"
+        "filters correction";
     }
   }
 `;

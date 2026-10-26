@@ -34,6 +34,7 @@ from app.deq_session import (
     CONFIG_ID_CROSSOVER_STANDARD,
     CONFIG_ID_EQUALIZER,
     CONFIG_ID_LEVELS,
+    CONFIG_ID_SWITCHES,
     CONFIG_ID_TIME_ALIGNMENT,
     STARTUP_STEPS,
     DeqSession,
@@ -785,9 +786,96 @@ def test_the_system_mute_read_sends_0x1c_and_keeps_the_sign():
     assert transport.requests[0].command_id == 0x1C
     assert value == -1
 
+
 def test_speaker_mute_bits_follow_the_apps_masks():
     """`b/g/e$f$a` gives one bit per speaker pair, and a set bit mutes it."""
     assert muted_speakers(0) == []
     assert muted_speakers(0x01 | 0x10) == ["FL_HL", "SW"]
     assert muted_speakers(0x3F) == ["FL_HL", "FR_HR", "RL_ML", "RR_MR", "SW", "RSW"]
 
+
+def _writes(fake: FakeDeq) -> list[tuple[int, str]]:
+    """The writes a session sent, in order: the command and what it carried.
+
+    A coefficient write shows its CONFIG_ID, the others their body."""
+    writes = []
+    for one in fake.exchanges:
+        request = one.request
+        if request.command_id == 0x05:
+            writes.append((0x05, f"id {int.from_bytes(request.body[:4], 'little')}"))
+        elif request.command_id in (0x08, 0x1B):
+            writes.append((request.command_id, request.body[:4].hex()))
+    return writes
+
+
+def test_a_speaker_mode_change_follows_the_apps_order():
+    """The app's setCurrentSpeakerLayout sent, in the emulator on
+    2026-10-26: 0x1b 1, levels, delays, crossover, equalizer, switches,
+    0x1b 0. This backend writes the blob first, inside the mute."""
+    fake = FakeDeq()
+
+    configuration = DeqSession(fake).change_speaker_mode(2, load_factory_tuning())
+
+    assert configuration.speaker_mode == 2
+    assert fake.configuration.speaker_mode == 2
+    assert [command for command, _ in _writes(fake)] == [0x1B, 0x08, 0x05, 0x05, 0x05, 0x05, 0x05, 0x1B]
+    assert _writes(fake)[0] == (0x1B, "01000000")
+    assert _writes(fake)[-1] == (0x1B, "00000000")
+    assert [what for command, what in _writes(fake) if command == 0x05] == [
+        f"id {CONFIG_ID_LEVELS}",
+        f"id {CONFIG_ID_TIME_ALIGNMENT}",
+        f"id {CONFIG_ID_CROSSOVER_STANDARD}",
+        f"id {CONFIG_ID_EQUALIZER}",
+        f"id {CONFIG_ID_SWITCHES}",
+    ]
+
+
+def test_mode_two_sends_the_subwoofer_slot_on_pass():
+    """Front and rear only: the stored subwoofer low pass stays in the
+    blob, but the crossover no longer sends it."""
+    fake = FakeDeq()
+    fake.configuration.crossovers[3] = BlobCrossoverSetting(frequency=3, slope=4)
+    tuning = load_factory_tuning()
+
+    DeqSession(fake).change_speaker_mode(2, tuning)
+
+    front, rear = tuning.filter.front, tuning.filter.rear
+    assert _sent_crossover(fake) == _standard_payload(
+        [int(front.cutoff_hpf), int(rear.cutoff_hpf), 0, 0, 0],
+        [int(front.slope_hpf), int(rear.slope_hpf), 0, 0, 0],
+    )
+    assert fake.configuration.crossovers[3] == BlobCrossoverSetting(frequency=3, slope=4)
+
+
+def test_the_rear_subwoofer_mode_sets_the_switch():
+    fake = FakeDeq()
+
+    DeqSession(fake).change_speaker_mode(4, None)
+
+    switches = [
+        one.request.body[4:]
+        for one in fake.exchanges
+        if one.request.command_id == 0x05
+        and int.from_bytes(one.request.body[:4], "little") == CONFIG_ID_SWITCHES
+    ]
+    assert switches == [bytes([1, 0, 0, 0])]
+
+
+def test_with_no_profile_only_the_crossover_and_switches_go_out():
+    fake = FakeDeq()
+
+    DeqSession(fake).change_speaker_mode(5, None)
+
+    assert [what for command, what in _writes(fake) if command == 0x05] == [
+        f"id {CONFIG_ID_CROSSOVER_STANDARD}",
+        f"id {CONFIG_ID_SWITCHES}",
+    ]
+
+
+def test_a_network_mode_change_raises_before_it_sends_anything():
+    fake = FakeDeq()
+
+    with pytest.raises(UnsupportedSpeakerModeError):
+        DeqSession(fake).change_speaker_mode(7, None)
+
+    assert fake.exchanges == []

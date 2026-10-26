@@ -21,7 +21,14 @@ from sqlmodel import Session
 
 from app.db import engine
 from app.deq_device import DeqDevice, DeviceUnavailable, device
-from app.deq_session import DEFAULT_AUDIO_SOURCE, DeqSession, DeviceStatusError
+from app.deq_blob import CrossoverSetting as StoredFilter
+from app.deq_blob import UserConfiguration
+from app.deq_session import (
+    DEFAULT_AUDIO_SOURCE,
+    DeqSession,
+    DeviceStatusError,
+    profile_filters,
+)
 from app.eq_data import TuningData
 from app.equalizers import with_equalizer
 from app.models import ActiveProfileSetting, Equalizer, Profile
@@ -195,6 +202,36 @@ class ActiveProfile:
             )
         return ActiveProfileRead(profile_id=profile_id, status=ActiveStatus.OUTDATED.value, **base)
 
+    def profile_filters(self) -> tuple[StoredFilter, StoredFilter] | None:
+        """Returns the active profile's front and rear filters, or None.
+
+        A push sends these in place of the unit's stored ones, so a Filter
+        screen shows them and a crossover write keeps them.
+        """
+        playable = self._stored_playable()
+        if playable is None:
+            return None
+        return profile_filters(TuningData.model_validate(playable.profile_data))
+
+    def change_speaker_mode(self, speaker_mode: int) -> UserConfiguration:
+        """Moves the unit to another speaker mode, with the active profile.
+
+        The app sends a full push with a mode change, so this one sends the
+        active profile plus its EQ again. The push is then on this link,
+        and the status stays "applied". With no active profile, only the
+        crossover goes out. Raises what `DeqSession.change_speaker_mode`
+        and `DeqDevice.run` raise.
+        """
+        playable = self._stored_playable()
+        tuning = None if playable is None else playable_tuning(playable)
+        link_generation = self.unit.link_generation
+        configuration = self.unit.run(
+            lambda session: session.change_speaker_mode(speaker_mode, tuning)
+        )
+        if playable is not None:
+            self._last_push = PushRecord(link_generation, playable=playable)
+        return configuration
+
     def _stored_playable(self) -> Playable | None:
         with self.open_session() as session:
             setting = read_setting(session)
@@ -227,9 +264,7 @@ class ActiveProfile:
         """
         link_generation = self.unit.link_generation
         try:
-            tuning = TuningData.model_validate(playable.profile_data)
-            if playable.equalizer_gains is not None:
-                tuning = with_equalizer(tuning, playable.equalizer_gains)
+            tuning = playable_tuning(playable)
             self.unit.run(lambda session: write_playable(session, tuning))
         except (DeviceUnavailable, ValueError) as caught_error:
             self._last_push = PushRecord(
@@ -237,6 +272,14 @@ class ActiveProfile:
             )
             return
         self._last_push = PushRecord(link_generation, playable=playable)
+
+
+def playable_tuning(playable: Playable) -> TuningData:
+    """Returns the tuning a push sends: the profile, with the EQ added."""
+    tuning = TuningData.model_validate(playable.profile_data)
+    if playable.equalizer_gains is not None:
+        tuning = with_equalizer(tuning, playable.equalizer_gains)
+    return tuning
 
 
 def switch_source(session: DeqSession, source_name: str) -> None:
