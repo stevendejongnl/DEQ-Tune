@@ -25,6 +25,15 @@
    backend restart keeps the session, because the gadget keeps the link
    until the backend returns. So a gadget change can wait for a later run,
    and the state file says so.
+6. Right after it installed a release, it installs the programs that run
+   from /usr/local/bin when that release changed them: the BLE bridge, its
+   pairing rules, and this updater. A run with no new release leaves them
+   alone, so a program deployed by hand stays until the next release. It
+   keeps the old copy as `.prev`. It updates only programs that the Pi
+   has, so a Pi without the bridge gets no bridge. It restarts the bridge
+   at once, also during a DEQ session: that drops the phone's Bluetooth
+   link for a few seconds and does not touch the DEQ. A new updater runs
+   from the next timer run on.
 
 The person can switch automatic updates off in the settings file. Then a
 run still checks and writes the state, and an update happens only when
@@ -74,6 +83,16 @@ HEALTH_URL = "http://127.0.0.1:8420/health"
 TARBALL_ROOT = "deq-tune"
 VERSION_FILE = "VERSION"
 GADGET_IN_TREE = Path("pi-gadget") / "deq_accessory.py"
+
+# The programs that run from /usr/local/bin, and the service that runs
+# each one. The updater has no service: its timer starts it again.
+PROGRAMS_DIRECTORY = Path("/usr/local/bin")
+PROGRAMS_IN_TREE = Path("pi-gadget")
+PROGRAMS = {
+    "deq_ble_bridge.py": "deq-ble-bridge",
+    "deq_ble_pairing.py": "deq-ble-bridge",
+    "deq_updater.py": None,
+}
 
 NETWORK_TIMEOUT_SECONDS = 20
 HEALTH_WAIT_SECONDS = 60
@@ -209,6 +228,37 @@ def gadget_differs(tree: Path, installed_gadget: Path) -> bool:
     return candidate.read_bytes() != installed_gadget.read_bytes()
 
 
+def changed_programs(tree: Path, programs_directory: Path) -> list[str]:
+    """The programs to install from `tree`: changed, and in a group the Pi has.
+
+    A group is the programs that one service runs. The Pi has a group when
+    it has any program of it, so a new file joins a group the Pi runs.
+    """
+    groups_on_pi = {
+        service for name, service in PROGRAMS.items() if (programs_directory / name).exists()
+    }
+    changed = []
+    for name, service in PROGRAMS.items():
+        candidate = tree / PROGRAMS_IN_TREE / name
+        target = programs_directory / name
+        if not candidate.exists() or service not in groups_on_pi:
+            continue
+        if target.exists() and target.read_bytes() == candidate.read_bytes():
+            continue
+        changed.append(name)
+    return changed
+
+
+def install_program(candidate: Path, target: Path) -> None:
+    """Replaces `target` in one step and keeps the old copy as `.prev`."""
+    if target.exists():
+        shutil.copy2(target, target.with_name(target.name + ".prev"))
+    staged = target.with_name(target.name + ".new")
+    shutil.copy2(candidate, staged)
+    os.chmod(staged, 0o755)
+    staged.replace(target)
+
+
 @dataclass
 class State:
     """What the web app reads to show versions and the changelog note."""
@@ -278,6 +328,7 @@ class Paths:
     previous: Path = PREVIOUS_TREE
     staging: Path = STAGING_TREE
     installed_gadget: Path = INSTALLED_GADGET
+    programs: Path = PROGRAMS_DIRECTORY
     settings: Path = SETTINGS_PATH
     request: Path = REQUEST_PATH
     state: Path = STATE_PATH
@@ -348,6 +399,7 @@ class Updater:
         state.last_result = f"updated from {from_version} to {release.version}"
         state.history.insert(0, {"from": from_version, "to": release.version, "at": state.checked_at})
         del state.history[10:]
+        self.install_programs(state)
 
     def finish_gadget(self, state: State) -> None:
         """Installs a changed gadget, but never during a live DEQ session."""
@@ -359,6 +411,29 @@ class Updater:
             return
         self.system.install_gadget(self.paths.live)
         state.gadget_pending = False
+
+    def install_programs(self, state: State) -> None:
+        """Installs the new release's changed programs and restarts their services.
+
+        Only right after a release went in. A run with no new release leaves
+        the programs alone, because the tree can then be older than a program
+        that someone deployed by hand, and a compare would put the old one back.
+        """
+        changed = changed_programs(self.paths.live, self.paths.programs)
+        if not changed:
+            return
+        services: list[str] = []
+        for name in changed:
+            install_program(self.paths.live / PROGRAMS_IN_TREE / name, self.paths.programs / name)
+            service = PROGRAMS[name]
+            if service is not None and service not in services:
+                services.append(service)
+        state.last_result += f"; installed {', '.join(changed)}"
+        for service in services:
+            try:
+                self.system.restart(service)
+            except (OSError, subprocess.CalledProcessError) as caught_error:
+                state.last_result += f"; {service} did not restart: {caught_error}"
 
     def read_state(self) -> State:
         if not self.paths.state.exists():

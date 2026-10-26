@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import subprocess
 import io
 import json
 import sys
@@ -78,6 +79,7 @@ class FakeSystem:
         self.healthy = healthy
         self.live_session = session_live
         self.restarts: list[str] = []
+        self.services_that_fail: set[str] = set()
         self.synced: list[tuple[Path, bool]] = []
         self.gadget_installs: list[bytes] = []
         self.installed_gadget: Path | None = None
@@ -98,6 +100,8 @@ class FakeSystem:
         self.synced.append((tree, offline))
 
     def restart(self, service: str) -> None:
+        if service in self.services_that_fail:
+            raise subprocess.CalledProcessError(1, ["systemctl", "restart", service])
         self.restarts.append(service)
 
     def backend_healthy(self) -> bool:
@@ -125,11 +129,14 @@ def paths_fixture(tmp_path: Path) -> Paths:
     (live / "pi-gadget" / "deq_accessory.py").write_bytes(OLD_GADGET)
     installed_gadget = tmp_path / "deq_accessory.py"
     installed_gadget.write_bytes(OLD_GADGET)
+    programs = tmp_path / "bin"
+    programs.mkdir()
     return Paths(
         live=live,
         previous=tmp_path / "deq-tune.prev",
         staging=tmp_path / "deq-tune.next",
         installed_gadget=installed_gadget,
+        programs=programs,
         settings=tmp_path / "settings.json",
         request=tmp_path / "request",
         state=tmp_path / "state.json",
@@ -267,3 +274,84 @@ def test_no_internet_keeps_everything_and_says_why(paths):
 def test_a_tree_from_before_the_updater_counts_as_old(paths):
     (paths.live / "VERSION").unlink()
     assert deq_updater.read_installed_version(paths.live) == deq_updater.UNKNOWN_VERSION
+
+
+
+def release_with_programs(programs: dict[str, bytes]) -> FakeSystem:
+    """A Pi that serves a new release whose pi-gadget/ holds these programs."""
+    extra = {f"deq-tune/pi-gadget/{name}": content for name, content in programs.items()}
+    return FakeSystem(github_release(NEW_VERSION), build_tarball(NEW_VERSION, extra=extra))
+
+
+def test_a_release_installs_its_changed_bridge_with_its_new_module(paths):
+    (paths.programs / "deq_ble_bridge.py").write_bytes(b"# bridge, old\n")
+    system = release_with_programs({"deq_ble_bridge.py": b"# bridge, new\n", "deq_ble_pairing.py": b"# pairing\n"})
+
+    state = make_updater(system, paths).run_once()
+
+    assert (paths.programs / "deq_ble_bridge.py").read_bytes() == b"# bridge, new\n"
+    assert (paths.programs / "deq_ble_pairing.py").read_bytes() == b"# pairing\n"
+    assert (paths.programs / "deq_ble_bridge.py.prev").read_bytes() == b"# bridge, old\n"
+    assert system.restarts == ["deq-backend", "deq-ble-bridge"]
+    assert "installed deq_ble_bridge.py, deq_ble_pairing.py" in state.last_result
+
+
+def test_a_pi_without_the_bridge_gets_no_bridge(paths):
+    system = release_with_programs({"deq_ble_bridge.py": b"# bridge, new\n"})
+
+    make_updater(system, paths).run_once()
+
+    assert not (paths.programs / "deq_ble_bridge.py").exists()
+    assert "deq-ble-bridge" not in system.restarts
+
+
+def test_the_bridge_updates_during_a_live_session(paths):
+    (paths.programs / "deq_ble_bridge.py").write_bytes(b"# bridge, old\n")
+    system = release_with_programs({"deq_ble_bridge.py": b"# bridge, new\n"})
+    system.live_session = True
+
+    make_updater(system, paths).run_once()
+
+    assert "deq-ble-bridge" in system.restarts
+
+
+def test_an_unchanged_bridge_is_left_alone(paths):
+    (paths.programs / "deq_ble_bridge.py").write_bytes(b"# bridge\n")
+    system = release_with_programs({"deq_ble_bridge.py": b"# bridge\n"})
+
+    make_updater(system, paths).run_once()
+
+    assert "deq-ble-bridge" not in system.restarts
+    assert not (paths.programs / "deq_ble_bridge.py.prev").exists()
+
+
+def test_the_updater_replaces_itself_with_no_restart(paths):
+    (paths.programs / "deq_updater.py").write_bytes(b"# updater, old\n")
+    system = release_with_programs({"deq_updater.py": b"# updater, new\n"})
+
+    make_updater(system, paths).run_once()
+
+    assert (paths.programs / "deq_updater.py").read_bytes() == b"# updater, new\n"
+    assert system.restarts == ["deq-backend"]
+
+
+def test_a_run_with_no_new_release_keeps_a_program_deployed_by_hand(paths):
+    # The live tree holds the release's older copy. A hand deploy put a
+    # newer one in place, and a plain run must not undo that.
+    (paths.programs / "deq_updater.py").write_bytes(b"# updater, deployed by hand\n")
+    (paths.live / "pi-gadget" / "deq_updater.py").write_bytes(b"# updater, from the release\n")
+    system = FakeSystem(None, b"")
+
+    make_updater(system, paths).run_once()
+
+    assert (paths.programs / "deq_updater.py").read_bytes() == b"# updater, deployed by hand\n"
+
+
+def test_a_bridge_that_does_not_restart_is_reported(paths):
+    (paths.programs / "deq_ble_bridge.py").write_bytes(b"# bridge, old\n")
+    system = release_with_programs({"deq_ble_bridge.py": b"# bridge, new\n"})
+    system.services_that_fail = {"deq-ble-bridge"}
+
+    state = make_updater(system, paths).run_once()
+
+    assert "deq-ble-bridge did not restart" in state.last_result

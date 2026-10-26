@@ -70,8 +70,17 @@ one sudoers rule: `deq ALL=(root) NOPASSWD: /usr/bin/systemctl start
 next timer run.
 
 The release workflow builds the tarball and attaches it with its
-checksum. The updater updates the backend tree, the web app and the
-gadget. It does not update the systemd units or the files in
+checksum. The updater updates the backend tree, the web app and the gadget. Right
+after it installs a release, it also installs the release's changed
+programs in `/usr/local/bin/`: the BLE bridge, its pairing rules
+(`deq_ble_pairing.py`) and the updater itself. It keeps each old copy as
+`.prev` and restarts `deq-ble-bridge`, also during a DEQ session: that
+drops the phone's Bluetooth link for a few seconds and leaves the DEQ
+alone. It updates only programs that the Pi has, so a Pi without the
+bridge gets none. A run with no new release leaves these programs alone,
+so a program deployed by hand stays until the next release. An updater
+from before 2026-10-26 cannot do this: install the new one once by hand.
+It does not update the systemd units or the other files in
 `/usr/local/bin/`.
 
 ## What a reimplementation must get right
