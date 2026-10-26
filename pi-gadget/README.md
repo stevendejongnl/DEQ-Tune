@@ -31,7 +31,11 @@ car, so the car app carries the REST API over BLE.
 The Pi has no RTC, so journald throws its journal away when NTP sets the
 clock. The heartbeat writes `/var/log/deq-heartbeat.log` once a minute,
 and the session recorder writes each change of `/api/device` to
-`/var/log/deq-session.log`.
+`/var/log/deq-session.log`. The backend writes one line per request to
+`/var/log/deq-backend.log`: time, method, path, status, duration and
+client (`backend/app/request_log.py`). It leaves out a status poll that
+succeeds, and every body and query string. The time comes from the Pi's
+clock, which is right only after NTP set it.
 
 The backend service runs `uv run --no-sync`, because the car has no route
 to the internet. The database is `/home/deq/deq.db`, outside the code

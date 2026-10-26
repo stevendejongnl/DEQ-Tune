@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -20,6 +21,7 @@ from app.db import create_db_and_tables, engine
 from app.deq_device import device, link_keeper
 from app.device_routes import router as device_router
 from app.paths import DIST_DIR
+from app.request_log import RequestLog
 from app.routes import router
 from app.seed import seed_factory_profiles
 from app.wifi_routes import router as wifi_router
@@ -57,6 +59,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# The request log replaces uvicorn's access log, which had no time, no
+# duration and a line for every status poll. Uvicorn sets up its loggers
+# before it imports this module, so this switch holds.
+logging.getLogger("uvicorn.access").disabled = True
+# The last middleware added runs first, so the log sees every request.
+app.add_middleware(RequestLog)
 
 app.include_router(router, prefix="/api")
 app.include_router(device_router, prefix="/api")
