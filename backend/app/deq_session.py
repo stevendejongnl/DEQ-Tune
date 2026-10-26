@@ -731,19 +731,21 @@ class DeqSession:
     def read_speaker_mute_states(self) -> int:
         """Returns the SPEAKER_MUTE_STATES field of 0x14, as the unit sends it.
 
-        The APK names the field and gives its width, 4 bytes. No real unit
-        answered this read so far, so this method does not interpret the value.
-        `check_real_deq.py` reads it, so the next session with the car shows
-        what it holds.
+        It is a bitmask, and a set bit means that speaker is muted.
+        `muted_speakers` names the bits. No real unit answered this read so
+        far. `check_real_deq.py` reads it, so the next session with the car
+        shows what it holds.
         """
         return self._read_one_signed_field(COMMAND_GET_SPEAKER_MUTE_STATE)
 
     def read_system_mute_state(self) -> int:
         """Returns the MUTE_STATE field of 0x1c, as the unit sends it.
 
-        The unit keeps a second mute, apart from 0x10. It ignores a write of
-        0x0f, so this one may be the mute it obeys. No real unit answered this
-        read so far.
+        A boolean on the wire, as with 0x10: 1 is sound off (muted), 0 is
+        sound on. The app turns it into its `MUTE_STATE` enum
+        (`b/g/e$d`), and its own 0x1b writes sent 1 and then 0 around a
+        full push in the emulator (2026-10-26). The unit keeps this mute
+        apart from the one of 0x10. No real unit answered this read so far.
         """
         return self._read_one_signed_field(COMMAND_GET_SYSTEM_MUTE_STATE)
 
@@ -868,6 +870,27 @@ def with_profile_filters(
     combined = list(stored_filters)
     combined[STORED_FRONT], combined[STORED_REAR] = front_and_rear
     return combined
+
+
+# The bits of SPEAKER_MUTE_STATES (0x13 and 0x14). The app builds and reads
+# them in `b/g/e$f`, with the masks of `b/g/e$f$a`. A STANDARD and a NETWORK
+# layout share four bits: front left is also high left, and so on. The app
+# maps only REAR_R_SW to the rear subwoofer bit, and REAR_L_SW to none.
+SPEAKER_MUTE_BITS = {
+    "FL_HL": 0x01,
+    "FR_HR": 0x02,
+    "RL_ML": 0x04,
+    "RR_MR": 0x08,
+    "SW": 0x10,
+    "RSW": 0x20,
+}
+
+
+def muted_speakers(speaker_mute_states: int) -> list[str]:
+    """Names the speakers that a SPEAKER_MUTE_STATES value mutes."""
+    return [
+        name for name, mask in SPEAKER_MUTE_BITS.items() if speaker_mute_states & mask
+    ]
 
 
 def read_field(reply: Message, offset: int, width: int) -> int:

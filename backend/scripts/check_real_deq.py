@@ -55,6 +55,7 @@ from app.deq_device import (
     build_transport,
 )
 from app.deq_session import (
+    muted_speakers,
     COMMAND_KEEPALIVE,
     STARTUP_STEPS,
     DeqSession,
@@ -230,24 +231,39 @@ def check_keepalive(report: Report, session: DeqSession) -> None:
     report.ok("five keepalives", "the session stayed up")
 
 
+def system_mute_name(value: int) -> str:
+    """Names a system mute value: a boolean on the wire, 1 is sound off."""
+    return {0: "sound on", 1: "sound off"}.get(value, "not a boolean")
+
+
 def check_mute_reads(report: Report, session: DeqSession) -> None:
     """Reads the two mute states that no real unit answered so far.
 
-    Both are reads with no body. The APK gives their reply layout, but not
-    what the values mean. This run records what the car's unit says.
+    Both are reads with no body. The APK gives their meaning: 0x14 is a
+    bitmask of muted speakers (`muted_speakers`), and 0x1c is a boolean, 1
+    sound off and 0 sound on. This run records what the car's unit says, so
+    a real reply can confirm both.
     """
     print("\nReading the speaker and system mute states")
     reads = (
-        ("speaker mute states (0x14)", session.read_speaker_mute_states),
-        ("system mute state (0x1c)", session.read_system_mute_state),
+        (
+            "speaker mute states (0x14)",
+            session.read_speaker_mute_states,
+            lambda value: "muted: " + (", ".join(muted_speakers(value)) or "none"),
+        ),
+        (
+            "system mute state (0x1c)",
+            session.read_system_mute_state,
+            system_mute_name,
+        ),
     )
-    for what, read in reads:
+    for what, read, describe in reads:
         try:
             value = read()
         except Exception as caught_error:
             report.failed(what, str(caught_error))
             continue
-        report.ok(what, f"the unit answered {value} (0x{value & 0xFFFFFFFF:08x})")
+        report.ok(what, f"the unit answered {value} (0x{value & 0xFFFFFFFF:08x}): {describe(value)}")
 
 
 def check_write_back(report: Report, session: DeqSession) -> None:

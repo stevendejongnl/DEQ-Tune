@@ -41,6 +41,7 @@ from app.deq_session import (
     ReplyMismatchError,
     SessionTimeoutError,
     cancelled_band_gains_db,
+    muted_speakers,
     selected_band_gains_db,
     speaker_distances_mm,
 )
@@ -783,3 +784,10 @@ def test_the_system_mute_read_sends_0x1c_and_keeps_the_sign():
 
     assert transport.requests[0].command_id == 0x1C
     assert value == -1
+
+def test_speaker_mute_bits_follow_the_apps_masks():
+    """`b/g/e$f$a` gives one bit per speaker pair, and a set bit mutes it."""
+    assert muted_speakers(0) == []
+    assert muted_speakers(0x01 | 0x10) == ["FL_HL", "SW"]
+    assert muted_speakers(0x3F) == ["FL_HL", "FR_HR", "RL_ML", "RR_MR", "SW", "RSW"]
+
