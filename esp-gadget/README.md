@@ -7,7 +7,9 @@ conversation, and records how far it got.
 
 **Result (2026-10-26): the ESP32-S3 cannot replace the Pi.** The DEQ
 needs a high-speed USB device, and the ESP32-S3's USB is full speed only.
-See "The first car session (2026-10-24)" below.
+See "The car sessions (2026-10-24 to 26)" below. No more car
+sessions are planned. The firmware stays as a reference for a successor
+board with high-speed USB.
 
 The probe proves the USB link only. The backend (profiles, the EQ maths,
 the API) is Python and runs on the Pi. An ESP-only setup needs that logic
@@ -101,7 +103,8 @@ Measured on the desk on 2026-10-25 (boot 17 is the desk test):
   quiet does not look like a held link.
 
 `host` and `model` are the first two strings the host sent. A real DEQ sends
-`Pioneer` and a model such as `DEQ-1000A-MZ`. The desk test sends `laptop`.
+`Pioneer` and its model: `DEQ-S1000A2` for the unit in the test car.
+`DEQ-1000A-MZ` in an old record came from a laptop script, not a DEQ. The desk test sends `laptop`.
 
 ## Build and flash
 
@@ -148,7 +151,7 @@ So the desk proves the board's side. Only a car session can show the real
 DEQ's side: whether it configures the accessory (stage 5) and answers
 (stages 6 and 7).
 
-## The first car session (2026-10-24)
+## The car sessions (2026-10-24 to 26)
 
 The board was on the DEQ's USB-A port with a plain USB-A to USB-C cable,
 so the DEQ powered it. The DEQ showed its error at once. The board's old
