@@ -2,9 +2,9 @@ import { css } from "lit";
 
 /**
  * The car screen fills Android Auto's display of about 650 × 370 CSS
- * pixels, in landscape: a bar on top, the tabs down the left side, and
- * the tiles beside them. Each target is at least 56 pixels high, for a
- * finger on a car screen.
+ * pixels, in landscape: a bar on top, the tabs down the left side (the
+ * driver's side of a left-hand-drive car), and the tiles beside them. Each
+ * target is at least 56 pixels high, for a finger on a car screen.
  */
 export const carScreenStyles = css`
   :host {
@@ -44,39 +44,6 @@ export const carScreenStyles = css`
   .now-equalizer {
     font-size: 13px;
     color: var(--color-muted-foreground);
-  }
-  .driving-state {
-    flex-shrink: 0;
-    padding: 4px 10px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--color-border);
-    font-size: 13px;
-    color: var(--color-text-2);
-
-    &.driving {
-      border-color: var(--color-accent);
-      color: var(--color-accent);
-    }
-  }
-  .full-app {
-    flex-shrink: 0;
-    height: 44px;
-    padding: 0 16px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--color-border-strong);
-    background: var(--color-card);
-    color: var(--color-foreground);
-    font: inherit;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-
-    &:disabled {
-      color: var(--color-muted-foreground);
-      border-color: var(--color-border);
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
   }
   .body {
     flex-grow: 1;
@@ -212,19 +179,10 @@ export const carScreenStyles = css`
     font-family: var(--font-mono);
     font-size: 24px;
   }
-  .empty,
-  .locked-hint {
-    margin: 0;
-    color: var(--color-muted-foreground);
-  }
   .empty {
+    margin: 0;
     padding: 16px;
     font-size: 15px;
-  }
-  .locked-hint {
-    flex-shrink: 0;
-    padding: 4px 12px;
-    border-top: 1px solid var(--color-divider);
-    font-size: 12px;
+    color: var(--color-muted-foreground);
   }
 `;

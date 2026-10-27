@@ -7,12 +7,6 @@ import spanish from "./locales/es.json";
 import dutch from "./locales/nl.json";
 
 export type UiStrings = {
-  carScreenFullApp: string;
-  carScreenBackToCar: string;
-  carScreenDriving: string;
-  carScreenParked: string;
-  carScreenLockedHint: string;
-  carScreenUnknownHint: string;
   carScreenNoActiveProfile: string;
   carScreenNoProfiles: string;
   carScreenNoUnit: string;

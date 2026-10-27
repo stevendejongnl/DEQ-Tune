@@ -86,12 +86,6 @@ export class FakeDeviceApi implements DeviceApi {
     return this;
   }
 
-  /** Sets what the unit's next audio read says about the car's motion. */
-  setDriving(driving: boolean): this {
-    this.audio = { ...this.audio, driving };
-    return this;
-  }
-
   /** Reports the unit as down, with a reason, as the backend does when it
    * reached the unit and the unit refused. */
   startWithUnitDown(problem: string): this {

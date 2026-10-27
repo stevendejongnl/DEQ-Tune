@@ -16,13 +16,6 @@ export type CarScreenTab = "profiles" | "equalizers" | "audio";
  * folders did. */
 export const VOLUME_STEP_DB = 2;
 
-/** The full app stays closed unless the DEQ says that the car is parked.
- * `null` means that nobody knows: no unit, or no read yet. The lock then
- * holds, because a driver must not get the EQ chart by accident. */
-export function fullAppLocked(driving: boolean | null): boolean {
-  return driving !== false;
-}
-
 /** The car profiles to offer: the person's own, and the starred ones. The
  * sidebar shows the same two sets. */
 function shownProfiles(profiles: readonly ProfileDto[]): ProfileDto[] {
@@ -60,15 +53,18 @@ function renderCurve(gains: readonly number[]): TemplateResult {
  * 650 × 370 CSS pixels, so this screen shows one tab at a time, in
  * landscape.
  *
- * It holds no edit. The EQ chart and the speaker settings stay in the full
- * app, which opens from the "Full app" button only while the DEQ says that
- * the car is parked. See `fullAppLocked`.
+ * It holds no edit, and it has no way to the full app. The car screen is
+ * small, and a driver uses it. The EQ chart and the speaker settings stay
+ * on the phone and the laptop. It shows no notice either: no release notes
+ * and no update offer. A notice would cover the tiles while the car drives.
+ *
+ * The tabs sit on the left, on the driver's side of a left-hand-drive car.
  *
  * Presentational, like the other panels. It emits `activate-profile`
  * ({ id }), `activate-equalizer` ({ id }, `null` for none),
  * `volume-change` ({ volumeDb }), `mute-change` ({ muted }) and
- * `open-full-app`, and app-root does the talking. app-root also puts its
- * link status into the `status` slot.
+ * `tab-change` ({ tab }), and app-root does the talking. app-root also puts
+ * its link status into the `status` slot.
  */
 @customElement("car-screen")
 export class CarScreen extends LitElement {
@@ -84,8 +80,6 @@ export class CarScreen extends LitElement {
   @property({ attribute: false }) audioState: AudioStateDto | null = null;
   @property({ type: Boolean }) audioBusy = false;
   @property({ type: Boolean }) connected = false;
-  /** What the DEQ says, or `null` while nobody knows. */
-  @property({ attribute: false }) driving: boolean | null = null;
 
   @state() private tab: CarScreenTab = "profiles";
   /** The profile tile that the person tapped last, for its loader. */
@@ -99,42 +93,20 @@ export class CarScreen extends LitElement {
         ${this.renderTabs(strings)}
         <section class="content">${this.renderTabContent(strings)}</section>
       </div>
-      ${fullAppLocked(this.driving) ? html`<p class="locked-hint">${this.lockedHint(strings)}</p>` : nothing}
     `;
   }
 
-  /** What plays now, the link, the driving state and the way to the full app. */
+  /** What plays now, and the link. */
   private renderBar(strings: UiStrings): TemplateResult {
-    const locked = fullAppLocked(this.driving);
     return html`
       <header class="bar">
         <div class="now-playing">
           <span class="now-profile">${this.activeProfileName(strings)}</span>
           <span class="now-equalizer">${this.activeEqualizerName(strings)}</span>
         </div>
-        ${this.renderDrivingState(strings)}
         <slot name="status"></slot>
-        <button type="button" class="full-app" ?disabled=${locked}
-          @click=${() => this.dispatchEvent(new CustomEvent("open-full-app"))}>
-          ${strings.carScreenFullApp}
-        </button>
       </header>
     `;
-  }
-
-  private renderDrivingState(strings: UiStrings): TemplateResult | typeof nothing {
-    if (this.driving === null) {
-      return nothing;
-    }
-    return html`
-      <span class="driving-state ${this.driving ? "driving" : ""}">
-        ${this.driving ? strings.carScreenDriving : strings.carScreenParked}
-      </span>
-    `;
-  }
-
-  private lockedHint(strings: UiStrings): string {
-    return this.driving === null ? strings.carScreenUnknownHint : strings.carScreenLockedHint;
   }
 
   private activeProfileName(strings: UiStrings): string {
@@ -160,13 +132,19 @@ export class CarScreen extends LitElement {
         ${tabs.map(
           (tab) => html`
             <button type="button" class="tab" data-tab=${tab.id} aria-pressed=${this.tab === tab.id}
-              @click=${() => (this.tab = tab.id)}>
+              @click=${() => this.selectTab(tab.id)}>
               ${tab.label}
             </button>
           `,
         )}
       </nav>
     `;
+  }
+
+  /** app-root reads the unit only while the Audio tab is open. */
+  private selectTab(tab: CarScreenTab): void {
+    this.tab = tab;
+    this.dispatchEvent(new CustomEvent("tab-change", { detail: { tab } }));
   }
 
   /** Picks the content of the open tab. */

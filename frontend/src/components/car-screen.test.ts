@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import "./car-screen.ts";
-import { fullAppLocked, VOLUME_STEP_DB, type CarScreen } from "./car-screen.ts";
+import { VOLUME_STEP_DB, type CarScreen } from "./car-screen.ts";
 import { sampleProfile } from "../dto/testing/sample-profile.ts";
 import type { ActiveProfileDto, AudioStateDto, EqualizerDto } from "../dto/profile.dto.ts";
 
@@ -61,14 +61,6 @@ function record<Detail>(element: CarScreen, type: string): Detail[] {
 
 afterEach(() => {
   document.body.replaceChildren();
-});
-
-describe("fullAppLocked", () => {
-  it("opens the full app only when the DEQ says parked", () => {
-    expect(fullAppLocked(false)).toBe(false);
-    expect(fullAppLocked(true)).toBe(true);
-    expect(fullAppLocked(null)).toBe(true);
-  });
 });
 
 describe("car-screen", () => {
@@ -166,30 +158,18 @@ describe("car-screen", () => {
     expect(query(element, ".empty")!.textContent).toContain("Connect the DEQ");
   });
 
-  it("locks the full app while the car drives, and says why", async () => {
-    const element = await mount((screen) => (screen.driving = true));
+  it("has no way to the full app", async () => {
+    const element = await mount();
 
-    expect(query(element, ".full-app")!.disabled).toBe(true);
-    expect(query(element, ".driving-state")!.textContent!.trim()).toBe("Driving");
-    expect(query(element, ".locked-hint")!.textContent).toContain("While the car drives");
+    expect(query(element, ".full-app")).toBeNull();
   });
 
-  it("locks the full app while nobody knows whether the car drives", async () => {
-    const element = await mount((screen) => (screen.driving = null));
+  it("names the tab that opens", async () => {
+    const element = await mount();
+    const tabs = record<{ tab: string }>(element, "tab-change");
 
-    expect(query(element, ".full-app")!.disabled).toBe(true);
-    expect(query(element, ".driving-state")).toBeNull();
-    expect(query(element, ".locked-hint")!.textContent).toContain("when the DEQ says");
-  });
+    await openTab(element, "audio");
 
-  it("opens the full app while the car is parked", async () => {
-    const element = await mount((screen) => (screen.driving = false));
-    const opens = record<null>(element, "open-full-app");
-
-    query(element, ".full-app")!.click();
-
-    expect(opens).toHaveLength(1);
-    expect(query(element, ".locked-hint")).toBeNull();
-    expect(query(element, ".driving-state")!.textContent!.trim()).toBe("Parked");
+    expect(tabs).toEqual([{ tab: "audio" }]);
   });
 });

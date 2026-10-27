@@ -1202,10 +1202,6 @@ describe("app-root", () => {
         return element.shadowRoot!.querySelector("car-screen") as HTMLElement;
       }
 
-      function queryFullAppButton(element: AppRoot): HTMLButtonElement {
-        return queryCarScreen(element).shadowRoot!.querySelector(".full-app") as HTMLButtonElement;
-      }
-
       async function mountCarScreen(api: FakeProfileApi, schedule: ManualSchedule, hash = ""): Promise<AppRoot> {
         return mountWithSchedule(api, schedule, "phone", true, createFakePageLocationStore(hash));
       }
@@ -1218,55 +1214,30 @@ describe("app-root", () => {
         expect(queryCarScreen(element).querySelector('device-status[slot="status"]')).not.toBeNull();
       });
 
-      it("reads the unit on every tick, whichever phone tab was open", async () => {
+      it("shows no notice: no release notes, no update offer, no access point step", async () => {
         const api = new FakeProfileApi([starredPreset({ id: 1 })]);
-        api.device.startConnected();
-        const schedule = new ManualSchedule();
-        const element = await mountCarScreen(api, schedule, "#page=sound&tab=eq&section=updates");
-        const readsOnLoad = api.device.audioReads;
-
-        await schedule.fire(element);
-
-        expect(readsOnLoad).toBe(1);
-        expect(api.device.audioReads).toBe(2);
-      });
-
-      it("keeps the full app closed while the car drives", async () => {
-        const api = new FakeProfileApi([starredPreset({ id: 1 })]);
-        api.device.startConnected().setDriving(true);
         const element = await mountCarScreen(api, new ManualSchedule());
 
-        queryFullAppButton(element).disabled = false;
-        await click(queryFullAppButton(element), element);
-
-        expect(queryCarScreen(element)).not.toBeNull();
+        expect(element.shadowRoot!.querySelector("notification-dock")).toBeNull();
+        expect(element.shadowRoot!.querySelector("access-point-setup")).toBeNull();
+        expect(element.shadowRoot!.querySelector(".content")).toBeNull();
       });
 
-      it("opens the full app while parked, and goes back once the car drives", async () => {
+      it("reads the unit only while the Audio tab is open", async () => {
         const api = new FakeProfileApi([starredPreset({ id: 1 })]);
         api.device.startConnected();
         const schedule = new ManualSchedule();
         const element = await mountCarScreen(api, schedule);
 
-        await click(queryFullAppButton(element), element);
-        expect(queryCarScreen(element)).toBeNull();
-        expect(element.shadowRoot!.querySelector(".back-to-car")).not.toBeNull();
-
-        api.device.setDriving(true);
         await schedule.fire(element);
+        expect(api.device.audioReads).toBe(0);
 
-        expect(queryCarScreen(element)).not.toBeNull();
-      });
+        queryCarScreen(element).dispatchEvent(new CustomEvent("tab-change", { detail: { tab: "audio" } }));
+        await flushMicrotasks();
+        expect(api.device.audioReads).toBe(1);
 
-      it("goes back to the car screen from the full app's button", async () => {
-        const api = new FakeProfileApi([starredPreset({ id: 1 })]);
-        api.device.startConnected();
-        const element = await mountCarScreen(api, new ManualSchedule());
-        await click(queryFullAppButton(element), element);
-
-        await click(element.shadowRoot!.querySelector(".back-to-car") as HTMLButtonElement, element);
-
-        expect(queryCarScreen(element)).not.toBeNull();
+        await schedule.fire(element);
+        expect(api.device.audioReads).toBe(2);
       });
 
       it("plays the tapped car profile and mutes the unit", async () => {

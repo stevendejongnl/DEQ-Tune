@@ -51,7 +51,7 @@ import {
 } from "../page-location.ts";
 import { countEdits } from "../tuning-edit-count.ts";
 import { pageIsOnCarScreen } from "../car-screen-query.ts";
-import { fullAppLocked } from "./car-screen.ts";
+import type { CarScreenTab } from "./car-screen.ts";
 import "./profile-list.ts";
 import "./eq-editor.ts";
 import "./speaker-panel.ts";
@@ -195,11 +195,11 @@ export class AppRoot extends LitElement {
   /** The build of this page, and how it reloads. A test replaces both. */
   @property({ type: String }) pageBuild = BUILD_ID;
   @property({ attribute: false }) reloadFunction: () => void = () => window.location.reload();
-  /** True on Android Auto's screen. The page then opens on the car screen,
-   * and the full app opens from there only while the car is parked. */
+  /** True on Android Auto's screen. The page then shows only the car
+   * screen: no full app, and no notice. */
   @property({ type: Boolean }) carScreen = pageIsOnCarScreen();
-  /** The full app, opened from the car screen. */
-  @state() private fullAppOpen = false;
+  /** The car screen's open tab, for the audio poll. */
+  private carScreenTab: CarScreenTab = "profiles";
 
   @state() private profiles: ProfileDto[] = [];
   @state() private selectedId: number | null = null;
@@ -311,19 +311,6 @@ export class AppRoot extends LitElement {
     if (changed.has("selectedId")) {
       this.correctionUndo.clear();
     }
-    this.closeFullAppWhileDriving();
-  }
-
-  /** The car screen takes over again as soon as the car may drive. */
-  private closeFullAppWhileDriving(): void {
-    if (this.fullAppOpen && fullAppLocked(this.driving)) {
-      this.fullAppOpen = false;
-    }
-  }
-
-  /** What the DEQ says, or `null` while nobody knows. */
-  private get driving(): boolean | null {
-    return this.audioState?.driving ?? null;
   }
 
   override updated(changed: PropertyValues): void {
@@ -431,7 +418,7 @@ export class AppRoot extends LitElement {
 
   override render() {
     const strings = uiStrings(this.locale);
-    if (this.carScreen && !this.fullAppOpen) {
+    if (this.carScreen) {
       return this.renderCarScreen();
     }
     return html`
@@ -449,7 +436,6 @@ export class AppRoot extends LitElement {
           </div>
           ${this.isPhoneLayout ? nothing : this.renderPageSwitch(strings)}
           <div class="header-controls">
-            ${this.carScreen ? this.renderBackToCarButton(strings) : nothing}
             ${this.isPhoneLayout ? nothing : html`${this.renderSettingsButton(strings)}<span class="header-divider"></span>`}
             <bridge-notices .api=${this.api} .locale=${this.locale}></bridge-notices>
             ${this.renderDeviceStatus()}
@@ -495,7 +481,6 @@ export class AppRoot extends LitElement {
         .audioState=${this.audioState}
         .audioBusy=${this.audioBusy}
         .connected=${this.unitConnected}
-        .driving=${this.driving}
         @activate-profile=${(activateEvent: CustomEvent<{ id: number }>) =>
           this.activateProfile(activateEvent.detail.id)}
         @activate-equalizer=${(activateEvent: CustomEvent<{ id: number | null }>) =>
@@ -504,25 +489,18 @@ export class AppRoot extends LitElement {
           this.changeVolume(volumeChangeEvent.detail.volumeDb)}
         @mute-change=${(muteChangeEvent: CustomEvent<{ muted: boolean }>) =>
           this.changeMute(muteChangeEvent.detail.muted)}
-        @open-full-app=${() => this.openFullApp()}
+        @tab-change=${(tabEvent: CustomEvent<{ tab: CarScreenTab }>) => this.selectCarScreenTab(tabEvent.detail.tab)}
       >
         ${this.renderDeviceStatus("status")}
       </car-screen>
     `;
   }
 
-  private renderBackToCarButton(strings: UiStrings): TemplateResult {
-    return html`
-      <button type="button" class="back-to-car" @click=${() => (this.fullAppOpen = false)}>
-        ${strings.carScreenBackToCar}
-      </button>
-    `;
-  }
-
-  /** The car screen's button. It does nothing while the car may drive. */
-  private openFullApp(): void {
-    if (!fullAppLocked(this.driving)) {
-      this.fullAppOpen = true;
+  /** Opening the Audio tab reads at once, as on the phone. */
+  private selectCarScreenTab(tab: CarScreenTab): void {
+    this.carScreenTab = tab;
+    if (tab === "audio") {
+      void this.refreshAudioState();
     }
   }
 
@@ -1083,12 +1061,17 @@ export class AppRoot extends LitElement {
 
   /** The timer reads only when someone can see the result. The phone shows
    * one tab at a time, and a read nobody looks at is USB traffic for
-   * nothing. It also waits out a write in flight, and a hidden page.
-   * The car screen always reads: the read carries the driving state that
-   * locks the full app. */
+   * nothing. It also waits out a write in flight, and a hidden page. */
   private get audioPanelVisible(): boolean {
     const pageHidden = typeof document !== "undefined" && document.visibilityState === "hidden";
-    return !pageHidden && (this.carScreen || !this.isPhoneLayout || this.phoneTab === "audio");
+    return !pageHidden && this.audioTabOpen;
+  }
+
+  private get audioTabOpen(): boolean {
+    if (this.carScreen) {
+      return this.carScreenTab === "audio";
+    }
+    return !this.isPhoneLayout || this.phoneTab === "audio";
   }
 
   private async pollAudio(): Promise<void> {
