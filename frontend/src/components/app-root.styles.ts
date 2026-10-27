@@ -43,6 +43,19 @@ export const appRootStyles = css`
     gap: 12px;
     min-width: 0;
   }
+  /* The way back from the full app to the car screen, on Android Auto. */
+  .back-to-car {
+    flex: none;
+    height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-pill);
+    background: var(--color-card);
+    color: var(--color-foreground);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
   .open-settings {
     display: grid;
     flex: none;

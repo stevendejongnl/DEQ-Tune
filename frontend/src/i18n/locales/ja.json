@@ -344,5 +344,18 @@
     "displayTextLarge": "大",
     "displayReadingLabel": "読みやすさ",
     "displayReadingEasy": "読みやすく表示",
-    "displayReadingHint": "読みやすく表示すると、読みやすさを考えた書体を使い、文字・単語・行の間隔を広げます。ディスレクシアの方に役立ちます。"
+    "displayReadingHint": "読みやすく表示すると、読みやすさを考えた書体を使い、文字・単語・行の間隔を広げます。ディスレクシアの方に役立ちます。",
+    "carScreenFullApp": "フルアプリ",
+    "carScreenBackToCar": "車の画面",
+    "carScreenDriving": "走行中",
+    "carScreenParked": "駐車中",
+    "carScreenLockedHint": "走行中は、車のプロファイル、EQ、音量だけを選べます。フルアプリは駐車中に開きます。",
+    "carScreenUnknownHint": "DEQが駐車中と伝えると、フルアプリが開けるようになります。",
+    "carScreenNoActiveProfile": "車のプロファイルなし",
+    "carScreenNoProfiles": "フルアプリで車のプロファイルに星を付けると、ここに表示されます。",
+    "carScreenNoUnit": "音量を変えるには DEQ を接続してください。",
+    "carScreenVolumeDown": "音量を下げる",
+    "carScreenVolumeUp": "音量を上げる",
+    "carScreenMute": "ミュート",
+    "carScreenMuted": "ミュート中"
 }

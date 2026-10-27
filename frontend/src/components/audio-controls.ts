@@ -57,10 +57,10 @@ function muteLabel(strings: UiStrings, state: AudioStateDto): string {
  * costs requests and replies over USB, unlike the header's device poll. So
  * that timer only runs while this panel is on screen.
  *
- * The panel shows mute but cannot set it. A real unit answered
- * SET_MUTE_STATE with STATUS 0 and stayed unmuted. A mute control here
- * would have no effect while looking like it worked. See the note in
- * `backend/app/device_routes.py`.
+ * The panel shows mute but does not set it. The car screen
+ * (`car-screen.ts`) has the mute button. The backend sent the wrong wire
+ * values until 2026-10-15, so a real unit stayed unmuted then. See
+ * `DeqSession.set_mute_state`.
  *
  * Presentational, like the other panels: it emits `volume-change`
  * ({ volumeDb }) and `audio-source-change` ({ name }), and app-root does

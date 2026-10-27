@@ -73,6 +73,7 @@ export class FakeDeviceApi implements DeviceApi {
   /** How many times the app asked what the unit is doing with sound. */
   audioReads = 0;
   volumeWrites: number[] = [];
+  muteWrites: boolean[] = [];
   audioSourceWrites: string[] = [];
 
   private device: DeviceDto = DISCONNECTED;
@@ -82,6 +83,12 @@ export class FakeDeviceApi implements DeviceApi {
    * looks to the app by the time it asks. */
   startConnected(): this {
     this.device = CONNECTED;
+    return this;
+  }
+
+  /** Sets what the unit's next audio read says about the car's motion. */
+  setDriving(driving: boolean): this {
+    this.audio = { ...this.audio, driving };
     return this;
   }
 
@@ -181,6 +188,13 @@ export class FakeDeviceApi implements DeviceApi {
     this.failIfUnreachable();
     this.volumeWrites = [...this.volumeWrites, volumeDb];
     this.audio = { ...this.audio, volume_db: volumeDb };
+    return this.audio;
+  }
+
+  async setMute(muted: boolean): Promise<AudioStateDto> {
+    this.failIfUnreachable();
+    this.muteWrites = [...this.muteWrites, muted];
+    this.audio = { ...this.audio, muted, mute_state_wire: muted ? 1 : 0 };
     return this.audio;
   }
 

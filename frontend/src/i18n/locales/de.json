@@ -344,5 +344,18 @@
     "displayTextLarge": "Groß",
     "displayReadingLabel": "Lesen",
     "displayReadingEasy": "Leichtes Lesen",
-    "displayReadingHint": "Leichtes Lesen nutzt eine Schrift, die das Lesen leicht macht, und mehr Abstand zwischen Buchstaben, Wörtern und Zeilen. Es hilft Menschen mit Legasthenie."
+    "displayReadingHint": "Leichtes Lesen nutzt eine Schrift, die das Lesen leicht macht, und mehr Abstand zwischen Buchstaben, Wörtern und Zeilen. Es hilft Menschen mit Legasthenie.",
+    "carScreenFullApp": "Ganze App",
+    "carScreenBackToCar": "Autobildschirm",
+    "carScreenDriving": "Fährt",
+    "carScreenParked": "Geparkt",
+    "carScreenLockedHint": "Während der Fahrt kannst du ein Fahrzeugprofil, einen EQ und die Lautstärke wählen. Die ganze App öffnet sich, wenn das Auto parkt.",
+    "carScreenUnknownHint": "Die ganze App öffnet sich, sobald der DEQ meldet, dass das Auto parkt.",
+    "carScreenNoActiveProfile": "Kein Fahrzeugprofil",
+    "carScreenNoProfiles": "Markiere ein Fahrzeugprofil in der ganzen App mit einem Stern, dann erscheint es hier.",
+    "carScreenNoUnit": "Verbinde den DEQ, um die Lautstärke zu ändern.",
+    "carScreenVolumeDown": "Leiser",
+    "carScreenVolumeUp": "Lauter",
+    "carScreenMute": "Stumm",
+    "carScreenMuted": "Stumm geschaltet"
 }

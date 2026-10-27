@@ -206,6 +206,11 @@ export interface AudioSourceWriteDto {
   name: string;
 }
 
+/** Mutes (true) or unmutes (false) the unit. */
+export interface MuteWriteDto {
+  muted: boolean;
+}
+
 export interface DeqEnumValueDto {
   name: string;
   wire_value: number;

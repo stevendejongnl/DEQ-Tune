@@ -344,5 +344,18 @@
     "displayTextLarge": "Grande",
     "displayReadingLabel": "Lecture",
     "displayReadingEasy": "Lecture facile",
-    "displayReadingHint": "La lecture facile utilise une police conçue pour faciliter la lecture, avec plus d'espace entre les lettres, les mots et les lignes. Elle aide les personnes dyslexiques."
+    "displayReadingHint": "La lecture facile utilise une police conçue pour faciliter la lecture, avec plus d'espace entre les lettres, les mots et les lignes. Elle aide les personnes dyslexiques.",
+    "carScreenFullApp": "App complète",
+    "carScreenBackToCar": "Écran de la voiture",
+    "carScreenDriving": "En route",
+    "carScreenParked": "À l'arrêt",
+    "carScreenLockedHint": "Pendant la conduite, vous pouvez choisir un profil de voiture, un EQ et le volume. L'app complète s'ouvre quand la voiture est garée.",
+    "carScreenUnknownHint": "L'app complète s'ouvre dès que le DEQ indique que la voiture est garée.",
+    "carScreenNoActiveProfile": "Aucun profil de voiture",
+    "carScreenNoProfiles": "Ajoutez une étoile à un profil de voiture dans l'app complète, et il apparaît ici.",
+    "carScreenNoUnit": "Connectez le DEQ pour changer le volume.",
+    "carScreenVolumeDown": "Baisser le volume",
+    "carScreenVolumeUp": "Monter le volume",
+    "carScreenMute": "Couper le son",
+    "carScreenMuted": "Son coupé"
 }

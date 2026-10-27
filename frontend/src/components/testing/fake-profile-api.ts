@@ -179,6 +179,10 @@ export class FakeProfileApi
     return this.device.setVolume(volumeDb);
   }
 
+  setMute(muted: boolean): Promise<AudioStateDto> {
+    return this.device.setMute(muted);
+  }
+
   setAudioSource(name: string): Promise<AudioStateDto> {
     return this.device.setAudioSource(name);
   }

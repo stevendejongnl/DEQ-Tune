@@ -66,6 +66,19 @@ describe("DeqApiClient", () => {
     expect(state.status).toBe("waiting");
   });
 
+  it("posts the mute and reads back what the unit holds", async () => {
+    const audio = { source_mode: "STAND_ALONE", source_mode_wire: 0, volume_db: -20, muted: true, mute_state_wire: 1, driving: false };
+    const api = createFakeFetch(() => jsonResponse(audio));
+    const client = new DeqApiClient("/api", api.fetch);
+
+    const state = await client.setMute(true);
+
+    expect(api.calls[0].url).toBe("/api/device/mute");
+    expect(api.calls[0].init?.method).toBe("POST");
+    expect(api.calls[0].init?.body).toBe(JSON.stringify({ muted: true }));
+    expect(state.muted).toBe(true);
+  });
+
   it("rejects an active-profile status the app does not know", async () => {
     const api = createFakeFetch(() => jsonResponse({ profile_id: 4, status: "maybe", problem: null, equalizer_id: null, source_mode: "CAR_SOURCE" }));
     const client = new DeqApiClient("/api", api.fetch);

@@ -1097,13 +1097,16 @@ describe("app-root", () => {
       api: FakeProfileApi,
       schedule: ManualSchedule,
       layout: AppLayout = "desktop",
+      carScreen = false,
+      pageLocationStore: FakePageLocationStore = createFakePageLocationStore(),
     ): Promise<AppRoot> {
       const element = document.createElement("app-root") as AppRoot;
+      element.carScreen = carScreen;
       element.api = api;
       element.localeStorage = createFakeLocaleStorage({});
       element.browserLanguages = ["en-US"];
       element.layoutQuery = createFakeLayoutQuery(layout);
-      element.pageLocationStore = createFakePageLocationStore();
+      element.pageLocationStore = pageLocationStore;
       element.scheduleFunction = schedule.schedule;
       element.cancelFunction = schedule.cancel;
       document.body.append(element);
@@ -1193,6 +1196,93 @@ describe("app-root", () => {
 
       await click(tabs[0] as HTMLButtonElement, element);
       expect(api.device.audioReads).toBe(readsOnLoad + 1);
+    });
+    describe("on Android Auto's screen", () => {
+      function queryCarScreen(element: AppRoot): HTMLElement {
+        return element.shadowRoot!.querySelector("car-screen") as HTMLElement;
+      }
+
+      function queryFullAppButton(element: AppRoot): HTMLButtonElement {
+        return queryCarScreen(element).shadowRoot!.querySelector(".full-app") as HTMLButtonElement;
+      }
+
+      async function mountCarScreen(api: FakeProfileApi, schedule: ManualSchedule, hash = ""): Promise<AppRoot> {
+        return mountWithSchedule(api, schedule, "phone", true, createFakePageLocationStore(hash));
+      }
+
+      it("opens on the car screen, with the link status and no tab bar", async () => {
+        const element = await mountCarScreen(new FakeProfileApi([starredPreset({ id: 1 })]), new ManualSchedule());
+
+        expect(queryCarScreen(element)).not.toBeNull();
+        expect(element.shadowRoot!.querySelector(".tab-bar")).toBeNull();
+        expect(queryCarScreen(element).querySelector('device-status[slot="status"]')).not.toBeNull();
+      });
+
+      it("reads the unit on every tick, whichever phone tab was open", async () => {
+        const api = new FakeProfileApi([starredPreset({ id: 1 })]);
+        api.device.startConnected();
+        const schedule = new ManualSchedule();
+        const element = await mountCarScreen(api, schedule, "#page=sound&tab=eq&section=updates");
+        const readsOnLoad = api.device.audioReads;
+
+        await schedule.fire(element);
+
+        expect(readsOnLoad).toBe(1);
+        expect(api.device.audioReads).toBe(2);
+      });
+
+      it("keeps the full app closed while the car drives", async () => {
+        const api = new FakeProfileApi([starredPreset({ id: 1 })]);
+        api.device.startConnected().setDriving(true);
+        const element = await mountCarScreen(api, new ManualSchedule());
+
+        queryFullAppButton(element).disabled = false;
+        await click(queryFullAppButton(element), element);
+
+        expect(queryCarScreen(element)).not.toBeNull();
+      });
+
+      it("opens the full app while parked, and goes back once the car drives", async () => {
+        const api = new FakeProfileApi([starredPreset({ id: 1 })]);
+        api.device.startConnected();
+        const schedule = new ManualSchedule();
+        const element = await mountCarScreen(api, schedule);
+
+        await click(queryFullAppButton(element), element);
+        expect(queryCarScreen(element)).toBeNull();
+        expect(element.shadowRoot!.querySelector(".back-to-car")).not.toBeNull();
+
+        api.device.setDriving(true);
+        await schedule.fire(element);
+
+        expect(queryCarScreen(element)).not.toBeNull();
+      });
+
+      it("goes back to the car screen from the full app's button", async () => {
+        const api = new FakeProfileApi([starredPreset({ id: 1 })]);
+        api.device.startConnected();
+        const element = await mountCarScreen(api, new ManualSchedule());
+        await click(queryFullAppButton(element), element);
+
+        await click(element.shadowRoot!.querySelector(".back-to-car") as HTMLButtonElement, element);
+
+        expect(queryCarScreen(element)).not.toBeNull();
+      });
+
+      it("plays the tapped car profile and mutes the unit", async () => {
+        const api = new FakeProfileApi([starredPreset({ id: 1 })]);
+        api.device.startConnected();
+        const element = await mountCarScreen(api, new ManualSchedule());
+        const screen = queryCarScreen(element);
+
+        screen.dispatchEvent(new CustomEvent("activate-profile", { detail: { id: 1 } }));
+        screen.dispatchEvent(new CustomEvent("mute-change", { detail: { muted: true } }));
+        await flushMicrotasks();
+        await element.updateComplete;
+
+        expect(api.device.activatedProfileIds).toEqual([1]);
+        expect(api.device.muteWrites).toEqual([true]);
+      });
     });
   });
 });

@@ -27,6 +27,7 @@ import type {
   BluetoothPairingDto,
   BluetoothSettingsWriteDto,
   VolumeWriteDto,
+  MuteWriteDto,
   AccessPointDto,
   LibraryExportDto,
   LibraryImportDto,
@@ -100,6 +101,8 @@ export interface DeviceApi {
   readDeviceOptions(): Promise<DeviceOptionsDto>;
   readAudioState(): Promise<AudioStateDto>;
   setVolume(volumeDb: number): Promise<AudioStateDto>;
+  /** Mutes or unmutes the unit, and answers with what it now holds. */
+  setMute(muted: boolean): Promise<AudioStateDto>;
   setAudioSource(name: string): Promise<AudioStateDto>;
   writeTuning(profileId: number): Promise<DeviceDto>;
   selectEqStyle(name: string): Promise<DeviceDto>;
@@ -351,6 +354,11 @@ export class DeqApiClient
   async setVolume(volumeDb: number): Promise<AudioStateDto> {
     const body: VolumeWriteDto = { volume_db: volumeDb };
     return typia.assert<AudioStateDto>(await this.call("POST", "/device/volume", body));
+  }
+
+  async setMute(muted: boolean): Promise<AudioStateDto> {
+    const body: MuteWriteDto = { muted };
+    return typia.assert<AudioStateDto>(await this.call("POST", "/device/mute", body));
   }
 
   async setAudioSource(name: string): Promise<AudioStateDto> {
